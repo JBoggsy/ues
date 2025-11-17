@@ -25,9 +25,9 @@
 
 
 ### Priority 1 Modalities (Simple, Foundational)
-- [ ] User Location: `LocationInput` (new location data) + `LocationState` (current location)
-- [ ] Current Time: `TimeInput` (timezone changes) + `TimeState` (timezone, format preferences)
-- [ ] Weather Data: `WeatherInput` (new weather data) + `WeatherState` (current conditions, forecast)
+- [x] User Location: `LocationInput` (new location data) + `LocationState` (current location)
+- [x] Current Time: `TimeInput` (timezone changes) + `TimeState` (timezone, format preferences)
+- [x] Weather Data: `WeatherInput` (new weather data) + `WeatherState` (current conditions, forecast)
 
 ### Priority 2 Modalities (Message-Based)
 - [ ] Chat: `ChatInput` (new user/assistant message) + `ChatState` (conversation history, turn state)
