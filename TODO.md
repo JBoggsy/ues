@@ -8,7 +8,7 @@
   - Each subclass tracks the current state of that modality (e.g., inbox contents, calendar entries)
   - Events apply `ModalityInput` instances to modify these states
   - Queried by AI agents via API
-- [x] Define base `ModalityInput` model (base class for all event payloads: EmailInput, TextInput, etc.)
+- [x] Define base `ModalityInput` model (base class for all event payloads: EmailInput, SMSInput, etc.)
   - Each subclass defines the structure of data that events carry
   - Used in `SimulatorEvent.data` field
   - Includes modality-specific validation logic
@@ -23,22 +23,27 @@
 - [x] Define `SimulationLoop` class (threading component for auto-advance mode)
   - See `docs/SIMULATION_ENGINE.md` for separation rationale
 
-
 ### Priority 1 Modalities (Simple, Foundational)
 - [x] User Location: `LocationInput` (new location data) + `LocationState` (current location)
 - [x] Current Time: `TimeInput` (timezone changes) + `TimeState` (timezone, format preferences)
 - [x] Weather Data: `WeatherInput` (new weather data) + `WeatherState` (current conditions, forecast)
 
 ### Priority 2 Modalities (Message-Based)
-- [ ] Chat: `ChatInput` (new user/assistant message) + `ChatState` (conversation history, turn state)
-- [ ] Email: `EmailInput` (new email) + `EmailState` (inbox, sent, drafts, threads)
+- [x] Chat: `ChatInput` (new user/assistant message) + `ChatState` (conversation history, turn state)
+- [x] Email: `EmailInput` (new email) + `EmailState` (inbox, sent, drafts, threads)
   - EmailInput fields: from, to, cc, bcc, subject, body, attachments, thread_id
-- [ ] Calendar: `CalendarEventInput` (new/modified event) + `CalendarState` (all events, recurrences)
-  - CalendarEventInput fields: title, start/end time, location, attendees, recurrence
-- [ ] SMS/RCS: `TextInput` (new text message) + `TextState` (all conversations, read status)
-  - TextInput fields: from, to, body, media, group_id
+- [x] Calendar: `CalendarInput` (new/modified event) + `CalendarState` (all events, recurrences)
+  - CalendarInput fields: title, start/end time, location, attendees, recurrence
+- [x] SMS/RCS: `SMSInput` (new text message) + `SMSState` (all conversations, read status)
+  - SMSInput fields: from, to, body, media, group_id
+  - See `docs/modalities/SMS.md` for comprehensive design
+  - Depends on: Contacts modality (for display names, blocking)
 
 ### Priority 3 Modalities (Complex Integrations)
+- [ ] Contacts: `ContactInput` (add/update/delete contact) + `ContactState` (contact database)
+  - ContactInput fields: phone, email, name, birthday, address, photo, notes, blocked status
+  - Used by: SMS (display names, blocking), Email (contact lookup), Calendar (attendee info)
+  - Core functionality: CRUD operations, search, grouping, favorites, blocked list
 - [ ] File System: `FileSystemInput` (file changes) + `FileSystemState` (directory tree, file contents)
   - FileSystemInput fields: path, content, operation (create/modify/delete), permissions
 - [ ] Discord: `DiscordInput` (new message/reaction) + `DiscordState` (servers, channels, message history)
