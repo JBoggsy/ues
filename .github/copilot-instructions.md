@@ -15,12 +15,17 @@ UES is an AI-driven testing and prototyping tool for AI personal assistants. It 
 - **Agent Integration**: Optional AI agents that generate new inputs or react to assistant responses
 
 ### Current State
-This is an early-stage greenfield project. The codebase contains:
-- `main.py`: Minimal placeholder entry point
-- `pyproject.toml`: Python 3.12+ project with no dependencies yet
+The project has established core infrastructure with working data models:
+- `main.py`: Minimal placeholder entry point (to be expanded with FastAPI)
+- `pyproject.toml`: Python 3.12+ project with Pydantic dependency
 - `README.md`: Comprehensive vision document
+- `models/`: Complete data model layer with base classes and modality implementations
+  - Core infrastructure: `SimulatorEvent`, `SimulatorTime`, `EventQueue`, `Environment`, `SimulationEngine`
+  - Base classes: `ModalityInput`, `ModalityState`
+  - Modality implementations: Email, SMS, Calendar, Chat, Weather, Location, Time, Discord, Slack, Social Media, File System, Screen
+- `docs/`: Comprehensive documentation for all core components and modalities
 
-**No existing data structures or schemas** - design from scratch with best practices.
+**Next Steps**: Implement FastAPI REST API layer and web UI for environment configuration.
 
 ## Development Environment
 
@@ -39,22 +44,34 @@ uv sync
 uv add <package-name>
 
 # Run the application (will use FastAPI + Uvicorn)
-uv run main.py
-# or: uvicorn main:app --reload
+uv run python main.py
+# or: uv run uvicorn main:app --reload
+
+# Run any Python script or command
+uv run python script.py
+# or: uv run python -m module.name
 ```
+
+**IMPORTANT**: Always use `uv run python ...` (or `uv run <command>`) when executing Python code. Do NOT use plain `python ...` commands, as they will use the system Python installation which won't have access to project dependencies installed in the virtual environment.
 
 ## Implementation Priorities
 
 When building features, refer to the README's modality list:
-1. User Location, Current Time, Current Weather Data
-2. Chat-style User Interaction, Email, Calendar, Text (SMS/RCS)
-3. File System, Discord, Slack, Social Media, Screen Simulation
+1. User Location, Current Time, Current Weather Data ✅ (Models complete)
+2. Chat-style User Interaction, Email, Calendar, Text (SMS/RCS) ✅ (Models complete)
+3. File System, Discord, Slack, Social Media, Screen Simulation ⏳ (Stub files only)
 
-Each modality needs:
-- Timestamp management
-- Developer-defined initial inputs
-- Optional AI agent integration for dynamic generation
-- RESTful API endpoints
+**Completed**:
+- ✅ Core simulation engine and event system
+- ✅ Priority 1 & 2 modality data models (Location, Time, Weather, Chat, Email, Calendar, SMS)
+- ✅ Comprehensive documentation for implemented components
+
+**In Progress / Next Steps**:
+- ⏳ Priority 3 modality implementations (Contacts, File System, Discord, Slack, Social Media, Screen)
+- ⏳ FastAPI REST API implementation
+- ⏳ Web UI for environment configuration
+- ⏳ API endpoints for each modality
+- ⏳ Agent integration framework
 
 ## Design Patterns to Follow
 
@@ -70,10 +87,11 @@ Each modality needs:
 - **General Purpose**: Design for any AI personal assistant, not specific to AIPA
 - **Modularity**: Each modality should be a separate module/component for easy extension
 
-## Recommended Tech Stack
+## Tech Stack
 
-- **Backend**: FastAPI + Uvicorn (async, auto-docs, WebSocket support)
-- **Data Models**: Pydantic (validation, serialization)
+- **Backend**: FastAPI + Uvicorn (async, auto-docs, WebSocket support) - *To be implemented*
+- **Data Models**: Pydantic ✅ (validation, serialization) - *Implemented*
+- **Package Management**: `uv` ✅ - *Active*
 - **Storage**: TBD (SQLite/PostgreSQL for events, filesystem for configs)
 - **Frontend**: TBD (React/Vue SPA or FastAPI templates)
 
@@ -98,6 +116,7 @@ Each modality needs:
 - Avoid one-liners that sacrifice clarity
 - Prefer explicit, verbose code over condensed "clever" solutions
 - Whitespace and clear variable names matter more than brevity
+- Be careful to avoid large, monolithic functions - break into smaller helper functions
 
 ### Line Length
 - Aim for a maximum of **100 characters per line**
