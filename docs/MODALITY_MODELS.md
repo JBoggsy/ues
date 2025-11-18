@@ -53,7 +53,7 @@ def validate_input(self) -> None:
     Examples:
     - EmailInput: Validate email address formats, check attachment sizes
     - LocationInput: Ensure lat/long within valid ranges
-    - CalendarEventInput: Verify start_time < end_time
+    - CalendarInput: Verify start_time < end_time
     
     Raises:
         ValueError: If validation fails with descriptive message
@@ -69,8 +69,8 @@ def get_affected_entities(self) -> list[str]:
     
     Examples:
     - EmailInput: Returns [thread_id] or generates one if new thread
-    - TextInput: Returns [conversation_id]
-    - CalendarEventInput: Returns [event_id]
+    - SMSInput: Returns [conversation_id]
+    - CalendarInput: Returns [event_id]
     
     Returns:
         List of string identifiers for entities this input affects
@@ -90,7 +90,7 @@ def get_summary(self) -> str:
     Examples:
     - EmailInput: "Email from john@example.com: 'Meeting Tomorrow'"
     - LocationInput: "Moved to 123 Main St, Springfield"
-    - TextInput: "Text from (555) 123-4567: 'Running late'"
+    - SMSInput: "Text from (555) 123-4567: 'Running late'"
     
     Returns:
         Brief, human-readable description for logging/UI display
@@ -155,7 +155,7 @@ def apply_input(self, input_data: ModalityInput) -> None:
     Examples:
     - EmailState.apply_input(EmailInput): Add email to inbox, update thread
     - LocationState.apply_input(LocationInput): Update current location, add to history
-    - TextState.apply_input(TextInput): Add message to conversation
+    - SMSState.apply_input(SMSInput): Add message to conversation
     
     Args:
         input_data: The ModalityInput to apply to this state
@@ -201,7 +201,7 @@ def validate_state(self) -> list[str]:
     Examples:
     - EmailState: Check all thread_ids reference existing threads
     - CalendarState: Check no overlapping events (if that's a constraint)
-    - TextState: Verify all conversations have at least one message
+    - SMSState: Verify all conversations have at least one message
     
     Returns:
         List of validation error messages (empty list if valid)
@@ -220,7 +220,7 @@ def query(self, query_params: dict) -> dict:
     
     Examples:
     - EmailState.query({type: "unread", limit: 10}): Get 10 unread emails
-    - TextState.query({from: "555-1234", since: datetime(...)}): Get messages from number
+    - SMSState.query({from: "555-1234", since: datetime(...)}): Get messages from number
     - CalendarState.query({date: "2024-03-15"}): Get events on specific date
     
     Args:

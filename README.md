@@ -109,16 +109,18 @@ The UES exposes a comprehensive RESTful API organized into four categories:
 - `GET /environment/state` - Get complete state snapshot (time + all modalities)
 - `GET /environment/modalities` - List available modalities
 - `GET /environment/modalities/{modality}` - Get specific modality state
-- `POST /environment/modalities/{modality}/query` - Query with filters
+- `POST /environment/modalities/{modality}/query` - Query with filterss
 - `POST /environment/validate` - Validate environment consistency
 
 ### Event Management (`/events`)
 - `GET /events` - List events with filters (status, time range, modality)
-- `POST /events` - Create new scheduled event
+- `POST /events` - Create new scheduled event with full control over timing and metadata
+- `POST /events/immediate` - Submit event for immediate execution at current simulator time (convenience endpoint for agent actions)
 - `GET /events/{event_id}` - Get specific event details
 - `DELETE /events/{event_id}` - Cancel pending event
 - `GET /events/next` - Peek at next pending event
 - `GET /events/summary` - Get execution statistics
+- `POST /modalities/{modality}/submit` - Submit immediate action to specific modality (highest-level convenience for agents)
 
 ### Simulation Control (`/simulation`)
 - `POST /simulation/start` - Start simulation (manual or auto-advance mode)
@@ -131,6 +133,25 @@ All endpoints return JSON responses with appropriate HTTP status codes. The API 
 - **Completeness**: Full control over all simulation operations
 - **Real-time Updates**: WebSocket support planned for state streaming
 - **Error Handling**: Comprehensive validation with detailed error messages
+
+#### Agent Action Convenience Endpoints
+
+While all state changes flow through the event pipeline (`POST /events`), two convenience endpoints simplify common agent use cases:
+
+**`POST /events/immediate`** - Submits an event scheduled for immediate execution:
+- Automatically sets `scheduled_time` to current simulator time
+- Sets high priority (100) to execute before other same-time events
+- Requires full `ModalityInput` payload but handles event metadata automatically
+- Returns created event with assigned ID
+- Use when agent needs to respond immediately (e.g., chat reply, email sent)
+
+**`POST /modalities/{modality}/submit`** - Highest-level convenience for modality-specific actions:
+- Even simpler payload, just the action-specific fields
+- Internally creates appropriate `ModalityInput` and submits as immediate event
+- Most ergonomic for agents: `POST /modalities/chat/submit {"role": "assistant", "content": "Hello!"}`
+- Returns both the created event and updated modality state
+
+Both endpoints maintain architectural consistency by using the same event pipeline, ensuring all agent actions are captured in the event history for replicability and debugging.
 
 ## Environment Design
 

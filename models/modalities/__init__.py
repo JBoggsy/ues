@@ -13,10 +13,10 @@ from models.modalities.chat_input import ChatInput
 from models.modalities.chat_state import ChatState
 from models.modalities.email_input import EmailInput
 from models.modalities.email_state import EmailState
-from models.modalities.calendar_input import CalendarEventInput
+from models.modalities.calendar_input import CalendarInput
 from models.modalities.calendar_state import CalendarState
-from models.modalities.text_input import TextInput
-from models.modalities.text_state import TextState
+from models.modalities.sms_input import SMSInput
+from models.modalities.sms_state import SMSState
 
 # Priority 3 Modalities
 from models.modalities.filesystem_input import FileSystemInput
@@ -43,10 +43,10 @@ __all__ = [
     "ChatState",
     "EmailInput",
     "EmailState",
-    "CalendarEventInput",
+    "CalendarInput",
     "CalendarState",
-    "TextInput",
-    "TextState",
+    "SMSInput",
+    "SMSState",
     # Priority 3
     "FileSystemInput",
     "FileSystemState",

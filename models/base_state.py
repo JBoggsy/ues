@@ -53,7 +53,7 @@ class ModalityState(BaseModel):
         Examples:
             - EmailState.apply_input(EmailInput): Add email to inbox, update thread
             - LocationState.apply_input(LocationInput): Update current location, add to history
-            - TextState.apply_input(TextInput): Add message to conversation
+            - SMSState.apply_input(SMSInput): Add message to conversation
 
         Args:
             input_data: The ModalityInput to apply to this state.
@@ -93,7 +93,7 @@ class ModalityState(BaseModel):
         Examples:
             - EmailState: Check all thread_ids reference existing threads
             - CalendarState: Check no overlapping events (if that's a constraint)
-            - TextState: Verify all conversations have at least one message
+            - SMSState: Verify all conversations have at least one message
 
         Returns:
             List of validation error messages (empty list if valid).
@@ -112,7 +112,7 @@ class ModalityState(BaseModel):
 
         Examples:
             - EmailState.query({type: "unread", limit: 10}): Get 10 unread emails
-            - TextState.query({from: "555-1234", since: datetime(...)}): Get messages from number
+            - SMSState.query({from: "555-1234", since: datetime(...)}): Get messages from number
             - CalendarState.query({date: "2024-03-15"}): Get events on specific date
 
         Args:

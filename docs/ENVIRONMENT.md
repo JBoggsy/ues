@@ -88,7 +88,7 @@ Dictionary mapping modality names to their current state instances.
 - "email" → EmailState
 - "calendar" → CalendarState  
 - "location" → LocationState
-- "text" → TextState
+- "text" → SMSState
 - etc.
 
 **Values**: Concrete ModalityState subclass instances

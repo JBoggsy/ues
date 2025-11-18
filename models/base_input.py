@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 class ModalityInput(BaseModel):
     """Base class for all event payloads.
 
-    Each subclass defines the structure of data that events carry (e.g., EmailInput, TextInput).
+    Each subclass defines the structure of data that events carry (e.g., EmailInput, SMSInput).
     Used in SimulatorEvent.data field and includes modality-specific validation logic.
 
     Inputs represent what changes when an event occurs. They are immutable value objects
@@ -44,7 +44,7 @@ class ModalityInput(BaseModel):
         Examples:
             - EmailInput: Validate email address formats, check attachment sizes
             - LocationInput: Ensure lat/long within valid ranges
-            - CalendarEventInput: Verify start_time < end_time
+            - CalendarInput: Verify start_time < end_time
 
         Raises:
             ValueError: If validation fails with descriptive message.
@@ -60,8 +60,8 @@ class ModalityInput(BaseModel):
 
         Examples:
             - EmailInput: Returns [thread_id] or generates one if new thread
-            - TextInput: Returns [conversation_id]
-            - CalendarEventInput: Returns [event_id]
+            - SMSInput: Returns [conversation_id]
+            - CalendarInput: Returns [event_id]
 
         Returns:
             List of string identifiers for entities this input affects.
@@ -78,7 +78,7 @@ class ModalityInput(BaseModel):
         Examples:
             - EmailInput: "Email from john@example.com: 'Meeting Tomorrow'"
             - LocationInput: "Moved to 123 Main St, Springfield"
-            - TextInput: "Text from (555) 123-4567: 'Running late'"
+            - SMSInput: "Text from (555) 123-4567: 'Running late'"
 
         Returns:
             Brief, human-readable description for logging/UI display.
