@@ -5,14 +5,15 @@ from copy import deepcopy
 from datetime import datetime
 from typing import Any, Literal, Optional
 
-from pydantic import Field
+from pydantic import BaseModel, Field
 
 from models.base_input import ModalityInput
 from models.base_state import ModalityState
 from models.modalities.weather_input import WeatherReport
+from models.modalities.weather_input import WeatherInput
 
 
-class WeatherReportHistoryEntry:
+class WeatherReportHistoryEntry(BaseModel):
     """A single entry in the weather report history.
 
     Tracks a historical weather report with timestamp.
@@ -22,15 +23,8 @@ class WeatherReportHistoryEntry:
         report: The complete weather report.
     """
 
-    def __init__(self, timestamp: datetime, report: WeatherReport):
-        """Initialize a weather report history entry.
-
-        Args:
-            timestamp: When this weather report was recorded.
-            report: The complete weather report.
-        """
-        self.timestamp = timestamp
-        self.report = report
+    timestamp: datetime = Field(description="When this weather report was recorded")
+    report: WeatherReport = Field(description="The complete weather report")
 
     def to_dict(self) -> dict[str, Any]:
         """Convert this entry to a dictionary.
@@ -44,7 +38,7 @@ class WeatherReportHistoryEntry:
         }
 
 
-class WeatherLocationState:
+class WeatherLocationState(BaseModel):
     """State for a single weather location.
 
     Tracks weather data for one geographic location including current conditions
@@ -60,28 +54,15 @@ class WeatherLocationState:
         report_history: List of historical reports.
     """
 
-    def __init__(
-        self,
-        latitude: float,
-        longitude: float,
-        current_report: WeatherReport,
-        first_seen: datetime,
-    ):
-        """Initialize a weather location state.
-
-        Args:
-            latitude: Location latitude.
-            longitude: Location longitude.
-            current_report: Initial weather report.
-            first_seen: When this location was first added.
-        """
-        self.latitude = latitude
-        self.longitude = longitude
-        self.current_report = current_report
-        self.first_seen = first_seen
-        self.last_updated = first_seen
-        self.update_count = 1
-        self.report_history: list[WeatherReportHistoryEntry] = []
+    latitude: float = Field(description="Location latitude")
+    longitude: float = Field(description="Location longitude")
+    current_report: WeatherReport = Field(description="Current weather report")
+    first_seen: datetime = Field(description="When this location was first added")
+    last_updated: datetime = Field(description="When this location was last updated")
+    update_count: int = Field(default=1, description="Number of updates for this location")
+    report_history: list[WeatherReportHistoryEntry] = Field(
+        default_factory=list, description="List of historical reports"
+    )
 
     def to_dict(self) -> dict[str, Any]:
         """Convert this location state to a dictionary.
@@ -173,8 +154,6 @@ class WeatherState(ModalityState):
         Raises:
             ValueError: If input_data is not a WeatherInput.
         """
-        from models.modalities.weather_input import WeatherInput
-
         if not isinstance(input_data, WeatherInput):
             raise ValueError(
                 f"WeatherState can only apply WeatherInput, got {type(input_data)}"
@@ -203,6 +182,7 @@ class WeatherState(ModalityState):
                 longitude=input_data.longitude,
                 current_report=input_data.report,
                 first_seen=input_data.timestamp,
+                last_updated=input_data.timestamp,
             )
 
         self.last_updated = input_data.timestamp

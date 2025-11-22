@@ -4,13 +4,13 @@ from datetime import datetime
 from typing import Any, Optional
 from uuid import uuid4
 
-from pydantic import Field
+from pydantic import BaseModel, Field
 
 from models.base_input import ModalityInput
 from models.base_state import ModalityState
 
 
-class Email:
+class Email(BaseModel):
     """Represents a complete email message with all metadata.
 
     Args:
@@ -36,121 +36,26 @@ class Email:
         labels: List of applied labels/tags.
     """
 
-    def __init__(
-        self,
-        message_id: str,
-        thread_id: str,
-        from_address: str,
-        to_addresses: list[str],
-        subject: str,
-        body_text: str,
-        sent_at: datetime,
-        received_at: datetime,
-        cc_addresses: Optional[list[str]] = None,
-        bcc_addresses: Optional[list[str]] = None,
-        reply_to_address: Optional[str] = None,
-        body_html: Optional[str] = None,
-        attachments: Optional[list] = None,
-        in_reply_to: Optional[str] = None,
-        references: Optional[list[str]] = None,
-        is_read: bool = False,
-        is_starred: bool = False,
-        priority: str = "normal",
-        folder: str = "inbox",
-        labels: Optional[list[str]] = None,
-    ):
-        """Initialize an email message.
-
-        Args:
-            message_id: Unique message identifier.
-            thread_id: Thread identifier.
-            from_address: Sender address.
-            to_addresses: Primary recipients.
-            subject: Subject line.
-            body_text: Plain text body.
-            sent_at: When sent.
-            received_at: When received.
-            cc_addresses: CC recipients.
-            bcc_addresses: BCC recipients.
-            reply_to_address: Reply-to address.
-            body_html: HTML body.
-            attachments: List of attachments.
-            in_reply_to: Parent message ID.
-            references: Thread chain.
-            is_read: Read status.
-            is_starred: Starred status.
-            priority: Priority level.
-            folder: Current folder.
-            labels: Applied labels.
-        """
-        self.message_id = message_id
-        self.thread_id = thread_id
-        self.from_address = from_address
-        self.to_addresses = to_addresses
-        self.cc_addresses = cc_addresses or []
-        self.bcc_addresses = bcc_addresses or []
-        self.reply_to_address = reply_to_address
-        self.subject = subject
-        self.body_text = body_text
-        self.body_html = body_html
-        self.attachments = attachments or []
-        self.in_reply_to = in_reply_to
-        self.references = references or []
-        self.sent_at = sent_at
-        self.received_at = received_at
-        self.is_read = is_read
-        self.is_starred = is_starred
-        self.priority = priority
-        self.folder = folder
-        self.labels = labels or []
-
-    def to_dict(self, include_bcc: bool = False) -> dict[str, Any]:
-        """Convert email to dictionary for API responses.
-
-        Args:
-            include_bcc: Whether to include BCC addresses.
-
-        Returns:
-            Dictionary representation of this email.
-        """
-        result = {
-            "message_id": self.message_id,
-            "thread_id": self.thread_id,
-            "from_address": self.from_address,
-            "to_addresses": self.to_addresses,
-            "cc_addresses": self.cc_addresses,
-            "subject": self.subject,
-            "body_text": self.body_text,
-            "sent_at": self.sent_at.isoformat(),
-            "received_at": self.received_at.isoformat(),
-            "is_read": self.is_read,
-            "is_starred": self.is_starred,
-            "priority": self.priority,
-            "folder": self.folder,
-            "labels": self.labels,
-            "has_attachments": len(self.attachments) > 0,
-            "attachment_count": len(self.attachments),
-        }
-
-        if include_bcc:
-            result["bcc_addresses"] = self.bcc_addresses
-
-        if self.reply_to_address:
-            result["reply_to_address"] = self.reply_to_address
-
-        if self.body_html:
-            result["body_html"] = self.body_html
-
-        if self.attachments:
-            result["attachments"] = [att.to_dict() for att in self.attachments]
-
-        if self.in_reply_to:
-            result["in_reply_to"] = self.in_reply_to
-
-        if self.references:
-            result["references"] = self.references
-
-        return result
+    message_id: str = Field(description="Unique message identifier")
+    thread_id: str = Field(description="Thread identifier for conversation grouping")
+    from_address: str = Field(description="Sender email address")
+    to_addresses: list[str] = Field(description="Primary recipient addresses")
+    cc_addresses: list[str] = Field(default_factory=list, description="CC recipient addresses")
+    bcc_addresses: list[str] = Field(default_factory=list, description="BCC recipient addresses")
+    reply_to_address: Optional[str] = Field(default=None, description="Reply-to address if different from sender")
+    subject: str = Field(description="Email subject line")
+    body_text: str = Field(description="Plain text body content")
+    body_html: Optional[str] = Field(default=None, description="HTML body content")
+    attachments: list = Field(default_factory=list, description="List of attachments")
+    in_reply_to: Optional[str] = Field(default=None, description="Message ID this email replies to")
+    references: list[str] = Field(default_factory=list, description="List of message IDs in thread chain")
+    sent_at: datetime = Field(description="When email was originally sent")
+    received_at: datetime = Field(description="When email arrived in inbox")
+    is_read: bool = Field(default=False, description="Read/unread status")
+    is_starred: bool = Field(default=False, description="Starred/flagged status")
+    priority: str = Field(default="normal", description="Priority level")
+    folder: str = Field(default="inbox", description="Current folder location")
+    labels: list[str] = Field(default_factory=list, description="List of applied labels/tags")
 
     def mark_read(self) -> None:
         """Set email as read."""
@@ -191,7 +96,7 @@ class Email:
         self.folder = folder
 
 
-class EmailThread:
+class EmailThread(BaseModel):
     """Represents a conversation thread grouping related emails.
 
     Args:
@@ -205,54 +110,14 @@ class EmailThread:
         unread_count: Number of unread emails in thread.
     """
 
-    def __init__(
-        self,
-        thread_id: str,
-        subject: str,
-        created_at: datetime,
-        participant_addresses: Optional[set[str]] = None,
-        message_ids: Optional[list[str]] = None,
-        last_message_at: Optional[datetime] = None,
-        message_count: int = 0,
-        unread_count: int = 0,
-    ):
-        """Initialize an email thread.
-
-        Args:
-            thread_id: Thread identifier.
-            subject: Thread subject.
-            created_at: When thread started.
-            participant_addresses: Participants.
-            message_ids: Message IDs.
-            last_message_at: Last message time.
-            message_count: Message count.
-            unread_count: Unread count.
-        """
-        self.thread_id = thread_id
-        self.subject = subject
-        self.participant_addresses = participant_addresses or set()
-        self.message_ids = message_ids or []
-        self.created_at = created_at
-        self.last_message_at = last_message_at or created_at
-        self.message_count = message_count
-        self.unread_count = unread_count
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert thread to dictionary for API responses.
-
-        Returns:
-            Dictionary representation of this thread.
-        """
-        return {
-            "thread_id": self.thread_id,
-            "subject": self.subject,
-            "participant_addresses": list(self.participant_addresses),
-            "message_ids": self.message_ids,
-            "created_at": self.created_at.isoformat(),
-            "last_message_at": self.last_message_at.isoformat(),
-            "message_count": self.message_count,
-            "unread_count": self.unread_count,
-        }
+    thread_id: str = Field(description="Unique thread identifier")
+    subject: str = Field(description="Thread subject (from first email)")
+    participant_addresses: set[str] = Field(default_factory=set, description="All email addresses involved")
+    message_ids: list[str] = Field(default_factory=list, description="Ordered list of message IDs in thread")
+    created_at: datetime = Field(description="When thread started")
+    last_message_at: datetime = Field(description="When last email was added")
+    message_count: int = Field(default=0, description="Number of emails in thread")
+    unread_count: int = Field(default=0, description="Number of unread emails in thread")
 
     def add_message(self, message_id: str, timestamp: datetime) -> None:
         """Add message to thread.
@@ -392,8 +257,8 @@ class EmailState(ModalityState):
             thread_id=thread_id,
             from_address=input_data.from_address,
             to_addresses=input_data.to_addresses,
-            cc_addresses=input_data.cc_addresses,
-            bcc_addresses=input_data.bcc_addresses,
+            cc_addresses=input_data.cc_addresses or [],
+            bcc_addresses=input_data.bcc_addresses or [],
             reply_to_address=input_data.reply_to_address,
             subject=input_data.subject,
             body_text=input_data.body_text,
@@ -430,8 +295,8 @@ class EmailState(ModalityState):
             thread_id=thread_id,
             from_address=input_data.from_address,
             to_addresses=input_data.to_addresses,
-            cc_addresses=input_data.cc_addresses,
-            bcc_addresses=input_data.bcc_addresses,
+            cc_addresses=input_data.cc_addresses or [],
+            bcc_addresses=input_data.bcc_addresses or [],
             reply_to_address=input_data.reply_to_address,
             subject=input_data.subject,
             body_text=input_data.body_text,
@@ -1035,7 +900,7 @@ class EmailState(ModalityState):
             results = results[offset:]
 
         return {
-            "emails": [e.to_dict() for e in results],
+            "emails": [e.model_dump() for e in results],
             "total_count": total_count,
             "returned_count": len(results),
             "query": query_params,

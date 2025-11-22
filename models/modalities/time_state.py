@@ -3,13 +3,13 @@
 from datetime import datetime
 from typing import Any, Literal, Optional
 
-from pydantic import Field
+from pydantic import BaseModel, Field
 
 from models.base_input import ModalityInput
 from models.base_state import ModalityState
 
 
-class TimeSettingsHistoryEntry:
+class TimeSettingsHistoryEntry(BaseModel):
     """A single entry in the time settings history.
 
     Tracks historical time preference changes with timestamp.
@@ -23,31 +23,12 @@ class TimeSettingsHistoryEntry:
         week_start: Week start preference if set.
     """
 
-    def __init__(
-        self,
-        timestamp: datetime,
-        timezone: str,
-        format_preference: Literal["12h", "24h"],
-        date_format: Optional[str] = None,
-        locale: Optional[str] = None,
-        week_start: Optional[Literal["sunday", "monday"]] = None,
-    ):
-        """Initialize a time settings history entry.
-
-        Args:
-            timestamp: When this settings change occurred.
-            timezone: Timezone identifier at this point.
-            format_preference: Time format preference at this point.
-            date_format: Date format preference if set.
-            locale: Locale identifier if set.
-            week_start: Week start preference if set.
-        """
-        self.timestamp = timestamp
-        self.timezone = timezone
-        self.format_preference = format_preference
-        self.date_format = date_format
-        self.locale = locale
-        self.week_start = week_start
+    timestamp: datetime = Field(description="When this settings change occurred")
+    timezone: str = Field(description="Timezone identifier")
+    format_preference: Literal["12h", "24h"] = Field(description="Time format preference")
+    date_format: Optional[str] = Field(default=None, description="Date format preference")
+    locale: Optional[str] = Field(default=None, description="Locale identifier")
+    week_start: Optional[Literal["sunday", "monday"]] = Field(default=None, description="Week start preference")
 
     def to_dict(self) -> dict[str, Any]:
         """Convert this entry to a dictionary.

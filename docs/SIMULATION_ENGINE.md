@@ -44,25 +44,25 @@ Splitting everything into multiple controllers adds:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                        REST API Layer                        │
-│                       (FastAPI routes)                       │
+│                        REST API Layer                       │
+│                       (FastAPI routes)                      │
 └───────────────────────────┬─────────────────────────────────┘
                             │
                             │ delegates to
                             ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                     SimulationEngine                         │
+│                     SimulationEngine                        │
 │  (Orchestrator - coordinates all simulation operations)     │
-│                                                              │
-│  Responsibilities:                                           │
-│  • Time control operations (advance, set, skip-to-next)    │
+│                                                             │
+│  Responsibilities:                                          │
+│  • Time control operations (advance, set, skip-to-next)     │
 │  • Event management (add, execute, query)                   │
 │  • State access and validation                              │
-│  • Lifecycle management (start, stop, pause, resume)       │
+│  • Lifecycle management (start, stop, pause, resume)        │
 │  • Mode coordination (manual, event-driven)                 │
 │  • Error handling and logging                               │
 │  • API request handling                                     │
-│                                                              │
+│                                                             │
 │  Delegates to:                                              │
 │  • Environment (state container)                            │
 │  • EventQueue (event storage)                               │

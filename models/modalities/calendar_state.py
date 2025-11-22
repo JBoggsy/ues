@@ -584,34 +584,38 @@ class CalendarState(ModalityState):
             "event_count": len(self.events),
         }
 
-    def validate_state(self) -> None:
+    def validate_state(self) -> list[str]:
         """Validate state consistency.
 
-        Raises:
-            ValueError: If state is invalid.
+        Returns:
+            List of validation error messages (empty list if valid).
         """
+        errors = []
+        
         for event_id, event in self.events.items():
             if event.calendar_id not in self.calendars:
-                raise ValueError(
+                errors.append(
                     f"Event {event_id} references missing calendar {event.calendar_id}"
                 )
 
             if event.end <= event.start:
-                raise ValueError(
+                errors.append(
                     f"Event {event_id} has invalid time range: {event.start} to {event.end}"
                 )
 
             if event.parent_event_id and event.parent_event_id not in self.events:
-                raise ValueError(
+                errors.append(
                     f"Modified occurrence {event_id} references missing parent {event.parent_event_id}"
                 )
 
         for calendar_id, calendar in self.calendars.items():
             for event_id in calendar.event_ids:
                 if event_id not in self.events:
-                    raise ValueError(
+                    errors.append(
                         f"Calendar {calendar_id} references missing event {event_id}"
                     )
+        
+        return errors
 
     def query(self, query_params: dict[str, Any]) -> dict[str, Any]:
         """Query events with filters.

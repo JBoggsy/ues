@@ -121,6 +121,17 @@ When building features, refer to the README's modality list:
 ### Line Length
 - Aim for a maximum of **100 characters per line**
 
+### Testing Patterns
+- **Organize tests by modality**: Each modality has two test files: `test_<modality>_input.py` and `test_<modality>_state.py`
+- **Distinguish general vs. specific tests**: Use docstrings and comments to clearly mark which tests apply to:
+  - **General ModalityInput/ModalityState behavior**: Tests that verify the base class contract (e.g., instantiation, serialization, abstract method implementation). These patterns should be replicated for all modalities.
+  - **Modality-specific behavior**: Tests that verify unique features or validation rules for that specific modality (e.g., LocationInput's lat/lon range validation, EmailState's thread management).
+- **Test naming convention**: Use descriptive names that indicate scope:
+  - `test_instantiation_*`: General pattern for all modalities
+  - `test_<specific_feature>_*`: Modality-specific tests
+- **Test organization**: Group related tests using pytest test classes when helpful
+- **Use fixtures**: Leverage pre-built fixtures from `tests/fixtures/modalities/` to reduce boilerplate
+
 **Example:**
 ```python
 from datetime import datetime

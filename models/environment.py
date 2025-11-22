@@ -188,7 +188,11 @@ class Environment(BaseModel):
                 errors.append(f"modality '{modality_name}': {error}")
 
         # Check for duplicate modality types (shouldn't happen with dict, but be defensive)
-        modality_types = [state.modality_type for state in self.modality_states.values()]
+        modality_types = [
+            state.modality_type
+            for state in self.modality_states.values()
+            if state is not None
+        ]
         if len(modality_types) != len(set(modality_types)):
             duplicates = [t for t in modality_types if modality_types.count(t) > 1]
             errors.append(f"Duplicate modality types found: {set(duplicates)}")

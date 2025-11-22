@@ -3,13 +3,13 @@
 from datetime import datetime
 from typing import Any, Optional
 
-from pydantic import Field
+from pydantic import BaseModel, Field
 
 from models.base_input import ModalityInput
 from models.base_state import ModalityState
 
 
-class LocationHistoryEntry:
+class LocationHistoryEntry(BaseModel):
     """A single entry in the location history.
 
     Tracks a historical location with timestamp and associated metadata.
@@ -26,40 +26,15 @@ class LocationHistoryEntry:
         bearing: Bearing in degrees if available.
     """
 
-    def __init__(
-        self,
-        timestamp: datetime,
-        latitude: float,
-        longitude: float,
-        address: Optional[str] = None,
-        named_location: Optional[str] = None,
-        altitude: Optional[float] = None,
-        accuracy: Optional[float] = None,
-        speed: Optional[float] = None,
-        bearing: Optional[float] = None,
-    ):
-        """Initialize a location history entry.
-
-        Args:
-            timestamp: When the user was at this location.
-            latitude: Latitude coordinate.
-            longitude: Longitude coordinate.
-            address: Human-readable address if available.
-            named_location: Semantic location name if available.
-            altitude: Altitude in meters if available.
-            accuracy: Accuracy radius in meters if available.
-            speed: Speed in meters per second if available.
-            bearing: Bearing in degrees if available.
-        """
-        self.timestamp = timestamp
-        self.latitude = latitude
-        self.longitude = longitude
-        self.address = address
-        self.named_location = named_location
-        self.altitude = altitude
-        self.accuracy = accuracy
-        self.speed = speed
-        self.bearing = bearing
+    timestamp: datetime = Field(description="When the user was at this location")
+    latitude: float = Field(description="Latitude coordinate")
+    longitude: float = Field(description="Longitude coordinate")
+    address: Optional[str] = Field(default=None, description="Human-readable address")
+    named_location: Optional[str] = Field(default=None, description="Semantic location name")
+    altitude: Optional[float] = Field(default=None, description="Altitude in meters")
+    accuracy: Optional[float] = Field(default=None, description="Accuracy radius in meters")
+    speed: Optional[float] = Field(default=None, description="Speed in meters per second")
+    bearing: Optional[float] = Field(default=None, description="Bearing in degrees")
 
     def to_dict(self) -> dict[str, Any]:
         """Convert this entry to a dictionary.

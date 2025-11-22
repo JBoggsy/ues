@@ -3,13 +3,13 @@
 from datetime import datetime
 from typing import Any, Optional, Union
 
-from pydantic import Field
+from pydantic import BaseModel, Field
 
 from models.base_input import ModalityInput
 from models.base_state import ModalityState
 
 
-class ChatMessage:
+class ChatMessage(BaseModel):
     """A single message in the chat conversation.
 
     Simple wrapper for storing message data in state.
@@ -23,31 +23,12 @@ class ChatMessage:
         metadata: Optional additional data.
     """
 
-    def __init__(
-        self,
-        message_id: str,
-        conversation_id: str,
-        role: str,
-        content: Union[str, list[dict]],
-        timestamp: datetime,
-        metadata: Optional[dict] = None,
-    ):
-        """Initialize a chat message.
-
-        Args:
-            message_id: Unique message identifier.
-            conversation_id: Which conversation this belongs to.
-            role: "user" or "assistant".
-            content: Message content (string or multimodal structure).
-            timestamp: When message was sent (simulator time).
-            metadata: Optional additional data.
-        """
-        self.message_id = message_id
-        self.conversation_id = conversation_id
-        self.role = role
-        self.content = content
-        self.timestamp = timestamp
-        self.metadata = metadata or {}
+    message_id: str = Field(description="Unique message identifier")
+    conversation_id: str = Field(description="Which conversation this belongs to")
+    role: str = Field(description="Message role (user or assistant)")
+    content: Union[str, list[dict]] = Field(description="Message content")
+    timestamp: datetime = Field(description="When message was sent")
+    metadata: dict = Field(default_factory=dict, description="Optional additional data")
 
     def to_dict(self) -> dict[str, Any]:
         """Convert this message to a dictionary.
@@ -67,7 +48,7 @@ class ChatMessage:
         return result
 
 
-class ConversationMetadata:
+class ConversationMetadata(BaseModel):
     """Metadata for a conversation.
 
     Tracks summary information about a conversation without storing all messages.
@@ -80,28 +61,11 @@ class ConversationMetadata:
         participant_roles: Set of roles that have participated.
     """
 
-    def __init__(
-        self,
-        conversation_id: str,
-        created_at: datetime,
-        last_message_at: datetime,
-        message_count: int = 0,
-        participant_roles: Optional[set[str]] = None,
-    ):
-        """Initialize conversation metadata.
-
-        Args:
-            conversation_id: Conversation identifier.
-            created_at: When conversation started.
-            last_message_at: When last message was sent.
-            message_count: Number of messages in this conversation.
-            participant_roles: Set of roles that have participated.
-        """
-        self.conversation_id = conversation_id
-        self.created_at = created_at
-        self.last_message_at = last_message_at
-        self.message_count = message_count
-        self.participant_roles = participant_roles or set()
+    conversation_id: str = Field(description="Conversation identifier")
+    created_at: datetime = Field(description="When conversation started")
+    last_message_at: datetime = Field(description="When last message was sent")
+    message_count: int = Field(default=0, description="Number of messages")
+    participant_roles: set[str] = Field(default_factory=set, description="Roles that have participated")
 
     def to_dict(self) -> dict[str, Any]:
         """Convert this metadata to a dictionary.
