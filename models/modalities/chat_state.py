@@ -255,13 +255,19 @@ class ChatState(ModalityState):
             - since: datetime - Return messages after this time
             - until: datetime - Return messages before this time
             - limit: int - Maximum number of results
+            - offset: int - Number of results to skip (for pagination)
             - search: str - Search for text in message content
+            - sort_by: str - Field to sort by ("timestamp", "role", "conversation_id")
+            - sort_order: str - Sort order ("asc" or "desc")
 
         Args:
             query_params: Dictionary of query parameters.
 
         Returns:
-            Dictionary containing matching messages.
+            Dictionary containing matching messages:
+                - messages: List of message objects matching the query.
+                - count: Number of messages returned (after pagination).
+                - total_count: Total number of messages matching query (before pagination).
         """
         conversation_id = query_params.get("conversation_id")
         role = query_params.get("role")
@@ -296,12 +302,29 @@ class ChatState(ModalityState):
                 if self._message_contains_text(m, search_lower)
             ]
 
+        # Sort messages
+        sort_by = query_params.get("sort_by", "timestamp")
+        sort_order = query_params.get("sort_order", "asc")
+        if sort_by in ["timestamp", "role", "conversation_id"]:
+            filtered_messages.sort(
+                key=lambda m: getattr(m, sort_by),
+                reverse=(sort_order == "desc")
+            )
+
+        # Store total count before pagination
+        total_count = len(filtered_messages)
+
+        # Apply pagination
+        offset = query_params.get("offset", 0)
+        if offset:
+            filtered_messages = filtered_messages[offset:]
         if limit:
-            filtered_messages = filtered_messages[-limit:]
+            filtered_messages = filtered_messages[:limit]
 
         return {
             "messages": [msg.to_dict() for msg in filtered_messages],
             "count": len(filtered_messages),
+            "total_count": total_count,
         }
 
     def _message_contains_text(self, message: ChatMessage, search_text: str) -> bool:

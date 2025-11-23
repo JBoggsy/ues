@@ -430,12 +430,18 @@ class WeatherState(ModalityState):
             - from: Unix timestamp - return all reports since this time
             - to: Unix timestamp - return reports up to this time (requires from)
             - real: If True, query OpenWeather API instead of simulated data
+            - limit: Maximum number of reports to return
+            - offset: Number of reports to skip (for pagination)
 
         Args:
             query_params: Dictionary of query parameters.
 
         Returns:
-            Dictionary containing weather reports matching the query.
+            Dictionary containing weather reports matching the query with:
+                - reports: List of weather report objects.
+                - count: Number of reports returned (after pagination).
+                - total_count: Total number of reports matching query (before pagination).
+                - error: Error message if no data available (optional).
 
         Raises:
             ValueError: If required parameters are missing or invalid.
@@ -491,4 +497,15 @@ class WeatherState(ModalityState):
             converted_report = self._convert_units(filtered_report, units)
             reports.append(converted_report.model_dump())
 
-        return {"reports": reports, "count": len(reports)}
+        # Store total count before pagination
+        total_count = len(reports)
+
+        # Apply pagination
+        offset = query_params.get("offset", 0)
+        limit = query_params.get("limit")
+        if offset:
+            reports = reports[offset:]
+        if limit:
+            reports = reports[:limit]
+
+        return {"reports": reports, "count": len(reports), "total_count": total_count}

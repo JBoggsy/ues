@@ -630,10 +630,16 @@ class CalendarState(ModalityState):
                 - has_attendees: Filter by attendee presence.
                 - recurring: Filter by recurring flag.
                 - expand_recurring: Whether to expand recurring events.
-                - limit: Maximum number of results.
+                - limit: Maximum number of results to return.
+                - offset: Number of results to skip (for pagination).
+                - sort_by: Field to sort by ("start", "end", "status").
+                - sort_order: Sort order ("asc" or "desc").
 
         Returns:
-            Dictionary with matching events.
+            Dictionary with matching events containing:
+                - events: List of event dictionaries matching the query.
+                - count: Number of events returned (after pagination).
+                - total_count: Total number of events matching query (before pagination).
         """
         calendar_ids = query_params.get("calendar_ids")
         start_date = query_params.get("start")
@@ -644,6 +650,9 @@ class CalendarState(ModalityState):
         recurring_filter = query_params.get("recurring")
         expand_recurring = query_params.get("expand_recurring", False)
         limit = query_params.get("limit")
+        offset = query_params.get("offset", 0)
+        sort_by = query_params.get("sort_by", "start")
+        sort_order = query_params.get("sort_order", "asc")
 
         matching_events = []
 
@@ -665,14 +674,26 @@ class CalendarState(ModalityState):
                 if self._event_in_date_range(event, start_date, end_date):
                     matching_events.append(event.to_dict())
 
-        matching_events.sort(key=lambda e: e["start"])
+        # Sort events
+        if sort_by in ["start", "end", "status"]:
+            matching_events.sort(
+                key=lambda e: e[sort_by],
+                reverse=(sort_order == "desc")
+            )
 
+        # Store total count before pagination
+        total_count = len(matching_events)
+
+        # Apply pagination
+        if offset:
+            matching_events = matching_events[offset:]
         if limit:
             matching_events = matching_events[:limit]
 
         return {
             "events": matching_events,
             "count": len(matching_events),
+            "total_count": total_count,
         }
 
     def _event_matches_filters(

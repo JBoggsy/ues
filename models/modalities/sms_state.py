@@ -1037,14 +1037,33 @@ class SMSState(ModalityState):
 
         return errors
 
-    def query(self, query_params: dict[str, Any]) -> list[SMSMessage]:
+    def query(self, query_params: dict[str, Any]) -> dict[str, Any]:
         """Search messages based on query parameters.
+
+        Supported query parameters:
+            - thread_id: Filter messages by conversation thread
+            - phone_number: Filter messages involving this phone number
+            - direction: Filter by "incoming" or "outgoing"
+            - message_type: Filter by "sms" or "rcs"
+            - is_read: Filter by read status (boolean)
+            - has_attachments: Filter messages with attachments (boolean)
+            - search_text: Search message body text (case-insensitive)
+            - since: Filter messages sent after this datetime
+            - until: Filter messages sent before this datetime
+            - limit: Maximum number of messages to return
+            - offset: Number of messages to skip (for pagination)
+            - sort_by: Field to sort by ("sent_at", "from_number", "direction")
+            - sort_order: Sort order ("asc" or "desc")
 
         Args:
             query_params: Query filters (thread_id, phone_number, direction, etc.).
 
         Returns:
-            List of matching messages.
+            Dictionary containing matching messages and metadata with:
+                - messages: List of message dictionaries matching the query.
+                - count: Number of messages returned (after pagination).
+                - total_count: Total number of messages matching query (before pagination).
+                - query_params: Echo of query parameters.
         """
         results = list(self.messages.values())
 
@@ -1087,13 +1106,32 @@ class SMSState(ModalityState):
             until = query_params["until"]
             results = [msg for msg in results if msg.sent_at <= until]
 
-        results.sort(key=lambda m: m.sent_at)
+        # Sort messages
+        sort_by = query_params.get("sort_by", "sent_at")
+        sort_order = query_params.get("sort_order", "asc")
+        if sort_by in ["sent_at", "from_number", "direction"]:
+            results.sort(
+                key=lambda m: getattr(m, sort_by),
+                reverse=(sort_order == "desc")
+            )
 
+        # Store total count before pagination
+        total_count = len(results)
+
+        # Apply pagination
+        offset = query_params.get("offset", 0)
+        if offset:
+            results = results[offset:]
         if "limit" in query_params:
             limit = query_params["limit"]
             results = results[:limit]
 
-        return results
+        return {
+            "messages": [msg.to_dict() for msg in results],
+            "count": len(results),
+            "total_count": total_count,
+            "query_params": query_params,
+        }
 
     def get_conversation(self, thread_id: str) -> Optional[SMSConversation]:
         """Retrieve specific conversation.

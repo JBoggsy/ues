@@ -115,10 +115,125 @@
   - [x] SimulatorTime
   - [x] Environment
   - [x] SimulationEngine
-- [ ] Document model schemas with examples
+- [x] Document model schemas with examples
+  - [x] Core infrastructure (SimulatorEvent, EventQueue, SimulatorTime, Environment, SimulationEngine)
+  - [x] Base classes (ModalityInput, ModalityState)
+  - [x] Priority 1 modalities (Location, Time, Weather)
+  - [x] Priority 2 modalities (Email, Chat, Calendar, SMS)
+  - [ ]Priority 3 modalities (will be documented when implemented)
 
 ## Phase 2: RESTful API (After Data Models)
-- [ ] TBD - Design endpoints based on finalized models
+
+### API Design & Documentation
+- [x] Design complete REST API specification
+  - [x] Time control endpoints (`/simulator/time`)
+  - [x] Environment state endpoints (`/environment`)
+  - [x] Event management endpoints (`/events`)
+  - [x] Simulation control endpoints (`/simulation`)
+  - [x] Modality-specific query endpoints
+  - [x] Agent convenience endpoints (`/modalities/{modality}/submit`, `/events/immediate`)
+- [x] Document all endpoints in `docs/REST_API.md`
+  - [x] Request/response formats
+  - [x] Query parameters
+  - [x] Error handling
+  - [x] HTTP status codes
+  - [x] Usage examples
+
+### FastAPI Implementation
+- [x] Set up FastAPI application structure
+  - [x] Create `api/` package
+  - [ ] Configure CORS, middleware
+  - [x] Exception handlers
+  - [x] Set up dependency injection for SimulationEngine
+  - [x] Configure automatic OpenAPI documentation
+- [x] Implement Time Control Routes (`api/routes/time.py`)
+  - [x] `GET /simulator/time` - Get current time state
+  - [x] `POST /simulator/time/advance` - Advance by duration
+  - [x] `POST /simulator/time/set` - Jump to specific time
+  - [x] `POST /simulator/time/skip-to-next` - Event-driven skip
+  - [x] `POST /simulator/time/pause` - Pause simulation
+  - [x] `POST /simulator/time/resume` - Resume simulation
+  - [x] `POST /simulator/time/set-scale` - Change time scale
+- [x] Implement Environment Routes (`api/routes/environment.py`)
+  - [x] `GET /environment/state` - Complete state snapshot
+  - [x] `GET /environment/modalities` - List modalities
+  - [x] `GET /environment/modalities/{modality}` - Get modality state
+  - [x] `POST /environment/modalities/{modality}/query` - Query with filters
+  - [x] `POST /environment/validate` - Validate consistency
+- [x] Implement Event Routes (`api/routes/events.py`)
+  - [x] `GET /events` - List events with filters
+  - [x] `POST /events` - Create scheduled event
+  - [x] `POST /events/immediate` - Create immediate event (convenience)
+  - [x] `GET /events/{event_id}` - Get event details
+  - [x] `DELETE /events/{event_id}` - Cancel event
+  - [x] `GET /events/next` - Peek at next event
+  - [x] `GET /events/summary` - Get statistics
+- [x] Implement Simulation Routes (`api/routes/simulation.py`)
+  - [x] `POST /simulation/start` - Start simulation
+  - [x] `POST /simulation/stop` - Stop simulation
+  - [x] `GET /simulation/status` - Get status and metrics
+  - [x] `POST /simulation/reset` - Reset to initial state
+- [x] Implement Modality Convenience Routes (`api/routes/modalities.py`)
+  - [x] `POST /modalities/chat/submit` - Submit chat message
+  - [x] `POST /modalities/email/submit` - Submit email action
+  - [x] `POST /modalities/calendar/submit` - Submit calendar action
+  - [x] `POST /modalities/sms/submit` - Submit SMS action
+  - [x] `POST /modalities/location/submit` - Submit location update
+  - [x] `POST /modalities/time/submit` - Submit time preference update (via generic handler)
+  - [x] `POST /modalities/weather/submit` - Submit weather update (basic implementation in `api/routes/weather.py`)
+  - [x] Generic handler for future modalities (`POST /modalities/{modality}/submit`)
+
+### Query Implementation
+- [x] Implement modality-specific query handlers
+  - [x] Email query handler (folder, sender, subject search, date range)
+  - [x] Calendar query handler (date range, recurrence expansion, attendees)
+  - [x] SMS query handler (conversation, participant, message search)
+  - [x] Weather query handler (location, units, time range, real API integration)
+  - [x] Location query handler (history, named locations, time range)
+  - [x] Time query handler (preference history, timezone changes)
+  - [x] Chat query handler (conversation, role, content search)
+
+### Request/Response Models
+- [x] Create Pydantic request models for all endpoints
+  - [x] Time control request models (AdvanceTimeRequest, SetTimeRequest, SetScaleRequest)
+  - [x] Event creation request models (CreateEventRequest, ImmediateEventRequest)
+  - [x] Query parameter models for each modality (via dict[str, Any] with documented schemas)
+  - [x] Simulation control request models (StartSimulationRequest)
+- [x] Create Pydantic response models for all endpoints
+  - [x] Standardized error response model (via exception handlers in api/exceptions.py)
+  - [x] Event summary response model (EventResponse, EventListResponse, EventSummaryResponse)
+  - [x] State snapshot response models (EnvironmentStateResponse, ModalitySummary, ModalityListResponse)
+  - [x] Execution summary response models (StartSimulationResponse, StopSimulationResponse, SimulationStatusResponse, ResetSimulationResponse)
+  - [x] Time-specific response models (TimeStateResponse, SetTimeResponse, SkipToNextResponse)
+  - [x] Weather-specific response models (CurrentWeatherResponse, UpdateWeatherRequest)
+  - [x] Modality submission response models (ModalitySubmitResponse)
+  - [x] Environment validation response models (ValidationResponse)
+
+### Testing
+- [ ] Write API integration tests
+  - [ ] Test all time control endpoints
+  - [ ] Test all event management endpoints
+  - [ ] Test all environment query endpoints
+  - [ ] Test all simulation control endpoints
+  - [ ] Test modality convenience endpoints
+  - [ ] Test error handling and validation
+  - [ ] Test concurrent API requests
+- [ ] Write API unit tests
+  - [ ] Test request validation
+  - [ ] Test response serialization
+  - [ ] Test dependency injection
+  - [ ] Test error response formatting
+
+### Documentation & Examples
+- [x] Set up automatic OpenAPI/Swagger documentation
+- [ ] Create API usage examples
+  - [ ] Example: Manual time control workflow
+  - [ ] Example: Event-driven simulation
+  - [ ] Example: Auto-advance with fast-forward
+  - [ ] Example: Agent responding to user messages
+  - [ ] Example: Scheduled event creation
+- [ ] Create Postman/Thunder Client collection
+- [ ] Write API client library (optional, for easier testing)
 
 ## Phase 3: Web App UI (After API)
 - [ ] TBD - Design interface based on API capabilities

@@ -395,7 +395,8 @@ Tracks all SMS/RCS conversations, messages, and related state.
   - Verifies all message thread_ids reference valid conversations
   - Checks participant consistency in group conversations
   - Validates message ordering within conversations
-- `query(query_params: dict[str, Any]) -> list[SMSMessage]` - Searches messages
+- `query(query_params: dict[str, Any]) -> dict[str, Any]` - Searches messages
+  - Returns dictionary with `messages` (list of message dicts), `count`, and `query_params`
   - Supports: `thread_id`, `phone_number`, `direction`, `message_type`, `since`, `until`, `has_attachments`, `is_read`, `search_text`, `limit`
 - `get_conversation(thread_id: str) -> Optional[SMSConversation]` - Retrieve specific conversation
 - `get_conversation_messages(thread_id: str, limit: Optional[int]) -> list[SMSMessage]` - Get messages in conversation, ordered by timestamp

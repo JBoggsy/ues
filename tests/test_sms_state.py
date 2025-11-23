@@ -893,8 +893,9 @@ class TestSMSStateQuery:
             )
             state.apply_input(send_input)
 
-        messages = state.query({})
-        assert len(messages) == 3
+        result = state.query({})
+        assert result["count"] == 3
+        assert len(result["messages"]) == 3
 
     def test_query_by_thread_id(self):
         """MODALITY-SPECIFIC: Verify query filtering by thread_id."""
@@ -924,9 +925,10 @@ class TestSMSStateQuery:
         )
         state.apply_input(send2)
 
-        messages = state.query({"thread_id": thread_a})
-        assert len(messages) == 1
-        assert messages[0].body == "Thread A"
+        result = state.query({"thread_id": thread_a})
+        assert result["count"] == 1
+        assert len(result["messages"]) == 1
+        assert result["messages"][0]["body"] == "Thread A"
 
     def test_query_by_phone_number(self):
         """MODALITY-SPECIFIC: Verify query filtering by phone number."""
@@ -955,9 +957,10 @@ class TestSMSStateQuery:
         )
         state.apply_input(receive2)
 
-        messages = state.query({"phone_number": "+15551234567"})
-        assert len(messages) == 1
-        assert messages[0].body == "From Alice"
+        result = state.query({"phone_number": "+15551234567"})
+        assert result["count"] == 1
+        assert len(result["messages"]) == 1
+        assert result["messages"][0]["body"] == "From Alice"
 
     def test_query_by_direction(self):
         """MODALITY-SPECIFIC: Verify query filtering by direction."""
@@ -987,12 +990,14 @@ class TestSMSStateQuery:
         state.apply_input(receive)
 
         outgoing = state.query({"direction": "outgoing"})
-        assert len(outgoing) == 1
-        assert outgoing[0].body == "Outgoing"
+        assert outgoing["count"] == 1
+        assert len(outgoing["messages"]) == 1
+        assert outgoing["messages"][0]["body"] == "Outgoing"
 
         incoming = state.query({"direction": "incoming"})
-        assert len(incoming) == 1
-        assert incoming[0].body == "Incoming"
+        assert incoming["count"] == 1
+        assert len(incoming["messages"]) == 1
+        assert incoming["messages"][0]["body"] == "Incoming"
 
     def test_query_by_is_read(self):
         """MODALITY-SPECIFIC: Verify query filtering by read status."""
@@ -1010,8 +1015,9 @@ class TestSMSStateQuery:
         )
         state.apply_input(receive)
 
-        unread = state.query({"is_read": False})
-        assert len(unread) == 1
+        result = state.query({"is_read": False})
+        assert result["count"] == 1
+        assert len(result["messages"]) == 1
 
     def test_query_by_has_attachments(self):
         """MODALITY-SPECIFIC: Verify query filtering by attachments."""
@@ -1048,9 +1054,10 @@ class TestSMSStateQuery:
         )
         state.apply_input(mms)
 
-        with_attachments = state.query({"has_attachments": True})
-        assert len(with_attachments) == 1
-        assert with_attachments[0].body == "Photo"
+        result = state.query({"has_attachments": True})
+        assert result["count"] == 1
+        assert len(result["messages"]) == 1
+        assert result["messages"][0]["body"] == "Photo"
 
     def test_query_with_limit(self):
         """MODALITY-SPECIFIC: Verify query limit."""
@@ -1069,8 +1076,9 @@ class TestSMSStateQuery:
             )
             state.apply_input(send_input)
 
-        messages = state.query({"limit": 5})
-        assert len(messages) == 5
+        result = state.query({"limit": 5})
+        assert result["count"] == 5
+        assert len(result["messages"]) == 5
 
 
 class TestSMSStateHelperMethods:

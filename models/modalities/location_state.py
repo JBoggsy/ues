@@ -257,13 +257,19 @@ class LocationState(ModalityState):
             - until: datetime - Return locations before this time
             - named_location: str - Return locations with this name
             - limit: int - Maximum number of results to return
+            - offset: int - Number of results to skip (for pagination)
             - include_current: bool - Include current location in results (default: True)
+            - sort_by: str - Field to sort by ("timestamp", "latitude", "longitude")
+            - sort_order: str - Sort order ("asc" or "desc")
 
         Args:
             query_params: Dictionary of query parameters.
 
         Returns:
-            Dictionary containing query results with matching locations.
+            Dictionary containing query results with matching locations:
+                - locations: List of location objects matching the query.
+                - count: Number of locations returned (after pagination).
+                - total_count: Total number of locations matching query (before pagination).
         """
         since = query_params.get("since")
         until = query_params.get("until")
@@ -313,7 +319,23 @@ class LocationState(ModalityState):
                 entry_dict["is_current"] = False
                 results.append(entry_dict)
 
+        # Sort locations
+        sort_by = query_params.get("sort_by", "timestamp")
+        sort_order = query_params.get("sort_order", "desc")
+        if sort_by in ["timestamp", "latitude", "longitude"]:
+            results.sort(
+                key=lambda loc: loc.get(sort_by, ""),
+                reverse=(sort_order == "desc")
+            )
+
+        # Store total count before pagination
+        total_count = len(results)
+
+        # Apply pagination
+        offset = query_params.get("offset", 0)
+        if offset:
+            results = results[offset:]
         if limit is not None:
             results = results[:limit]
 
-        return {"locations": results, "count": len(results)}
+        return {"locations": results, "count": len(results), "total_count": total_count}

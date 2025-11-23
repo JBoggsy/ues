@@ -212,13 +212,19 @@ class TimeState(ModalityState):
             - timezone: str - Return settings with this timezone
             - format_preference: str - Return settings with this format
             - limit: int - Maximum number of results to return
+            - offset: int - Number of results to skip (for pagination)
             - include_current: bool - Include current settings in results (default: True)
+            - sort_by: str - Field to sort by ("timestamp", "timezone", "format_preference")
+            - sort_order: str - Sort order ("asc" or "desc")
 
         Args:
             query_params: Dictionary of query parameters.
 
         Returns:
-            Dictionary containing query results with matching settings.
+            Dictionary containing query results with matching settings:
+                - settings: List of settings objects matching the query.
+                - count: Number of settings returned (after pagination).
+                - total_count: Total number of settings matching query (before pagination).
         """
         since = query_params.get("since")
         until = query_params.get("until")
@@ -268,10 +274,26 @@ class TimeState(ModalityState):
                 entry_dict["is_current"] = False
                 results.append(entry_dict)
 
+        # Sort settings
+        sort_by = query_params.get("sort_by", "timestamp")
+        sort_order = query_params.get("sort_order", "desc")
+        if sort_by in ["timestamp", "timezone", "format_preference"]:
+            results.sort(
+                key=lambda s: s.get(sort_by, ""),
+                reverse=(sort_order == "desc")
+            )
+
+        # Store total count before pagination
+        total_count = len(results)
+
+        # Apply pagination
+        offset = query_params.get("offset", 0)
+        if offset:
+            results = results[offset:]
         if limit is not None:
             results = results[:limit]
 
-        return {"settings": results, "count": len(results)}
+        return {"settings": results, "count": len(results), "total_count": total_count}
 
     def format_time(self, time: datetime) -> str:
         """Format a datetime according to current user preferences.
