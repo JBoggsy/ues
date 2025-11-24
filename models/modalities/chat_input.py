@@ -8,37 +8,51 @@ from pydantic import Field, field_validator
 from models.base_input import ModalityInput
 
 
-class ChatInput(ModalityInput):
-    """Input for new chat messages.
+ChatOperation = Literal[
+    "send_message",
+    "delete_message",
+    "clear_conversation",
+]
 
-    Represents a chat message from either the user or the assistant. Supports both
-    simple text content and multimodal content for future extensibility.
+
+class ChatInput(ModalityInput):
+    """Input for chat operations.
+
+    Supports different chat actions through an operation discriminator.
+    Different operations require different data payloads.
 
     Args:
         modality_type: Always "chat" for this input type.
-        timestamp: When this message was sent (simulator time).
+        timestamp: When this operation occurred (simulator time).
         input_id: Unique identifier for this input.
-        role: Message sender role - "user" or "assistant".
-        content: Message content (string for text, or list of content blocks for multimodal).
-        message_id: Optional explicit message ID (auto-generated if not provided).
-        conversation_id: Optional conversation/thread identifier (default: "default").
+        operation: Type of chat operation to perform.
+        role: Message sender role (for send_message operation).
+        content: Message content (for send_message operation).
+        message_id: Message ID (for send_message: auto-generated; for delete_message: required).
+        conversation_id: Conversation/thread identifier.
         metadata: Optional dictionary for additional data (token count, model info, etc.).
     """
 
     modality_type: str = Field(default="chat", frozen=True)
-    role: Literal["user", "assistant"] = Field(
-        description="Message sender role - 'user' or 'assistant'"
+    operation: ChatOperation = Field(
+        default="send_message",
+        description="Type of chat operation to perform",
     )
-    content: Union[str, list[dict]] = Field(
-        description="Message content (string for text, or list of content blocks for multimodal)"
+    role: Optional[Literal["user", "assistant"]] = Field(
+        default=None,
+        description="Message sender role (required for send_message)",
     )
-    message_id: str = Field(
-        default_factory=lambda: str(uuid4()),
-        description="Unique message identifier (auto-generated if not provided)",
+    content: Optional[Union[str, list[dict]]] = Field(
+        default=None,
+        description="Message content (required for send_message)",
+    )
+    message_id: Optional[str] = Field(
+        default=None,
+        description="Message ID (auto-generated for send_message, required for delete_message)",
     )
     conversation_id: str = Field(
         default="default",
-        description="Conversation/thread identifier for multi-conversation support",
+        description="Conversation/thread identifier",
     )
     metadata: dict = Field(
         default_factory=dict,
@@ -47,7 +61,7 @@ class ChatInput(ModalityInput):
 
     @field_validator("content")
     @classmethod
-    def validate_content(cls, value: Union[str, list[dict]]) -> Union[str, list[dict]]:
+    def validate_content(cls, value: Optional[Union[str, list[dict]]]) -> Optional[Union[str, list[dict]]]:
         """Validate content structure.
 
         For text content, accepts any non-empty string.
@@ -62,6 +76,9 @@ class ChatInput(ModalityInput):
         Raises:
             ValueError: If content is invalid.
         """
+        if value is None:
+            return None
+            
         if isinstance(value, str):
             if not value.strip():
                 raise ValueError("Text content cannot be empty")
@@ -124,13 +141,25 @@ class ChatInput(ModalityInput):
     def validate_input(self) -> None:
         """Perform modality-specific validation beyond Pydantic field validation.
 
-        For ChatInput, all validation is handled by Pydantic field validators.
-        This method is provided for consistency with the base class interface.
+        Validates that required fields are present for each operation type.
 
         Raises:
-            ValueError: Never raised (all validation in field validators).
+            ValueError: If required fields are missing for the operation.
         """
-        pass
+        if self.operation == "send_message":
+            if self.role is None:
+                raise ValueError("Operation 'send_message' requires 'role' field")
+            if self.content is None:
+                raise ValueError("Operation 'send_message' requires 'content' field")
+            # Auto-generate message_id if not provided
+            if self.message_id is None:
+                self.message_id = str(uuid4())
+        elif self.operation == "delete_message":
+            if self.message_id is None:
+                raise ValueError("Operation 'delete_message' requires 'message_id' field")
+        elif self.operation == "clear_conversation":
+            # conversation_id is always present (has default value)
+            pass
 
     def get_affected_entities(self) -> list[str]:
         """Return list of entity IDs affected by this input.

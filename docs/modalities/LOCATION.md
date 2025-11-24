@@ -290,13 +290,13 @@ POST /events
 
 ### Query Current Location
 ```python
-GET /environment/modalities/location
-# Returns current location snapshot
+GET /location/state
+# Returns current location snapshot with history
 ```
 
 ### Query Location History
 ```python
-POST /environment/modalities/location/query
+POST /location/query
 {
   "since": "2024-03-15T00:00:00Z",
   "until": "2024-03-15T23:59:59Z",
@@ -307,7 +307,7 @@ POST /environment/modalities/location/query
 
 ### Query Named Locations
 ```python
-POST /environment/modalities/location/query
+POST /location/query
 {
   "named_location": "Office",
   "limit": 5

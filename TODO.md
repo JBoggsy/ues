@@ -40,18 +40,61 @@
   - Depends on: Contacts modality (for display names, blocking)
 
 ### Priority 3 Modalities (Complex Integrations)
-- [ ] Contacts: `ContactInput` (add/update/delete contact) + `ContactState` (contact database)
+- [ ] **Contacts**: `ContactInput` (add/update/delete contact) + `ContactState` (contact database)
   - ContactInput fields: phone, email, name, birthday, address, photo, notes, blocked status
   - Used by: SMS (display names, blocking), Email (contact lookup), Calendar (attendee info)
   - Core functionality: CRUD operations, search, grouping, favorites, blocked list
-- [ ] File System: `FileSystemInput` (file changes) + `FileSystemState` (directory tree, file contents)
+  - REST API Routes (when implemented):
+    - `GET /contacts/state` - Get all contacts
+    - `POST /contacts/query` - Query contacts with filters
+    - `POST /contacts/create` - Create a new contact
+    - `POST /contacts/update` - Update existing contact
+    - `POST /contacts/delete` - Delete contact(s)
+    - `POST /contacts/block` - Block contact(s)
+    - `POST /contacts/unblock` - Unblock contact(s)
+- [ ] **File System**: `FileSystemInput` (file changes) + `FileSystemState` (directory tree, file contents)
   - FileSystemInput fields: path, content, operation (create/modify/delete), permissions
-- [ ] Discord: `DiscordInput` (new message/reaction) + `DiscordState` (servers, channels, message history)
-- [ ] Slack: `SlackInput` (new message/reaction) + `SlackState` (workspaces, channels, threads)
-- [ ] Social Media: `SocialMediaInput` (new post/interaction) + `SocialMediaState` (feeds, posts, follows)
+  - REST API Routes (when implemented):
+    - `GET /filesystem/state` - Get file system state
+    - `POST /filesystem/query` - Query files/directories
+    - `POST /filesystem/create` - Create file/directory
+    - `POST /filesystem/update` - Modify file content
+    - `POST /filesystem/delete` - Delete file/directory
+    - `POST /filesystem/move` - Move/rename file/directory
+    - `POST /filesystem/copy` - Copy file/directory
+- [ ] **Discord**: `DiscordInput` (new message/reaction) + `DiscordState` (servers, channels, message history)
+  - REST API Routes (when implemented):
+    - `GET /discord/state` - Get Discord state (all servers/channels)
+    - `POST /discord/query` - Query messages with filters
+    - `POST /discord/send` - Send a message
+    - `POST /discord/react` - Add reaction to message
+    - `POST /discord/delete` - Delete message
+- [ ] **Slack**: `SlackInput` (new message/reaction) + `SlackState` (workspaces, channels, threads)
+  - REST API Routes (when implemented):
+    - `GET /slack/state` - Get Slack state (all workspaces/channels)
+    - `POST /slack/query` - Query messages with filters
+    - `POST /slack/send` - Send a message
+    - `POST /slack/react` - Add reaction to message
+    - `POST /slack/delete` - Delete message
+    - `POST /slack/thread` - Reply in thread
+- [ ] **Social Media**: `SocialMediaInput` (new post/interaction) + `SocialMediaState` (feeds, posts, follows)
   - SocialMediaInput fields: platform, content, interaction_type (post/comment/like/follow)
-- [ ] Screen: `ScreenInput` (UI interaction) + `ScreenState` (current app, window, UI elements)
+  - REST API Routes (when implemented):
+    - `GET /social/state` - Get social media state
+    - `POST /social/query` - Query posts/interactions
+    - `POST /social/post` - Create a new post
+    - `POST /social/comment` - Comment on post
+    - `POST /social/like` - Like/unlike post
+    - `POST /social/follow` - Follow/unfollow user
+    - `POST /social/share` - Share/repost content
+- [ ] **Screen**: `ScreenInput` (UI interaction) + `ScreenState` (current app, window, UI elements)
   - ScreenInput fields: app, window, interaction_type, target_element
+  - REST API Routes (when implemented):
+    - `GET /screen/state` - Get current screen state
+    - `POST /screen/query` - Query screen history
+    - `POST /screen/interact` - Simulate UI interaction
+    - `POST /screen/switch` - Switch app/window
+    - `POST /screen/capture` - Capture screenshot
 
 ### Validation & Testing
 - [ ] Add Pydantic validators for all models
@@ -132,7 +175,7 @@
   - [x] Simulation control endpoints (`/simulation`)
   - [x] Modality-specific query endpoints
   - [x] Agent convenience endpoints (`/modalities/{modality}/submit`, `/events/immediate`)
-- [x] Document all endpoints in `docs/REST_API.md`
+- [x] Document all endpoints
   - [x] Request/response formats
   - [x] Query parameters
   - [x] Error handling
@@ -218,6 +261,17 @@
   - [ ] Test modality convenience endpoints
   - [ ] Test error handling and validation
   - [ ] Test concurrent API requests
+- [ ] Write modality route integration tests
+  - [ ] Email routes: test all 11 action endpoints + state/query
+  - [ ] SMS routes: test all 6 action endpoints + state/query
+  - [ ] Chat routes: test all 3 action endpoints + state/query
+  - [ ] Calendar routes: test create/update/delete + state/query
+  - [ ] Location routes: test update + state/query
+  - [ ] Weather routes: test update + state/query
+  - [ ] Test state retrieval consistency
+  - [ ] Test query endpoints with various filters
+  - [ ] Test error handling (invalid data, missing modality, etc.)
+  - [ ] Verify OpenAPI schema generation
 - [ ] Write API unit tests
   - [ ] Test request validation
   - [ ] Test response serialization

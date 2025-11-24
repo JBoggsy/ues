@@ -143,10 +143,8 @@ reports in chronological order. Without `from`, return only current report.
 
 Simulated weather data is retrieved using the normal UES REST API, offering three forms of retrieval:
 
-- `GET /environment/modalities/weather`: Retrieves the unfiltered current weather report at the
-  simulated user's current location.
-- `POST /environment/modalities/weather/query`: Retrieves a weather report based on query
-  values. 
+- `GET /weather/state`: Retrieves the current weather state for all tracked locations
+- `POST /weather/query`: Retrieves weather data based on query parameters (location, filters, units) 
 
 ### Weather Query Filters
 - `lat` (required): Latitude, decimal (-90; 90)

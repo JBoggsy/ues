@@ -594,24 +594,35 @@ POST /events/immediate
 
 ### Query API Examples
 
-**Get all conversations:**
+**Get SMS state (all conversations and messages):**
 ```
-GET /modalities/sms/conversations
+GET /sms/state
 ```
 
-**Get specific conversation messages:**
+**Query specific conversation:**
 ```
-GET /modalities/sms/conversations/{thread_id}/messages?limit=50
+POST /sms/query
+{
+  "phone_number": "+1234567890",
+  "limit": 50
+}
 ```
 
 **Search messages:**
 ```
-GET /modalities/sms/messages?search_text=meeting&is_read=false
+POST /sms/query
+{
+  "search_text": "meeting",
+  "is_read": false
+}
 ```
 
-**Get unread message count:**
+**Get unread messages:**
 ```
-GET /modalities/sms/unread_count
+POST /sms/query
+{
+  "is_read": false
+}
 ```
 
 ---

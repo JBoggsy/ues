@@ -1,10 +1,10 @@
 """Calendar state model."""
 
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Optional
 from uuid import uuid4
 
-from pydantic import Field
+from pydantic import BaseModel, Field, field_serializer
 
 from models.base_input import ModalityInput
 from models.base_state import ModalityState
@@ -17,7 +17,7 @@ from models.modalities.calendar_input import (
 )
 
 
-class Calendar:
+class Calendar(BaseModel):
     """Represents a calendar container for events.
 
     Args:
@@ -31,57 +31,48 @@ class Calendar:
         default_reminders: Default reminder settings for new events.
     """
 
-    def __init__(
-        self,
-        calendar_id: str,
-        name: str,
-        color: str = "#4285f4",
-        visible: bool = True,
-        created_at: Optional[datetime] = None,
-        updated_at: Optional[datetime] = None,
-        event_ids: Optional[set[str]] = None,
-        default_reminders: Optional[list[Reminder]] = None,
-    ):
-        """Initialize a calendar.
+    calendar_id: str = Field(description="Unique calendar identifier")
+    name: str = Field(description="Calendar display name")
+    color: str = Field(default="#4285f4", description="Calendar color (hex code)")
+    visible: bool = Field(default=True, description="Whether calendar is visible")
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        description="When calendar was created",
+    )
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        description="When calendar was last modified",
+    )
+    event_ids: set[str] = Field(
+        default_factory=set, description="Set of event IDs in this calendar"
+    )
+    default_reminders: list[Reminder] = Field(
+        default_factory=list, description="Default reminder settings"
+    )
+
+    @field_serializer("created_at", "updated_at")
+    def serialize_datetime(self, dt: datetime) -> str:
+        """Serialize datetime to ISO format string.
 
         Args:
-            calendar_id: Unique identifier.
-            name: Display name.
-            color: Calendar color.
-            visible: Visibility flag.
-            created_at: Creation timestamp.
-            updated_at: Last update timestamp.
-            event_ids: Set of event IDs.
-            default_reminders: Default reminders.
-        """
-        self.calendar_id = calendar_id
-        self.name = name
-        self.color = color
-        self.visible = visible
-        self.created_at = created_at or datetime.utcnow()
-        self.updated_at = updated_at or datetime.utcnow()
-        self.event_ids = event_ids or set()
-        self.default_reminders = default_reminders or []
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert calendar to dictionary.
+            dt: Datetime to serialize.
 
         Returns:
-            Dictionary representation of this calendar.
+            ISO format string.
         """
-        return {
-            "calendar_id": self.calendar_id,
-            "name": self.name,
-            "color": self.color,
-            "visible": self.visible,
-            "created_at": self.created_at.isoformat(),
-            "updated_at": self.updated_at.isoformat(),
-            "event_count": len(self.event_ids),
-            "default_reminders": [r.to_dict() for r in self.default_reminders],
-        }
+        return dt.isoformat()
+
+    @property
+    def event_count(self) -> int:
+        """Get number of events in this calendar.
+
+        Returns:
+            Number of events.
+        """
+        return len(self.event_ids)
 
 
-class CalendarEvent:
+class CalendarEvent(BaseModel):
     """Represents a calendar event with all metadata.
 
     Args:
@@ -112,88 +103,79 @@ class CalendarEvent:
         deleted_at: If deleted, when.
     """
 
-    def __init__(
-        self,
-        event_id: str,
-        calendar_id: str,
-        title: str,
-        start: datetime,
-        end: datetime,
-        all_day: bool = False,
-        timezone: str = "UTC",
-        description: Optional[str] = None,
-        location: Optional[str] = None,
-        status: str = "confirmed",
-        organizer: Optional[str] = None,
-        attendees: Optional[list[Attendee]] = None,
-        recurrence: Optional[RecurrenceRule] = None,
-        recurrence_exceptions: Optional[set[str]] = None,
-        recurrence_id: Optional[str] = None,
-        parent_event_id: Optional[str] = None,
-        reminders: Optional[list[Reminder]] = None,
-        color: Optional[str] = None,
-        visibility: str = "default",
-        transparency: str = "opaque",
-        attachments: Optional[list[Attachment]] = None,
-        conference_link: Optional[str] = None,
-        created_at: Optional[datetime] = None,
-        updated_at: Optional[datetime] = None,
-        deleted_at: Optional[datetime] = None,
-    ):
-        """Initialize a calendar event.
+    event_id: str = Field(description="Unique event identifier")
+    calendar_id: str = Field(description="Calendar this event belongs to")
+    title: str = Field(description="Event title")
+    start: datetime = Field(description="Start datetime")
+    end: datetime = Field(description="End datetime")
+    all_day: bool = Field(default=False, description="All-day event flag")
+    timezone: str = Field(default="UTC", description="Event time zone")
+    description: Optional[str] = Field(default=None, description="Event description")
+    location: Optional[str] = Field(default=None, description="Event location")
+    status: str = Field(default="confirmed", description="Event status")
+    organizer: Optional[str] = Field(default=None, description="Organizer email")
+    attendees: list[Attendee] = Field(
+        default_factory=list, description="List of attendees"
+    )
+    recurrence: Optional[RecurrenceRule] = Field(
+        default=None, description="Recurrence rule"
+    )
+    recurrence_exceptions: set[str] = Field(
+        default_factory=set, description="Set of skipped dates (ISO format)"
+    )
+    recurrence_id: Optional[str] = Field(
+        default=None, description="Modified occurrence identifier"
+    )
+    parent_event_id: Optional[str] = Field(
+        default=None, description="Parent event if modified occurrence"
+    )
+    reminders: list[Reminder] = Field(
+        default_factory=list, description="List of reminders"
+    )
+    color: Optional[str] = Field(default=None, description="Event color override")
+    visibility: str = Field(default="default", description="Visibility level")
+    transparency: str = Field(default="opaque", description="Free/busy transparency")
+    attachments: list[Attachment] = Field(
+        default_factory=list, description="List of attachments"
+    )
+    conference_link: Optional[str] = Field(
+        default=None, description="Video conference URL"
+    )
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        description="When event was created",
+    )
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        description="When event was last modified",
+    )
+    deleted_at: Optional[datetime] = Field(
+        default=None, description="When event was deleted"
+    )
+
+    @field_serializer("start", "end", "created_at", "updated_at")
+    def serialize_datetime(self, dt: datetime) -> str:
+        """Serialize datetime to ISO format string.
 
         Args:
-            event_id: Unique identifier.
-            calendar_id: Parent calendar ID.
-            title: Event title.
-            start: Start datetime.
-            end: End datetime.
-            all_day: All-day flag.
-            timezone: Event timezone.
-            description: Description text.
-            location: Location text.
-            status: Event status.
-            organizer: Organizer email.
-            attendees: Attendee list.
-            recurrence: Recurrence rule.
-            recurrence_exceptions: Exception dates.
-            recurrence_id: Occurrence identifier.
-            parent_event_id: Parent event link.
-            reminders: Reminder list.
-            color: Event color.
-            visibility: Visibility level.
-            transparency: Transparency setting.
-            attachments: Attachment list.
-            conference_link: Conference URL.
-            created_at: Creation timestamp.
-            updated_at: Update timestamp.
-            deleted_at: Deletion timestamp.
+            dt: Datetime to serialize.
+
+        Returns:
+            ISO format string.
         """
-        self.event_id = event_id
-        self.calendar_id = calendar_id
-        self.title = title
-        self.start = start
-        self.end = end
-        self.all_day = all_day
-        self.timezone = timezone
-        self.description = description
-        self.location = location
-        self.status = status
-        self.organizer = organizer
-        self.attendees = attendees or []
-        self.recurrence = recurrence
-        self.recurrence_exceptions = recurrence_exceptions or set()
-        self.recurrence_id = recurrence_id
-        self.parent_event_id = parent_event_id
-        self.reminders = reminders or []
-        self.color = color
-        self.visibility = visibility
-        self.transparency = transparency
-        self.attachments = attachments or []
-        self.conference_link = conference_link
-        self.created_at = created_at or datetime.utcnow()
-        self.updated_at = updated_at or datetime.utcnow()
-        self.deleted_at = deleted_at
+        return dt.isoformat()
+
+    @field_serializer("deleted_at")
+    def serialize_optional_datetime(self, dt: Optional[datetime]) -> Optional[str]:
+        """Serialize optional datetime to ISO format string.
+
+        Args:
+            dt: Datetime to serialize.
+
+        Returns:
+            ISO format string or None.
+        """
+        return dt.isoformat() if dt else None
 
     def is_recurring(self) -> bool:
         """Check if this event has a recurrence rule.
@@ -211,58 +193,23 @@ class CalendarEvent:
         """
         return self.parent_event_id is not None
 
-    def to_dict(self) -> dict[str, Any]:
-        """Convert event to dictionary.
+    @property
+    def has_attendees(self) -> bool:
+        """Check if event has attendees.
 
         Returns:
-            Dictionary representation of this event.
+            True if event has attendees.
         """
-        result = {
-            "event_id": self.event_id,
-            "calendar_id": self.calendar_id,
-            "title": self.title,
-            "start": self.start.isoformat(),
-            "end": self.end.isoformat(),
-            "all_day": self.all_day,
-            "timezone": self.timezone,
-            "status": self.status,
-            "visibility": self.visibility,
-            "transparency": self.transparency,
-            "created_at": self.created_at.isoformat(),
-            "updated_at": self.updated_at.isoformat(),
-            "is_recurring": self.is_recurring(),
-            "has_attendees": len(self.attendees) > 0,
-            "has_attachments": len(self.attachments) > 0,
-        }
+        return len(self.attendees) > 0
 
-        if self.description:
-            result["description"] = self.description
-        if self.location:
-            result["location"] = self.location
-        if self.organizer:
-            result["organizer"] = self.organizer
-        if self.attendees:
-            result["attendees"] = [a.to_dict() for a in self.attendees]
-        if self.recurrence:
-            result["recurrence"] = self.recurrence.to_dict()
-        if self.recurrence_exceptions:
-            result["recurrence_exceptions"] = sorted(list(self.recurrence_exceptions))
-        if self.recurrence_id:
-            result["recurrence_id"] = self.recurrence_id
-        if self.parent_event_id:
-            result["parent_event_id"] = self.parent_event_id
-        if self.reminders:
-            result["reminders"] = [r.to_dict() for r in self.reminders]
-        if self.color:
-            result["color"] = self.color
-        if self.attachments:
-            result["attachments"] = [a.to_dict() for a in self.attachments]
-        if self.conference_link:
-            result["conference_link"] = self.conference_link
-        if self.deleted_at:
-            result["deleted_at"] = self.deleted_at.isoformat()
+    @property
+    def has_attachments(self) -> bool:
+        """Check if event has attachments.
 
-        return result
+        Returns:
+            True if event has attachments.
+        """
+        return len(self.attachments) > 0
 
 
 class CalendarState(ModalityState):
@@ -346,29 +293,46 @@ class CalendarState(ModalityState):
                 name=input_data.calendar_id.title(),
             )
 
-        event = CalendarEvent(
-            event_id=input_data.event_id,
-            calendar_id=input_data.calendar_id,
-            title=input_data.title,
-            start=input_data.start,
-            end=input_data.end,
-            all_day=input_data.all_day,
-            timezone=input_data.timezone,
-            description=input_data.description,
-            location=input_data.location,
-            status=input_data.status,
-            organizer=input_data.organizer,
-            attendees=input_data.attendees,
-            recurrence=input_data.recurrence,
-            reminders=input_data.reminders,
-            color=input_data.color,
-            visibility=input_data.visibility,
-            transparency=input_data.transparency,
-            attachments=input_data.attachments,
-            conference_link=input_data.conference_link,
-            created_at=input_data.timestamp,
-            updated_at=input_data.timestamp,
-        )
+        # Build event kwargs, excluding None values for fields with defaults
+        event_kwargs = {
+            "event_id": input_data.event_id,
+            "calendar_id": input_data.calendar_id,
+            "title": input_data.title,
+            "start": input_data.start,
+            "end": input_data.end,
+            "all_day": input_data.all_day,
+            "timezone": input_data.timezone,
+            "created_at": input_data.timestamp,
+            "updated_at": input_data.timestamp,
+        }
+
+        # Add optional fields only if they are not None
+        if input_data.description is not None:
+            event_kwargs["description"] = input_data.description
+        if input_data.location is not None:
+            event_kwargs["location"] = input_data.location
+        if input_data.status is not None:
+            event_kwargs["status"] = input_data.status
+        if input_data.organizer is not None:
+            event_kwargs["organizer"] = input_data.organizer
+        if input_data.attendees is not None:
+            event_kwargs["attendees"] = input_data.attendees
+        if input_data.recurrence is not None:
+            event_kwargs["recurrence"] = input_data.recurrence
+        if input_data.reminders is not None:
+            event_kwargs["reminders"] = input_data.reminders
+        if input_data.color is not None:
+            event_kwargs["color"] = input_data.color
+        if input_data.visibility is not None:
+            event_kwargs["visibility"] = input_data.visibility
+        if input_data.transparency is not None:
+            event_kwargs["transparency"] = input_data.transparency
+        if input_data.attachments is not None:
+            event_kwargs["attachments"] = input_data.attachments
+        if input_data.conference_link is not None:
+            event_kwargs["conference_link"] = input_data.conference_link
+
+        event = CalendarEvent(**event_kwargs)
 
         self.events[event.event_id] = event
         self.calendars[input_data.calendar_id].event_ids.add(event.event_id)
@@ -577,9 +541,9 @@ class CalendarState(ModalityState):
             "default_calendar_id": self.default_calendar_id,
             "user_timezone": self.user_timezone,
             "calendars": {
-                cid: cal.to_dict() for cid, cal in self.calendars.items()
+                cid: cal.model_dump(mode="json") for cid, cal in self.calendars.items()
             },
-            "events": {eid: evt.to_dict() for eid, evt in self.events.items()},
+            "events": {eid: evt.model_dump(mode="json") for eid, evt in self.events.items()},
             "calendar_count": len(self.calendars),
             "event_count": len(self.events),
         }
@@ -637,7 +601,7 @@ class CalendarState(ModalityState):
 
         Returns:
             Dictionary with matching events containing:
-                - events: List of event dictionaries matching the query.
+                - events: List of CalendarEvent objects matching the query.
                 - count: Number of events returned (after pagination).
                 - total_count: Total number of events matching query (before pagination).
         """
@@ -672,12 +636,12 @@ class CalendarState(ModalityState):
                 matching_events.extend(occurrences)
             else:
                 if self._event_in_date_range(event, start_date, end_date):
-                    matching_events.append(event.to_dict())
+                    matching_events.append(event)
 
         # Sort events
         if sort_by in ["start", "end", "status"]:
             matching_events.sort(
-                key=lambda e: e[sort_by],
+                key=lambda e: getattr(e, sort_by),
                 reverse=(sort_order == "desc")
             )
 
@@ -769,7 +733,7 @@ class CalendarState(ModalityState):
 
     def _expand_recurrence(
         self, event: CalendarEvent, start_date: datetime, end_date: datetime
-    ) -> list[dict[str, Any]]:
+    ) -> list[CalendarEvent]:
         """Expand recurring event into individual occurrences.
 
         Args:
@@ -778,7 +742,7 @@ class CalendarState(ModalityState):
             end_date: End of range.
 
         Returns:
-            List of occurrence dictionaries.
+            List of CalendarEvent objects representing occurrences.
         """
         if not event.recurrence:
             return []
@@ -807,12 +771,13 @@ class CalendarState(ModalityState):
                     current_date, event.end.time()
                 )
 
-                occurrence_dict = event.to_dict()
-                occurrence_dict["start"] = occurrence_start.isoformat()
-                occurrence_dict["end"] = occurrence_end.isoformat()
-                occurrence_dict["occurrence_date"] = date_str
+                # Create a copy of the event with updated times
+                occurrence = event.model_copy(update={
+                    "start": occurrence_start,
+                    "end": occurrence_end,
+                })
 
-                occurrences.append(occurrence_dict)
+                occurrences.append(occurrence)
                 count += 1
 
             current_date = self._get_next_occurrence_date(event, current_date)

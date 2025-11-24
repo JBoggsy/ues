@@ -296,28 +296,22 @@ POST /events
 
 ### Query Current Preferences
 ```python
-GET /environment/modalities/time
-# Returns current time preferences snapshot
+GET /simulator/time
+# Returns current time state including preferences
 ```
 
 ### Query Preference History
 ```python
-POST /environment/modalities/time/query
-{
-  "since": "2024-03-01T00:00:00Z",
-  "until": "2024-03-31T23:59:59Z"
-}
-# Returns all preference changes in March
+# Note: Time preference history is maintained within the time state
+# Access via GET /simulator/time to see current preferences
+GET /simulator/time
 ```
 
 ### Query Specific Timezone Usage
 ```python
-POST /environment/modalities/time/query
-{
-  "timezone": "Europe/London",
-  "limit": 10
-}
-# Returns last 10 times user had London timezone
+# Time preferences are tracked as part of the overall time state
+# Query the time state to see current timezone and preferences
+GET /simulator/time
 ```
 
 ## Design Decisions

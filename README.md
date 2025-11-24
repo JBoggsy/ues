@@ -109,18 +109,61 @@ The UES exposes a comprehensive RESTful API organized into four categories:
 - `GET /environment/state` - Get complete state snapshot (time + all modalities)
 - `GET /environment/modalities` - List available modalities
 - `GET /environment/modalities/{modality}` - Get specific modality state
-- `POST /environment/modalities/{modality}/query` - Query with filterss
 - `POST /environment/validate` - Validate environment consistency
 
 ### Event Management (`/events`)
 - `GET /events` - List events with filters (status, time range, modality)
 - `POST /events` - Create new scheduled event with full control over timing and metadata
-- `POST /events/immediate` - Submit event for immediate execution at current simulator time (convenience endpoint for agent actions)
+- `POST /events/immediate` - Submit event for immediate execution at current simulator time
 - `GET /events/{event_id}` - Get specific event details
 - `DELETE /events/{event_id}` - Cancel pending event
 - `GET /events/next` - Peek at next pending event
 - `GET /events/summary` - Get execution statistics
-- `POST /modalities/{modality}/submit` - Submit immediate action to specific modality (highest-level convenience for agents)
+
+### Modality-Specific Routes
+Each modality has dedicated endpoints for type-safe interactions:
+
+**Email (`/email`)**
+- `GET /email/state` - Current email state (all folders, threads)
+- `POST /email/query` - Query emails with filters
+- `POST /email/send` - Send a new email
+- `POST /email/receive` - Simulate receiving an email
+- `POST /email/read`, `/unread`, `/star`, `/unstar` - Mark emails
+- `POST /email/archive`, `/delete`, `/move` - Organize emails
+- `POST /email/label`, `/unlabel` - Manage labels
+
+**SMS (`/sms`)**
+- `GET /sms/state` - Current SMS state (all threads, messages)
+- `POST /sms/query` - Query messages with filters
+- `POST /sms/send` - Send a message
+- `POST /sms/receive` - Simulate receiving a message
+- `POST /sms/read`, `/unread`, `/delete` - Manage messages
+- `POST /sms/react` - Add reaction (RCS)
+
+**Chat (`/chat`)**
+- `GET /chat/state` - Current chat state (all conversations)
+- `POST /chat/query` - Query chat history
+- `POST /chat/send` - Send a chat message
+- `POST /chat/delete` - Delete a message
+- `POST /chat/clear` - Clear conversation history
+
+**Calendar (`/calendar`)**
+- `GET /calendar/state` - Current calendar state (all events)
+- `POST /calendar/query` - Query events with filters
+- `POST /calendar/create` - Create a calendar event
+- `POST /calendar/update` - Update an event
+- `POST /calendar/delete` - Delete an event
+- `POST /calendar/accept`, `/decline`, `/tentative` - Respond to invitations
+
+**Location (`/location`)**
+- `GET /location/state` - Current location
+- `POST /location/update` - Update coordinates
+- `POST /location/move-to` - Move to named place
+
+**Weather (`/weather`)**
+- `GET /weather/state` - Current weather state
+- `POST /weather/update` - Update weather conditions
+- `POST /weather/set-location` - Change weather location
 
 ### Simulation Control (`/simulation`)
 - `POST /simulation/start` - Start simulation (manual or auto-advance mode)
@@ -129,29 +172,14 @@ The UES exposes a comprehensive RESTful API organized into four categories:
 - `POST /simulation/reset` - Reset to initial state
 
 All endpoints return JSON responses with appropriate HTTP status codes. The API is designed for:
-- **Simplicity**: Intuitive endpoints that match developer mental model
+- **Type Safety**: Pydantic models for all requests and responses
+- **Simplicity**: Action-specific endpoints (e.g., `/email/send`) are more intuitive than generic submission
 - **Completeness**: Full control over all simulation operations
+- **Documentation**: FastAPI auto-generates OpenAPI docs from typed models
 - **Real-time Updates**: WebSocket support planned for state streaming
 - **Error Handling**: Comprehensive validation with detailed error messages
 
-#### Agent Action Convenience Endpoints
-
-While all state changes flow through the event pipeline (`POST /events`), two convenience endpoints simplify common agent use cases:
-
-**`POST /events/immediate`** - Submits an event scheduled for immediate execution:
-- Automatically sets `scheduled_time` to current simulator time
-- Sets high priority (100) to execute before other same-time events
-- Requires full `ModalityInput` payload but handles event metadata automatically
-- Returns created event with assigned ID
-- Use when agent needs to respond immediately (e.g., chat reply, email sent)
-
-**`POST /modalities/{modality}/submit`** - Highest-level convenience for modality-specific actions:
-- Even simpler payload, just the action-specific fields
-- Internally creates appropriate `ModalityInput` and submits as immediate event
-- Most ergonomic for agents: `POST /modalities/chat/submit {"role": "assistant", "content": "Hello!"}`
-- Returns both the created event and updated modality state
-
-Both endpoints maintain architectural consistency by using the same event pipeline, ensuring all agent actions are captured in the event history for replicability and debugging.
+For detailed API documentation, see `docs/REST_API.md` and `docs/MODALITY_ROUTES.md`.
 
 ## Environment Design
 
@@ -194,16 +222,18 @@ This creates realistic, dynamic environments while maintaining developer control
 - ✅ Orchestration layer (`SimulationEngine`, `SimulationLoop`)
 - ✅ Comprehensive testing (manual mode, auto-advance, pause/resume)
 
-**Phase 2: Modality Implementations** - 🚧 In Progress
-- Priority 1: Location, Time, Weather (simple foundational modalities)
-- Priority 2: Email, Calendar, SMS/RCS (message-based modalities)
-- Priority 3: File System, Discord, Slack, Social Media, Screen (complex integrations)
+**Phase 2: Modality Implementations** - ✅ Priority 1 & 2 Complete
+- ✅ Location, Time, Weather (simple foundational modalities)
+- ✅ Email, Calendar, SMS/RCS, Chat (message-based modalities)
+- 📋 File System, Discord, Slack, Social Media, Screen (complex integrations planned)
 
-**Phase 3: REST API** - 📋 Planned
-- FastAPI implementation
-- Endpoint handlers with dependency injection
-- WebSocket support for real-time updates
-- API documentation (auto-generated via OpenAPI)
+**Phase 3: REST API** - 🚧 In Progress
+- ✅ FastAPI implementation with core routes
+- ✅ Modality-specific typed endpoints (Email, SMS, Chat, Calendar, Location, Weather)
+- ✅ Event management and time control endpoints
+- ✅ Shared base models and utilities
+- 🚧 Integration tests for all routes
+- 📋 WebSocket support for real-time updates
 
 **Phase 4: Web UI** - 📋 Planned
 - Environment designer interface

@@ -112,7 +112,7 @@ Tracks metadata for each conversation:
    - Agents can send multiple messages without waiting (realistic)
 
 6. **Agent Action Integration**:
-   - Assistant messages submitted via `POST /events/immediate` or `POST /modalities/chat/submit`
+   - Assistant messages submitted via `POST /chat/send` with role="assistant"
    - Creates `ChatInput` with `role="assistant"`
    - Applied to `ChatState` via normal event pipeline
    - Complete conversation log captured in event history
@@ -134,7 +134,7 @@ POST /events
 
 ### Agent Responds (Immediate Action)
 ```
-POST /modalities/chat/submit
+POST /chat/send
 {
   "role": "assistant",
   "content": "Based on the current weather data, it's sunny and 72°F."
@@ -154,7 +154,7 @@ POST /events/immediate
 
 ### Query Conversation History
 ```
-POST /environment/modalities/chat/query
+POST /chat/query
 {
   "conversation_id": "default",
   "limit": 10
@@ -163,7 +163,7 @@ POST /environment/modalities/chat/query
 
 ### Future Multimodal Message
 ```
-POST /modalities/chat/submit
+POST /chat/send
 {
   "role": "user",
   "content": [

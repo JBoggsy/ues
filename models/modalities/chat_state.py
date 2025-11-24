@@ -1,12 +1,17 @@
 """Chat state model."""
 
+from __future__ import annotations
+
 from datetime import datetime
-from typing import Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from pydantic import BaseModel, Field
 
 from models.base_input import ModalityInput
 from models.base_state import ModalityState
+
+if TYPE_CHECKING:
+    from models.modalities.chat_input import ChatInput
 
 
 class ChatMessage(BaseModel):
@@ -120,7 +125,7 @@ class ChatState(ModalityState):
     def apply_input(self, input_data: ModalityInput) -> None:
         """Apply a ChatInput to modify this state.
 
-        Adds message to appropriate conversation and manages history limits.
+        Dispatches to operation-specific handlers based on operation type.
 
         Args:
             input_data: The ChatInput to apply to this state.
@@ -135,6 +140,28 @@ class ChatState(ModalityState):
                 f"ChatState can only apply ChatInput, got {type(input_data)}"
             )
 
+        input_data.validate_input()
+
+        operation_handlers = {
+            "send_message": self._handle_send_message,
+            "delete_message": self._handle_delete_message,
+            "clear_conversation": self._handle_clear_conversation,
+        }
+
+        handler = operation_handlers.get(input_data.operation)
+        if handler:
+            handler(input_data)
+            self.last_updated = input_data.timestamp
+            self.update_count += 1
+        else:
+            raise ValueError(f"Unknown operation: {input_data.operation}")
+
+    def _handle_send_message(self, input_data: "ChatInput") -> None:
+        """Handle sending a new message.
+
+        Args:
+            input_data: Chat input data.
+        """
         conversation_id = input_data.conversation_id
 
         if conversation_id not in self.conversations:
@@ -173,8 +200,51 @@ class ChatState(ModalityState):
                 if not (m.conversation_id == conversation_id and removed_count < messages_to_remove and (removed_count := removed_count + 1))
             ]
 
-        self.last_updated = input_data.timestamp
-        self.update_count += 1
+    def _handle_delete_message(self, input_data: "ChatInput") -> None:
+        """Handle deleting a message.
+
+        Args:
+            input_data: Chat input data.
+            
+        Note:
+            If message is not found, this is a no-op (similar to email/SMS patterns).
+        """
+        message_id = input_data.message_id
+        
+        for i, msg in enumerate(self.messages):
+            if msg.message_id == message_id:
+                conv_id = msg.conversation_id
+                self.messages.pop(i)
+                
+                # Update conversation metadata
+                if conv_id in self.conversations:
+                    conv = self.conversations[conv_id]
+                    conv.message_count -= 1
+                    
+                    # Update last_message_at if we deleted the last message
+                    remaining_msgs = [m for m in self.messages if m.conversation_id == conv_id]
+                    if remaining_msgs:
+                        conv.last_message_at = max(m.timestamp for m in remaining_msgs)
+                return
+        
+        # Message not found - no-op (consistent with email/SMS modalities)
+
+    def _handle_clear_conversation(self, input_data: "ChatInput") -> None:
+        """Handle clearing a conversation.
+
+        Args:
+            input_data: Chat input data.
+        """
+        conversation_id = input_data.conversation_id
+        
+        # Remove all messages from this conversation
+        self.messages = [
+            m for m in self.messages if m.conversation_id != conversation_id
+        ]
+        
+        # Remove conversation metadata
+        if conversation_id in self.conversations:
+            del self.conversations[conversation_id]
 
     def get_snapshot(self) -> dict[str, Any]:
         """Return a complete snapshot of current state for API responses.

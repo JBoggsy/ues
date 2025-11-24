@@ -1,153 +1,245 @@
 """Weather modality endpoints.
 
-These endpoints allow clients to query and update the simulated weather conditions.
+Provides REST API access to weather state and operations.
+Supports querying weather data for multiple locations with optional filtering
+and unit conversion. Also supports real-time weather queries via OpenWeather API.
 """
 
-from datetime import datetime
+from typing import Any, Literal, Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from api.dependencies import SimulationEngineDep
-from models.modalities.weather_input import WeatherInput
-from models.event import SimulatorEvent
+from api.models import ModalityActionResponse
+from api.utils import create_immediate_event
+from models.modalities.weather_input import WeatherInput, WeatherReport
+from models.modalities.weather_state import WeatherState
 
-# Create router for weather-related endpoints
 router = APIRouter(
     prefix="/weather",
     tags=["weather"],
 )
 
 
-# Response Models
-
-
-class CurrentWeatherResponse(BaseModel):
-    """Current weather conditions.
-    
-    Attributes:
-        location_name: Human-readable location name.
-        latitude: Location latitude.
-        longitude: Location longitude.
-        current_conditions: Dictionary of current weather data.
-        forecast: List of forecasted conditions (if available).
-        last_updated: When the weather was last updated (simulator time).
-    """
-
-    location_name: str
-    latitude: float
-    longitude: float
-    current_conditions: dict
-    forecast: list[dict] = Field(default_factory=list)
-    last_updated: str | None = None
-
-
 # Request Models
 
 
 class UpdateWeatherRequest(BaseModel):
-    """Request to update weather conditions.
-    
-    Attributes:
-        temperature: Temperature in Fahrenheit.
-        conditions: Weather conditions description (e.g., "Sunny", "Rainy").
-        humidity: Humidity percentage (0-100).
-        wind_speed: Wind speed in mph.
-        wind_direction: Wind direction (e.g., "N", "NE", "SW").
+    """Request to update weather conditions for a location.
+
+    Args:
+        latitude: Location latitude in decimal degrees (-90 to 90).
+        longitude: Location longitude in decimal degrees (-180 to 180).
+        report: Complete weather report conforming to OpenWeather API format.
     """
 
-    temperature: float = Field(..., ge=-100, le=150, description="Temperature in °F")
-    conditions: str
-    humidity: int = Field(..., ge=0, le=100, description="Humidity percentage")
-    wind_speed: float = Field(..., ge=0, description="Wind speed in mph")
-    wind_direction: str
+    latitude: float = Field(description="Location latitude (-90 to 90)")
+    longitude: float = Field(description="Location longitude (-180 to 180)")
+    report: WeatherReport = Field(description="Complete weather report")
+
+
+class WeatherQueryRequest(BaseModel):
+    """Request to query weather data for a location.
+
+    Args:
+        lat: Location latitude to query (required).
+        lon: Location longitude to query (required).
+        exclude: List of sections to exclude (current, minutely, hourly, daily, alerts).
+        units: Unit system (standard, metric, imperial) - default: standard.
+        from_time: Unix timestamp - return all reports since this time.
+        to_time: Unix timestamp - return reports up to this time (requires from_time).
+        real: If True, query OpenWeather API instead of simulated data.
+        limit: Maximum number of reports to return.
+        offset: Number of reports to skip (for pagination).
+    """
+
+    lat: float = Field(description="Location latitude to query")
+    lon: float = Field(description="Location longitude to query")
+    exclude: Optional[list[str]] = Field(
+        default=None,
+        description="Sections to exclude (current, minutely, hourly, daily, alerts)",
+    )
+    units: Literal["standard", "metric", "imperial"] = Field(
+        default="standard", description="Unit system"
+    )
+    from_time: Optional[int] = Field(
+        default=None, description="Return reports since this Unix timestamp"
+    )
+    to_time: Optional[int] = Field(
+        default=None, description="Return reports up to this Unix timestamp"
+    )
+    real: bool = Field(
+        default=False, description="Query OpenWeather API for real weather data"
+    )
+    limit: Optional[int] = Field(default=None, description="Maximum reports to return", ge=1)
+    offset: Optional[int] = Field(default=0, description="Reports to skip", ge=0)
+
+
+# Response Models
+
+
+class WeatherStateResponse(BaseModel):
+    """Response containing complete weather state.
+
+    Args:
+        modality_type: Always "weather".
+        last_updated: ISO format timestamp of last update.
+        update_count: Number of weather updates.
+        locations: Dict mapping location keys to weather data.
+        location_count: Number of tracked locations.
+    """
+
+    modality_type: str = Field(description="Modality type identifier")
+    last_updated: str = Field(description="ISO format timestamp of last update")
+    update_count: int = Field(description="Number of weather updates")
+    locations: dict[str, Any] = Field(description="Weather data for tracked locations")
+    location_count: int = Field(description="Number of tracked locations")
+
+
+class WeatherQueryResponse(BaseModel):
+    """Response containing weather query results.
+
+    Args:
+        reports: List of WeatherReport objects matching the query.
+        count: Number of reports returned (after pagination).
+        total_count: Total matching reports (before pagination).
+        error: Optional error message if no data available.
+    """
+
+    reports: list[WeatherReport] = Field(description="Matching weather reports")
+    count: int = Field(description="Number of reports returned")
+    total_count: int = Field(default=0, description="Total matching reports")
+    error: Optional[str] = Field(default=None, description="Error message if applicable")
 
 
 # Route Handlers
 
 
-@router.get("/current", response_model=CurrentWeatherResponse)
-async def get_current_weather(engine: SimulationEngineDep):
-    """Get the current weather conditions.
-    
-    Returns the simulated weather state including current conditions
-    and any available forecast data.
-    
-    Args:
-        engine: The SimulationEngine instance (injected by FastAPI).
-    
+@router.get("/state", response_model=WeatherStateResponse)
+async def get_weather_state(engine: SimulationEngineDep):
+    """Get current weather state for all tracked locations.
+
+    Returns a complete snapshot of the weather state including all tracked
+    locations and their current weather conditions.
+
     Returns:
-        Current weather conditions and forecast.
-    
-    Raises:
-        HTTPException: If weather modality is not available (500).
+        WeatherStateResponse: Complete weather state with all locations.
     """
-    env = engine.environment
-    
-    if "weather" not in env.modality_states:
+    weather_state = engine.environment.get_modality_state("weather")
+
+    if not isinstance(weather_state, WeatherState):
         raise HTTPException(
             status_code=500,
-            detail="Weather modality not initialized in environment",
+            detail="Weather state not properly initialized",
         )
-    
-    weather_state = env.modality_states["weather"]
-    
-    # If no locations tracked yet, return empty response
-    if not weather_state.locations:
-        return CurrentWeatherResponse(
-            location_name="No location tracked",
-            latitude=0.0,
-            longitude=0.0,
-            current_conditions={},
-            forecast=[],
-            last_updated=weather_state.last_updated.isoformat(),
-        )
-    
-    # Get the first location (for simplicity)
-    location_key = list(weather_state.locations.keys())[0]
-    location_state = weather_state.locations[location_key]
-    
-    return CurrentWeatherResponse(
-        location_name=f"Location ({location_state.latitude:.2f}, {location_state.longitude:.2f})",
-        latitude=location_state.latitude,
-        longitude=location_state.longitude,
-        current_conditions=location_state.current_report.model_dump()
-        if location_state.current_report
-        else {},
-        forecast=[],  # Simplified - not exposing full forecast structure yet
-        last_updated=weather_state.last_updated.isoformat(),
-    )
+
+    snapshot = weather_state.get_snapshot()
+    return WeatherStateResponse(**snapshot)
 
 
-@router.post("/update", response_model=CurrentWeatherResponse)
-async def update_weather(request: UpdateWeatherRequest, engine: SimulationEngineDep):
-    """Update the current weather conditions.
-    
-    Creates an immediate weather update event that modifies the simulated
-    weather conditions. This is useful for testing how an AI assistant
-    responds to weather changes.
-    
+@router.post("/query", response_model=WeatherQueryResponse)
+async def query_weather(request: WeatherQueryRequest, engine: SimulationEngineDep):
+    """Query weather data for a specific location with filters.
+
+    Supports querying simulated weather history or real-time weather from
+    OpenWeather API. Can filter by time range, exclude sections, and convert units.
+
     Args:
-        request: The new weather conditions to set.
-        engine: The SimulationEngine instance (injected by FastAPI).
-    
+        request: Query parameters including location, filters, and options.
+        engine: The simulation engine dependency.
+
     Returns:
-        The updated weather state.
-    
+        WeatherQueryResponse: Matching weather reports with pagination info.
+
     Raises:
-        HTTPException: If the update fails.
+        HTTPException: If query parameters are invalid or query fails.
+    """
+    weather_state = engine.environment.get_modality_state("weather")
+
+    if not isinstance(weather_state, WeatherState):
+        raise HTTPException(
+            status_code=500,
+            detail="Weather state not properly initialized",
+        )
+
+    try:
+        query_params = request.model_dump(exclude_unset=True)
+        result = weather_state.query(query_params)
+
+        # Convert dict reports to WeatherReport objects
+        reports = []
+        for report_dict in result.get("reports", []):
+            reports.append(WeatherReport(**report_dict))
+
+        return WeatherQueryResponse(
+            reports=reports,
+            count=result.get("count", 0),
+            total_count=result.get("total_count", result.get("count", 0)),
+            error=result.get("error"),
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid query parameters: {str(e)}",
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to query weather: {str(e)}",
+        )
+
+
+@router.post("/update", response_model=ModalityActionResponse)
+async def update_weather(request: UpdateWeatherRequest, engine: SimulationEngineDep):
+    """Update weather conditions for a location.
+
+    Creates an immediate event that updates the weather for the specified
+    location. The weather report should conform to OpenWeather API format.
+
+    Args:
+        request: Weather update data including location and complete report.
+        engine: The simulation engine dependency.
+
+    Returns:
+        ModalityActionResponse: Confirmation of the weather update with event ID.
+
+    Raises:
+        HTTPException: If the weather update fails validation or execution.
     """
     try:
-        # Create a simple weather report
-        # For a complete implementation, we'd use the full WeatherInput/WeatherReport structure
-        # For now, just return a simplified response showing this would work
-        
-        raise HTTPException(
-            status_code=501,
-            detail="Weather updates not yet fully implemented - requires complete WeatherReport structure",
+        current_time = engine.environment.time_state.current_time
+
+        weather_input = WeatherInput(
+            timestamp=current_time,
+            latitude=request.latitude,
+            longitude=request.longitude,
+            report=request.report,
         )
-    
-    except HTTPException:
+
+        event = create_immediate_event(
+            current_time=current_time,
+            modality="weather",
+            input_data=weather_input,
+        )
+
+        engine.add_event(event)
+
+        return ModalityActionResponse(
+            event_id=event.event_id,
+            status="executed",
+            message=f"Weather updated for location ({request.latitude}, {request.longitude})",
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid weather data: {str(e)}",
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to update weather: {str(e)}",
+        )
         raise
     except Exception as e:
         raise HTTPException(

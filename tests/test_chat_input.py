@@ -72,9 +72,13 @@ class TestChatInputInstantiation:
             chat_input.modality_type = "other"
 
     def test_instantiation_auto_generates_message_id(self):
-        """Test that message_id is auto-generated if not provided."""
+        """Test that message_id is auto-generated when validate_input() is called."""
         chat_input1 = create_chat_input()
         chat_input2 = create_chat_input()
+        
+        # validate_input() auto-generates message_id for send_message operation
+        chat_input1.validate_input()
+        chat_input2.validate_input()
         
         assert chat_input1.message_id is not None
         assert chat_input2.message_id is not None
@@ -187,6 +191,78 @@ class TestChatInputValidation:
         """Test that whitespace-only conversation ID is rejected."""
         with pytest.raises(ValueError, match="Conversation ID cannot be empty"):
             create_chat_input(conversation_id="   ")
+
+    def test_validate_operation_send_message_default(self):
+        """Test that default operation is 'send_message'."""
+        chat_input = create_chat_input()
+        assert chat_input.operation == "send_message"
+
+    def test_validate_operation_send_message_explicit(self):
+        """Test that 'send_message' operation is accepted."""
+        chat_input = ChatInput(
+            operation="send_message",
+            role="user",
+            content="Hello",
+            timestamp=datetime.now(timezone.utc),
+        )
+        assert chat_input.operation == "send_message"
+
+    def test_validate_operation_delete_message(self):
+        """Test that 'delete_message' operation is accepted."""
+        chat_input = ChatInput(
+            operation="delete_message",
+            message_id="msg-123",
+            timestamp=datetime.now(timezone.utc),
+        )
+        assert chat_input.operation == "delete_message"
+
+    def test_validate_operation_clear_conversation(self):
+        """Test that 'clear_conversation' operation is accepted."""
+        chat_input = ChatInput(
+            operation="clear_conversation",
+            conversation_id="test",
+            timestamp=datetime.now(timezone.utc),
+        )
+        assert chat_input.operation == "clear_conversation"
+
+    def test_validate_send_message_requires_role(self):
+        """Test that send_message operation requires role."""
+        chat_input = ChatInput(
+            operation="send_message",
+            content="Hello",
+            timestamp=datetime.now(timezone.utc),
+        )
+        with pytest.raises(ValueError, match="requires 'role' field"):
+            chat_input.validate_input()
+
+    def test_validate_send_message_requires_content(self):
+        """Test that send_message operation requires content."""
+        chat_input = ChatInput(
+            operation="send_message",
+            role="user",
+            timestamp=datetime.now(timezone.utc),
+        )
+        with pytest.raises(ValueError, match="requires 'content' field"):
+            chat_input.validate_input()
+
+    def test_validate_delete_message_requires_message_id(self):
+        """Test that delete_message operation requires message_id."""
+        chat_input = ChatInput(
+            operation="delete_message",
+            timestamp=datetime.now(timezone.utc),
+        )
+        with pytest.raises(ValueError, match="requires 'message_id' field"):
+            chat_input.validate_input()
+
+    def test_validate_clear_conversation_succeeds(self):
+        """Test that clear_conversation operation doesn't require extra fields."""
+        chat_input = ChatInput(
+            operation="clear_conversation",
+            conversation_id="test",
+            timestamp=datetime.now(timezone.utc),
+        )
+        # Should not raise
+        chat_input.validate_input()
 
 
 class TestChatInputAbstractMethods:

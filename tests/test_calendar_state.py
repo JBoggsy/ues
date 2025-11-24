@@ -92,10 +92,10 @@ class TestCalendarHelperClass:
         """Verify Calendar serialization."""
         cal = Calendar(calendar_id="work", name="Work", event_ids={"event-1"})
 
-        result = cal.to_dict()
+        result = cal.model_dump(mode="json")
         assert result["calendar_id"] == "work"
         assert result["name"] == "Work"
-        assert result["event_count"] == 1
+        assert cal.event_count == 1
 
 
 class TestCalendarEventHelperClass:
@@ -175,12 +175,12 @@ class TestCalendarEventHelperClass:
             attendees=[Attendee(email="alice@example.com")],
         )
 
-        result = event.to_dict()
+        result = event.model_dump(mode="json")
         assert result["event_id"] == "event-123"
         assert result["title"] == "Meeting"
         assert result["location"] == "Office"
-        assert result["has_attendees"] is True
-        assert len(result["attendees"]) == 1
+        assert event.has_attendees is True
+        assert len(event.attendees) == 1
 
 
 class TestCalendarStateApplyInput:
@@ -589,7 +589,7 @@ class TestCalendarStateQuery:
         result = state.query({"calendar_ids": ["work"]})
 
         assert result["count"] == 1
-        assert result["events"][0]["calendar_id"] == "work"
+        assert result["events"][0].calendar_id == "work"
 
     def test_query_by_date_range(self):
         """MODALITY-SPECIFIC: Query events within date range."""
@@ -639,7 +639,7 @@ class TestCalendarStateQuery:
         result = state.query({"search": "team"})
 
         assert result["count"] == 2
-        titles_found = [e["title"] for e in result["events"]]
+        titles_found = [e.title for e in result["events"]]
         assert "Team Meeting" in titles_found
         assert "Team Standup" in titles_found
 
@@ -665,7 +665,7 @@ class TestCalendarStateQuery:
         result = state.query({"status": "confirmed"})
 
         assert result["count"] == 1
-        assert result["events"][0]["status"] == "confirmed"
+        assert result["events"][0].status == "confirmed"
 
     def test_query_by_has_attendees(self):
         """MODALITY-SPECIFIC: Query events with/without attendees."""
@@ -698,11 +698,11 @@ class TestCalendarStateQuery:
 
         result_with = state.query({"has_attendees": True})
         assert result_with["count"] == 1
-        assert result_with["events"][0]["title"] == "Meeting"
+        assert result_with["events"][0].title == "Meeting"
 
         result_without = state.query({"has_attendees": False})
         assert result_without["count"] == 1
-        assert result_without["events"][0]["title"] == "Solo Work"
+        assert result_without["events"][0].title == "Solo Work"
 
     def test_query_by_recurring(self):
         """MODALITY-SPECIFIC: Query recurring vs non-recurring events."""
@@ -739,11 +739,11 @@ class TestCalendarStateQuery:
 
         result_recurring = state.query({"recurring": True})
         assert result_recurring["count"] == 1
-        assert result_recurring["events"][0]["title"] == "Weekly Meeting"
+        assert result_recurring["events"][0].title == "Weekly Meeting"
 
         result_normal = state.query({"recurring": False})
         assert result_normal["count"] == 1
-        assert result_normal["events"][0]["title"] == "One-time Event"
+        assert result_normal["events"][0].title == "One-time Event"
 
     def test_query_with_limit(self):
         """MODALITY-SPECIFIC: Query with result limit."""

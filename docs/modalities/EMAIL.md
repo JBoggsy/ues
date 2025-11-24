@@ -298,9 +298,9 @@ Represents a conversation thread grouping related emails.
    - Calls `EmailState.apply_input(email_input)`
    - Email state is modified in-place
 4. **API Queries**: AI assistant queries email via REST API:
-   - Endpoint: `GET /api/modalities/email`
+   - Endpoint: `GET /email/state`
    - Returns: `EmailState.get_snapshot()`
-   - Search: `POST /api/modalities/email/query` with query parameters
+   - Search: `POST /email/query` with query parameters
    - Returns: `EmailState.query(params)`
 5. **State Persistence**: Environment snapshots save complete email state for reproducibility
 

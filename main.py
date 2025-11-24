@@ -26,10 +26,14 @@ from api.exceptions import (
     validation_exception_handler,
     value_error_handler,
 )
+from api.routes import calendar as calendar_routes
+from api.routes import chat as chat_routes
+from api.routes import email as email_routes
 from api.routes import environment as environment_routes
 from api.routes import events as events_routes
-from api.routes import modalities as modalities_routes
+from api.routes import location as location_routes
 from api.routes import simulation as simulation_routes
+from api.routes import sms as sms_routes
 from api.routes import time as time_routes
 from api.routes import weather as weather_routes
 
@@ -84,8 +88,12 @@ app.include_router(time_routes.router)
 app.include_router(environment_routes.router)
 app.include_router(events_routes.router)
 app.include_router(simulation_routes.router)
-app.include_router(modalities_routes.router)
 app.include_router(weather_routes.router)
+app.include_router(email_routes.router)
+app.include_router(sms_routes.router)
+app.include_router(chat_routes.router)
+app.include_router(calendar_routes.router)
+app.include_router(location_routes.router)
 
 
 @app.get("/")

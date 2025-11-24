@@ -596,6 +596,165 @@ class TestChatStateHelperMethods:
         assert message is None
 
 
+class TestChatStateOperations:
+    """Test ChatState operation handlers.
+    
+    CHAT-SPECIFIC: Test delete_message and clear_conversation operations.
+    """
+
+    def test_delete_message_removes_from_state(self):
+        """Test that delete_message operation removes message from state."""
+        state = create_chat_state()
+        
+        # Send a message
+        send_input = create_chat_input(role="user", content="Hello")
+        send_input.validate_input()  # Auto-generates message_id
+        state.apply_input(send_input)
+        
+        assert len(state.messages) == 1
+        message_id = send_input.message_id
+        
+        # Delete the message
+        delete_input = ChatInput(
+            operation="delete_message",
+            message_id=message_id,
+            timestamp=datetime.now(timezone.utc),
+        )
+        state.apply_input(delete_input)
+        
+        assert len(state.messages) == 0
+        assert state.get_message_by_id(message_id) is None
+
+    def test_delete_message_updates_conversation_metadata(self):
+        """Test that deleting message updates conversation metadata."""
+        state = create_chat_state()
+        
+        # Send two messages to same conversation
+        send1 = create_chat_input(role="user", content="First", conversation_id="test")
+        send1.validate_input()
+        state.apply_input(send1)
+        
+        send2 = create_chat_input(role="user", content="Second", conversation_id="test")
+        send2.validate_input()
+        state.apply_input(send2)
+        
+        assert state.conversations["test"].message_count == 2
+        
+        # Delete one message
+        delete_input = ChatInput(
+            operation="delete_message",
+            message_id=send1.message_id,
+            conversation_id="test",
+            timestamp=datetime.now(timezone.utc),
+        )
+        state.apply_input(delete_input)
+        
+        assert state.conversations["test"].message_count == 1
+
+    def test_delete_message_nonexistent_is_noop(self):
+        """Test that deleting nonexistent message is a no-op."""
+        state = create_chat_state()
+        
+        # Add a message
+        send_input = create_chat_input(role="user", content="Hello")
+        send_input.validate_input()
+        state.apply_input(send_input)
+        
+        initial_count = len(state.messages)
+        
+        # Try to delete nonexistent message
+        delete_input = ChatInput(
+            operation="delete_message",
+            message_id="nonexistent-id",
+            timestamp=datetime.now(timezone.utc),
+        )
+        state.apply_input(delete_input)
+        
+        # State should be unchanged
+        assert len(state.messages) == initial_count
+
+    def test_clear_conversation_removes_all_messages(self):
+        """Test that clear_conversation removes all messages in conversation."""
+        state = create_chat_state()
+        
+        # Add messages to "test" conversation
+        for i in range(3):
+            state.apply_input(create_chat_input(
+                role="user",
+                content=f"Message {i}",
+                conversation_id="test",
+            ))
+        
+        # Add messages to "other" conversation
+        state.apply_input(create_chat_input(
+            role="user",
+            content="Other message",
+            conversation_id="other",
+        ))
+        
+        assert len(state.messages) == 4
+        
+        # Clear "test" conversation
+        clear_input = ChatInput(
+            operation="clear_conversation",
+            conversation_id="test",
+            timestamp=datetime.now(timezone.utc),
+        )
+        state.apply_input(clear_input)
+        
+        # Only "other" conversation message should remain
+        assert len(state.messages) == 1
+        assert state.messages[0].conversation_id == "other"
+
+    def test_clear_conversation_removes_metadata(self):
+        """Test that clearing conversation removes its metadata."""
+        state = create_chat_state()
+        
+        # Add messages
+        state.apply_input(create_chat_input(
+            role="user",
+            content="Hello",
+            conversation_id="test",
+        ))
+        
+        assert "test" in state.conversations
+        
+        # Clear conversation
+        clear_input = ChatInput(
+            operation="clear_conversation",
+            conversation_id="test",
+            timestamp=datetime.now(timezone.utc),
+        )
+        state.apply_input(clear_input)
+        
+        assert "test" not in state.conversations
+
+    def test_clear_conversation_nonexistent_is_noop(self):
+        """Test that clearing nonexistent conversation is a no-op."""
+        state = create_chat_state()
+        
+        # Add a message to "test" conversation
+        state.apply_input(create_chat_input(
+            role="user",
+            content="Hello",
+            conversation_id="test",
+        ))
+        
+        initial_count = len(state.messages)
+        
+        # Try to clear nonexistent conversation
+        clear_input = ChatInput(
+            operation="clear_conversation",
+            conversation_id="nonexistent",
+            timestamp=datetime.now(timezone.utc),
+        )
+        state.apply_input(clear_input)
+        
+        # State should be unchanged
+        assert len(state.messages) == initial_count
+        assert "test" in state.conversations
+
+
 class TestChatMessageClass:
     """Test ChatMessage helper class.
     
