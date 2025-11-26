@@ -122,6 +122,11 @@ async def advance_time(request: AdvanceTimeRequest, engine: SimulationEngineDep)
             is_paused=time_state.is_paused,
             auto_advance=time_state.auto_advance,
         )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=str(e),
+        )
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -284,6 +289,11 @@ async def set_time_scale(request: SetScaleRequest, engine: SimulationEngineDep):
             time_scale=time_state.time_scale,
             is_paused=time_state.is_paused,
             auto_advance=time_state.auto_advance,
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=str(e),
         )
     except Exception as e:
         raise HTTPException(

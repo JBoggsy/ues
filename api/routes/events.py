@@ -7,16 +7,84 @@ from datetime import datetime
 from typing import Any, Optional
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 from api.dependencies import SimulationEngineDep
+from models.base_input import ModalityInput
 from models.event import EventStatus, SimulatorEvent
+from models.modalities.calendar_input import CalendarInput
+from models.modalities.chat_input import ChatInput
+from models.modalities.email_input import EmailInput
+from models.modalities.location_input import LocationInput
+from models.modalities.sms_input import SMSInput
+from models.modalities.time_input import TimeInput
+from models.modalities.weather_input import WeatherInput
 
 # Create router for event-related endpoints
 router = APIRouter(
     prefix="/events",
     tags=["events"],
 )
+
+# Mapping of modality names to their input classes
+MODALITY_INPUT_CLASSES: dict[str, type[ModalityInput]] = {
+    "email": EmailInput,
+    "sms": SMSInput,
+    "chat": ChatInput,
+    "calendar": CalendarInput,
+    "location": LocationInput,
+    "weather": WeatherInput,
+    "time": TimeInput,
+}
+
+
+def deserialize_modality_input(
+    modality: str, data: dict[str, Any], timestamp: datetime
+) -> ModalityInput:
+    """Deserialize a data dict into the appropriate ModalityInput subclass.
+    
+    Args:
+        modality: The modality type (e.g., "email", "sms").
+        data: The raw data dict from the API request.
+        timestamp: The timestamp to use for the input (usually event scheduled_time).
+    
+    Returns:
+        A properly typed ModalityInput instance.
+    
+    Raises:
+        HTTPException: If modality is unknown or data is invalid.
+    """
+    # Get the input class for this modality
+    input_class = MODALITY_INPUT_CLASSES.get(modality)
+    
+    if input_class is None:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown modality: {modality}. Supported modalities: {', '.join(MODALITY_INPUT_CLASSES.keys())}",
+        )
+    
+    # Add required fields that all ModalityInputs need
+    data_with_metadata = {
+        **data,
+        "modality_type": modality,
+        "timestamp": timestamp,
+    }
+    
+    # Deserialize into the proper class
+    try:
+        return input_class(**data_with_metadata)
+    except ValidationError as e:
+        # Pydantic validation failed - return helpful error
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid data for {modality} modality: {str(e)}",
+        )
+    except Exception as e:
+        # Unexpected error during deserialization
+        raise HTTPException(
+            status_code=400,
+            detail=f"Failed to deserialize {modality} data: {str(e)}",
+        )
 
 
 # Request/Response Models
@@ -235,15 +303,18 @@ async def create_event(request: CreateEventRequest, engine: SimulationEngineDep)
                 detail=f"Cannot schedule event in the past. Current time: {current_time.isoformat()}, scheduled: {request.scheduled_time.isoformat()}",
             )
         
-        # Import modality-specific input classes to construct proper data
-        # For now, we'll just pass the data dict as-is
-        # TODO: Implement proper ModalityInput deserialization
+        # Deserialize the data dict into proper ModalityInput
+        modality_input = deserialize_modality_input(
+            modality=request.modality,
+            data=request.data,
+            timestamp=request.scheduled_time,
+        )
         
         # Create the event
         event = SimulatorEvent(
             scheduled_time=request.scheduled_time,
             modality=request.modality,
-            data=request.data,
+            data=modality_input,
             priority=request.priority,
             created_at=current_time,
             agent_id=request.agent_id,
@@ -297,11 +368,18 @@ async def create_immediate_event(request: ImmediateEventRequest, engine: Simulat
     try:
         current_time = engine.environment.time_state.current_time
         
+        # Deserialize the data dict into proper ModalityInput
+        modality_input = deserialize_modality_input(
+            modality=request.modality,
+            data=request.data,
+            timestamp=current_time,
+        )
+        
         # Create event at current time with high priority
         event = SimulatorEvent(
             scheduled_time=current_time,
             modality=request.modality,
-            data=request.data,
+            data=modality_input,
             priority=100,  # High priority for immediate execution
             created_at=current_time,
         )
@@ -329,6 +407,82 @@ async def create_immediate_event(request: ImmediateEventRequest, engine: Simulat
             status_code=500,
             detail=f"Failed to create immediate event: {str(e)}",
         )
+
+
+@router.get("/next", response_model=EventResponse)
+async def peek_next_event(engine: SimulationEngineDep):
+    """Peek at the next pending event without executing it.
+    
+    Returns the next event that will be executed when time advances.
+    
+    Args:
+        engine: The SimulationEngine instance (injected by FastAPI).
+    
+    Returns:
+        Next pending event details.
+    
+    Raises:
+        HTTPException: If no pending events exist.
+    """
+    next_event = engine.event_queue.peek_next()
+    
+    if not next_event:
+        raise HTTPException(
+            status_code=404,
+            detail="No pending events",
+        )
+    
+    return EventResponse(
+        event_id=next_event.event_id,
+        scheduled_time=next_event.scheduled_time,
+        modality=next_event.modality,
+        status=next_event.status.value,
+        priority=next_event.priority,
+        created_at=next_event.created_at,
+        executed_at=next_event.executed_at,
+        error_message=next_event.error_message,
+    )
+
+
+@router.get("/summary", response_model=EventSummaryResponse)
+async def get_event_summary(engine: SimulationEngineDep):
+    """Get event execution statistics.
+    
+    Provides counts and statistics about events in the simulation.
+    
+    Args:
+        engine: The SimulationEngine instance (injected by FastAPI).
+    
+    Returns:
+        Event summary statistics.
+    """
+    all_events = engine.event_queue.events
+    
+    # Count by status
+    total = len(all_events)
+    pending = sum(1 for e in all_events if e.status == EventStatus.PENDING)
+    executed = sum(1 for e in all_events if e.status == EventStatus.EXECUTED)
+    failed = sum(1 for e in all_events if e.status == EventStatus.FAILED)
+    skipped = sum(1 for e in all_events if e.status == EventStatus.SKIPPED)
+    
+    # Count by modality
+    by_modality: dict[str, int] = {}
+    for event in all_events:
+        by_modality[event.modality] = by_modality.get(event.modality, 0) + 1
+    
+    # Get next event time
+    next_event = engine.event_queue.peek_next()
+    next_event_time = next_event.scheduled_time if next_event else None
+    
+    return EventSummaryResponse(
+        total=total,
+        pending=pending,
+        executed=executed,
+        failed=failed,
+        skipped=skipped,
+        by_modality=by_modality,
+        next_event_time=next_event_time,
+    )
 
 
 @router.get("/{event_id}", response_model=EventResponse)
@@ -414,79 +568,3 @@ async def cancel_event(event_id: str, engine: SimulationEngineDep):
         "cancelled": True,
         "event_id": event_id,
     }
-
-
-@router.get("/next", response_model=EventResponse)
-async def peek_next_event(engine: SimulationEngineDep):
-    """Peek at the next pending event without executing it.
-    
-    Returns the next event that will be executed when time advances.
-    
-    Args:
-        engine: The SimulationEngine instance (injected by FastAPI).
-    
-    Returns:
-        Next pending event details.
-    
-    Raises:
-        HTTPException: If no pending events exist.
-    """
-    next_event = engine.event_queue.peek_next()
-    
-    if not next_event:
-        raise HTTPException(
-            status_code=404,
-            detail="No pending events",
-        )
-    
-    return EventResponse(
-        event_id=next_event.event_id,
-        scheduled_time=next_event.scheduled_time,
-        modality=next_event.modality,
-        status=next_event.status.value,
-        priority=next_event.priority,
-        created_at=next_event.created_at,
-        executed_at=next_event.executed_at,
-        error_message=next_event.error_message,
-    )
-
-
-@router.get("/summary", response_model=EventSummaryResponse)
-async def get_event_summary(engine: SimulationEngineDep):
-    """Get event execution statistics.
-    
-    Provides counts and statistics about events in the simulation.
-    
-    Args:
-        engine: The SimulationEngine instance (injected by FastAPI).
-    
-    Returns:
-        Event summary statistics.
-    """
-    all_events = engine.event_queue.events
-    
-    # Count by status
-    total = len(all_events)
-    pending = sum(1 for e in all_events if e.status == EventStatus.PENDING)
-    executed = sum(1 for e in all_events if e.status == EventStatus.EXECUTED)
-    failed = sum(1 for e in all_events if e.status == EventStatus.FAILED)
-    skipped = sum(1 for e in all_events if e.status == EventStatus.SKIPPED)
-    
-    # Count by modality
-    by_modality: dict[str, int] = {}
-    for event in all_events:
-        by_modality[event.modality] = by_modality.get(event.modality, 0) + 1
-    
-    # Get next event time
-    next_event = engine.event_queue.peek_next()
-    next_event_time = next_event.scheduled_time if next_event else None
-    
-    return EventSummaryResponse(
-        total=total,
-        pending=pending,
-        executed=executed,
-        failed=failed,
-        skipped=skipped,
-        by_modality=by_modality,
-        next_event_time=next_event_time,
-    )

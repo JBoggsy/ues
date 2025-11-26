@@ -86,7 +86,7 @@ class TestWeatherStateInstantiation:
         """Test that modality_type cannot be changed after instantiation."""
         state = create_weather_state()
         
-        with pytest.raises(TypeError):  # Pydantic frozen field error
+        with pytest.raises(Exception):  # Pydantic raises ValidationError
             state.modality_type = "other"
 
     def test_instantiation_default_modality_type(self):

@@ -14,4 +14,5 @@ pytest_plugins = [
     "tests.fixtures.core.events",
     "tests.fixtures.core.queues",
     "tests.fixtures.core.environments",
+    "tests.fixtures.api",
 ]
