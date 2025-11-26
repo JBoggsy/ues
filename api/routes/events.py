@@ -59,7 +59,7 @@ def deserialize_modality_input(
     
     if input_class is None:
         raise HTTPException(
-            status_code=400,
+            status_code=404,
             detail=f"Unknown modality: {modality}. Supported modalities: {', '.join(MODALITY_INPUT_CLASSES.keys())}",
         )
     
@@ -397,6 +397,8 @@ async def create_immediate_event(request: ImmediateEventRequest, engine: Simulat
             executed_at=event.executed_at,
             error_message=event.error_message,
         )
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(
             status_code=400,
