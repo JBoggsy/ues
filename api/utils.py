@@ -22,7 +22,8 @@ def create_immediate_event(
     """Create and add an immediate event to the simulation.
     
     This is a common pattern for all modality action endpoints. Creates
-    an event scheduled at the current simulator time with high priority.
+    an event scheduled at the current simulator time with high priority,
+    and executes it immediately.
     
     Args:
         engine: The SimulationEngine instance.
@@ -31,10 +32,10 @@ def create_immediate_event(
         priority: Event priority (0-100, higher executes first).
     
     Returns:
-        The created SimulatorEvent.
+        The created SimulatorEvent (after execution).
     
     Raises:
-        HTTPException: If event creation fails.
+        HTTPException: If event creation or execution fails.
     """
     try:
         current_time = engine.environment.time_state.current_time
@@ -48,6 +49,9 @@ def create_immediate_event(
         )
         
         engine.add_event(event)
+        
+        # Execute the event immediately since it's scheduled for current time
+        event.execute(engine.environment)
         
         return event
     

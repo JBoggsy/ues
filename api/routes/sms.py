@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 from api.dependencies import SimulationEngineDep
 from api.models import ModalityActionResponse
 from api.utils import create_immediate_event
+from models.modalities.sms_input import SMSInput
 from models.modalities.sms_state import (
     GroupParticipant,
     MessageAttachment,
@@ -267,9 +268,9 @@ async def get_sms_state(engine: SimulationEngineDep) -> SMSStateResponse:
         engine: The simulation engine dependency.
 
     Returns:
-        Complete SMS state with metadata.
+        Complete SMS state with all messages.
     """
-    sms_state = engine.environment.get_modality_state("sms")
+    sms_state = engine.environment.get_state("sms")
 
     if not isinstance(sms_state, SMSState):
         raise HTTPException(
@@ -307,7 +308,7 @@ async def query_sms(
     Returns:
         Filtered message results with counts.
     """
-    sms_state = engine.environment.get_modality_state("sms")
+    sms_state = engine.environment.get_state("sms")
 
     if not isinstance(sms_state, SMSState):
         raise HTTPException(
@@ -315,76 +316,32 @@ async def query_sms(
             detail="SMS state not properly initialized",
         )
 
-    # Start with all messages
-    results = list(sms_state.messages.values())
+    query_params = {
+        "thread_id": request.thread_id,
+        "from_number": request.from_number,
+        "to_number": request.to_number,
+        "body_contains": request.body_contains,
+        "message_type": request.message_type,
+        "direction": request.direction,
+        "is_read": request.is_read,
+        "has_attachments": request.has_attachments,
+        "delivery_status": request.delivery_status,
+        "is_deleted": request.is_deleted,
+        "is_spam": request.is_spam,
+        "sent_after": request.sent_after,
+        "sent_before": request.sent_before,
+        "limit": request.limit,
+        "offset": request.offset,
+        "sort_by": request.sort_by,
+        "sort_order": request.sort_order,
+    }
 
-    # Apply filters
-    if request.thread_id is not None:
-        results = [m for m in results if m.thread_id == request.thread_id]
-
-    if request.from_number is not None:
-        results = [m for m in results if m.from_number == request.from_number]
-
-    if request.to_number is not None:
-        results = [m for m in results if request.to_number in m.to_numbers]
-
-    if request.body_contains is not None:
-        body_lower = request.body_contains.lower()
-        results = [m for m in results if body_lower in m.body.lower()]
-
-    if request.message_type is not None:
-        results = [m for m in results if m.message_type == request.message_type]
-
-    if request.direction is not None:
-        results = [m for m in results if m.direction == request.direction]
-
-    if request.is_read is not None:
-        results = [m for m in results if m.is_read == request.is_read]
-
-    if request.has_attachments is not None:
-        if request.has_attachments:
-            results = [m for m in results if len(m.attachments) > 0]
-        else:
-            results = [m for m in results if len(m.attachments) == 0]
-
-    if request.delivery_status is not None:
-        results = [m for m in results if m.delivery_status == request.delivery_status]
-
-    if request.is_deleted is not None:
-        results = [m for m in results if m.is_deleted == request.is_deleted]
-
-    if request.is_spam is not None:
-        results = [m for m in results if m.is_spam == request.is_spam]
-
-    if request.sent_after is not None:
-        results = [m for m in results if m.sent_at >= request.sent_after]
-
-    if request.sent_before is not None:
-        results = [m for m in results if m.sent_at <= request.sent_before]
-
-    # Get total count before pagination
-    total_count = len(results)
-
-    # Apply sorting
-    if request.sort_by:
-        reverse = request.sort_order == "desc"
-        try:
-            results.sort(key=lambda m: getattr(m, request.sort_by), reverse=reverse)
-        except AttributeError:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Invalid sort_by field: {request.sort_by}",
-            )
-
-    # Apply pagination
-    offset = request.offset
-    limit = request.limit or total_count
-    results = results[offset : offset + limit]
+    result = sms_state.query(query_params)
 
     return SMSQueryResponse(
-        messages=results,
-        total_count=total_count,
-        returned_count=len(results),
+        messages=result["messages"],
+        total_count=result["total_count"],
+        returned_count=result["count"],
         query=request.model_dump(exclude_none=True),
     )
 
@@ -406,32 +363,34 @@ async def send_sms(
         Action response with event details.
     """
     try:
-        # Convert request to event data
-        event_data = {
-            "action": "send_message",
-            "message_data": {
-                "from_number": request.from_number,
-                "to_numbers": request.to_numbers,
-                "body": request.body,
-                "message_type": request.message_type,
-            },
+        # Build message data
+        message_data = {
+            "from_number": request.from_number,
+            "to_numbers": request.to_numbers,
+            "body": request.body,
+            "message_type": request.message_type,
         }
 
         # Add optional fields
         if request.attachments:
-            event_data["message_data"]["attachments"] = [
+            message_data["attachments"] = [
                 att.model_dump() for att in request.attachments
             ]
         if request.replied_to_message_id:
-            event_data["message_data"]["replied_to_message_id"] = (
-                request.replied_to_message_id
-            )
+            message_data["replied_to_message_id"] = request.replied_to_message_id
+
+        # Convert request to SMSInput
+        sms_input = SMSInput(
+            timestamp=engine.environment.time_state.current_time,
+            action="send_message",
+            message_data=message_data,
+        )
 
         # Create and add event
         event = create_immediate_event(
             engine=engine,
             modality="sms",
-            data=event_data,
+            data=sms_input,
             priority=100,
         )
 
@@ -466,34 +425,36 @@ async def receive_sms(
         Action response with event details.
     """
     try:
-        # Convert request to event data
-        event_data = {
-            "action": "receive_message",
-            "message_data": {
-                "from_number": request.from_number,
-                "to_numbers": request.to_numbers,
-                "body": request.body,
-                "message_type": request.message_type,
-            },
+        # Build message data
+        message_data = {
+            "from_number": request.from_number,
+            "to_numbers": request.to_numbers,
+            "body": request.body,
+            "message_type": request.message_type,
         }
 
         # Add optional fields
         if request.attachments:
-            event_data["message_data"]["attachments"] = [
+            message_data["attachments"] = [
                 att.model_dump() for att in request.attachments
             ]
         if request.replied_to_message_id:
-            event_data["message_data"]["replied_to_message_id"] = (
-                request.replied_to_message_id
-            )
+            message_data["replied_to_message_id"] = request.replied_to_message_id
         if request.sent_at:
-            event_data["message_data"]["sent_at"] = request.sent_at.isoformat()
+            message_data["sent_at"] = request.sent_at.isoformat()
+
+        # Convert request to SMSInput
+        sms_input = SMSInput(
+            timestamp=engine.environment.time_state.current_time,
+            action="receive_message",
+            message_data=message_data,
+        )
 
         # Create and add event
         event = create_immediate_event(
             engine=engine,
             modality="sms",
-            data=event_data,
+            data=sms_input,
             priority=100,
         )
 
@@ -527,18 +488,36 @@ async def mark_sms_read(
         Action response with event details.
     """
     try:
-        event_data = {
-            "action": "update_conversation",
-            "conversation_update_data": {
-                "message_ids": request.message_ids,
-                "mark_all_read": True,
+        sms_state = engine.environment.get_state("sms")
+
+        if not isinstance(sms_state, SMSState):
+            raise HTTPException(
+                status_code=500,
+                detail="SMS state not properly initialized",
+            )
+
+        current_time = engine.environment.time_state.current_time
+        marked_count = 0
+
+        for message_id in request.message_ids:
+            if message_id in sms_state.messages:
+                sms_state.messages[message_id].mark_read(current_time)
+                marked_count += 1
+
+        # Create an event record for auditing
+        sms_input = SMSInput(
+            timestamp=current_time,
+            action="update_delivery_status",
+            delivery_update_data={
+                "message_id": request.message_ids[0] if request.message_ids else "",
+                "new_status": "read",
             },
-        }
+        )
 
         event = create_immediate_event(
             engine=engine,
             modality="sms",
-            data=event_data,
+            data=sms_input,
             priority=100,
         )
 
@@ -546,9 +525,11 @@ async def mark_sms_read(
             event_id=event.event_id,
             scheduled_time=event.scheduled_time,
             status="executed",
-            message=f"Marked {len(request.message_ids)} message(s) as read",
+            message=f"Marked {marked_count} message(s) as read",
             modality="sms",
         )
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -572,18 +553,35 @@ async def mark_sms_unread(
         Action response with event details.
     """
     try:
-        event_data = {
-            "action": "update_conversation",
-            "conversation_update_data": {
-                "message_ids": request.message_ids,
-                "mark_all_unread": True,
+        sms_state = engine.environment.get_state("sms")
+
+        if not isinstance(sms_state, SMSState):
+            raise HTTPException(
+                status_code=500,
+                detail="SMS state not properly initialized",
+            )
+
+        marked_count = 0
+
+        for message_id in request.message_ids:
+            if message_id in sms_state.messages:
+                sms_state.messages[message_id].mark_unread()
+                marked_count += 1
+
+        # Create an event record for auditing
+        sms_input = SMSInput(
+            timestamp=engine.environment.time_state.current_time,
+            action="update_delivery_status",
+            delivery_update_data={
+                "message_id": request.message_ids[0] if request.message_ids else "",
+                "new_status": "delivered",  # unread doesn't have a delivery status
             },
-        }
+        )
 
         event = create_immediate_event(
             engine=engine,
             modality="sms",
-            data=event_data,
+            data=sms_input,
             priority=100,
         )
 
@@ -591,9 +589,11 @@ async def mark_sms_unread(
             event_id=event.event_id,
             scheduled_time=event.scheduled_time,
             status="executed",
-            message=f"Marked {len(request.message_ids)} message(s) as unread",
+            message=f"Marked {marked_count} message(s) as unread",
             modality="sms",
         )
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -617,28 +617,43 @@ async def delete_sms(
         Action response with event details.
     """
     try:
-        # For single message deletion
-        if len(request.message_ids) == 1:
-            event_data = {
-                "action": "delete_message",
-                "delete_data": {
-                    "message_id": request.message_ids[0],
-                },
-            }
-        else:
-            # For bulk deletion, we'll need to create multiple events or handle it differently
-            # For now, use the first message_id approach
-            event_data = {
-                "action": "delete_message",
-                "delete_data": {
-                    "message_id": request.message_ids[0],
-                },
-            }
+        sms_state = engine.environment.get_state("sms")
+
+        if not isinstance(sms_state, SMSState):
+            raise HTTPException(
+                status_code=500,
+                detail="SMS state not properly initialized",
+            )
+
+        deleted_count = 0
+        current_time = engine.environment.time_state.current_time
+
+        for message_id in request.message_ids:
+            if message_id in sms_state.messages:
+                # Use the input to properly process the deletion
+                sms_input = SMSInput(
+                    timestamp=current_time,
+                    action="delete_message",
+                    delete_data={
+                        "message_id": message_id,
+                    },
+                )
+                sms_state.apply_input(sms_input)
+                deleted_count += 1
+
+        # Create an event record for auditing (use last message_id processed)
+        event_input = SMSInput(
+            timestamp=current_time,
+            action="delete_message",
+            delete_data={
+                "message_id": request.message_ids[0] if request.message_ids else "",
+            },
+        )
 
         event = create_immediate_event(
             engine=engine,
             modality="sms",
-            data=event_data,
+            data=event_input,
             priority=100,
         )
 
@@ -646,9 +661,11 @@ async def delete_sms(
             event_id=event.event_id,
             scheduled_time=event.scheduled_time,
             status="executed",
-            message=f"Deleted {len(request.message_ids)} message(s)",
+            message=f"Deleted {deleted_count} message(s)",
             modality="sms",
         )
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -672,19 +689,21 @@ async def react_to_sms(
         Action response with event details.
     """
     try:
-        event_data = {
-            "action": "add_reaction",
-            "reaction_data": {
+        # Convert request to SMSInput
+        sms_input = SMSInput(
+            timestamp=engine.environment.time_state.current_time,
+            action="add_reaction",
+            reaction_data={
                 "message_id": request.message_id,
                 "phone_number": request.phone_number,
                 "emoji": request.emoji,
             },
-        }
+        )
 
         event = create_immediate_event(
             engine=engine,
             modality="sms",
-            data=event_data,
+            data=sms_input,
             priority=100,
         )
 

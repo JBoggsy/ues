@@ -36,6 +36,9 @@ def fresh_engine():
     This fixture creates a new engine with a known initial state,
     ensuring tests don't interfere with each other.
     
+    The engine includes all implemented modalities:
+    - location, time, weather, chat, email, calendar, sms
+    
     Returns:
         A newly initialized SimulationEngine.
     """
@@ -45,8 +48,21 @@ def fresh_engine():
     # Create time state with fixed initial time
     time_state = create_simulator_time(current_time=initial_time)
     
-    # Create environment with minimal modality states
-    environment = create_environment(time_state=time_state)
+    # Create environment with all implemented modality states
+    from tests.fixtures.modalities import location, time as time_mod, weather, chat, email, calendar, sms
+    
+    environment = create_environment(
+        modality_states={
+            "location": location.create_location_state(),
+            "time": time_mod.create_time_state(),
+            "weather": weather.create_weather_state(),
+            "chat": chat.create_chat_state(),
+            "email": email.create_email_state(),
+            "calendar": calendar.create_calendar_state(),
+            "sms": sms.create_sms_state(),
+        },
+        time_state=time_state,
+    )
     
     # Create empty event queue
     event_queue = create_event_queue()

@@ -57,18 +57,18 @@ class StopSimulationResponse(BaseModel):
     Attributes:
         simulation_id: Unique identifier for this simulation.
         status: Current simulation status.
-        final_time: Simulator time when stopped.
-        total_events: Total number of events.
-        events_executed: Number of executed events.
-        events_failed: Number of failed events.
+        final_time: Simulator time when stopped (None if wasn't running).
+        total_events: Total number of events (None if wasn't running).
+        events_executed: Number of executed events (None if wasn't running).
+        events_failed: Number of failed events (None if wasn't running).
     """
 
     simulation_id: str
     status: str
-    final_time: str
-    total_events: int
-    events_executed: int
-    events_failed: int
+    final_time: Optional[str] = None
+    total_events: Optional[int] = None
+    events_executed: Optional[int] = None
+    events_failed: Optional[int] = None
 
 
 class SimulationStatusResponse(BaseModel):

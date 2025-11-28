@@ -146,7 +146,7 @@ async def get_location_state(engine: SimulationEngineDep):
         LocationStateResponse: Current location state including coordinates,
             address, metadata, and location history.
     """
-    location_state = engine.environment.get_modality_state("location")
+    location_state = engine.environment.get_state("location")
 
     if not isinstance(location_state, LocationState):
         raise HTTPException(
@@ -174,7 +174,7 @@ async def query_location_history(
     Returns:
         LocationQueryResponse: Matching location entries with pagination info.
     """
-    location_state = engine.environment.get_modality_state("location")
+    location_state = engine.environment.get_state("location")
 
     if not isinstance(location_state, LocationState):
         raise HTTPException(
@@ -207,10 +207,9 @@ async def update_location(request: UpdateLocationRequest, engine: SimulationEngi
         HTTPException: If the location update fails validation or execution.
     """
     try:
-        current_time = engine.environment.time_state.current_time
-
+        # Convert request to LocationInput
         location_input = LocationInput(
-            timestamp=current_time,
+            timestamp=engine.environment.time_state.current_time,
             latitude=request.latitude,
             longitude=request.longitude,
             address=request.address,
@@ -222,17 +221,18 @@ async def update_location(request: UpdateLocationRequest, engine: SimulationEngi
         )
 
         event = create_immediate_event(
-            current_time=current_time,
+            engine=engine,
             modality="location",
-            input_data=location_input,
+            data=location_input,
+            priority=100,
         )
-
-        engine.add_event(event)
 
         return ModalityActionResponse(
             event_id=event.event_id,
+            scheduled_time=event.scheduled_time,
             status="executed",
             message=f"Location updated to ({request.latitude}, {request.longitude})",
+            modality="location",
         )
     except ValueError as e:
         raise HTTPException(

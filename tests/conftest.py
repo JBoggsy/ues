@@ -2,6 +2,11 @@
 
 import pytest
 
+# Load environment variables from .env file at test startup
+# This ensures API keys and other config are available before fixtures are created
+from dotenv import load_dotenv
+load_dotenv()
+
 # Import all fixtures from modality fixture modules
 pytest_plugins = [
     "tests.fixtures.modalities.location",

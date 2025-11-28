@@ -130,7 +130,14 @@ class SimulationEngine(BaseModel):
         """
         if not self.is_running:
             logger.warning("stop() called but simulation is not running")
-            return {"status": "stopped", "message": "Simulation was not running"}
+            return {
+                "simulation_id": self.simulation_id,
+                "status": "stopped",
+                "final_time": None,
+                "total_events": None,
+                "events_executed": None,
+                "events_failed": None,
+            }
 
         # Stop loop if running
         if self._loop and self._loop.is_running:

@@ -305,7 +305,7 @@ async def get_calendar_state(engine: SimulationEngineDep):
         HTTPException: If calendar state not found.
     """
     try:
-        calendar_state = engine.environment.get_modality_state("calendar")
+        calendar_state = engine.environment.get_state("calendar")
         if not isinstance(calendar_state, CalendarState):
             raise HTTPException(
                 status_code=500, detail="Calendar state not properly initialized"
@@ -337,7 +337,7 @@ async def query_calendar(request: CalendarQueryRequest, engine: SimulationEngine
         HTTPException: If query fails.
     """
     try:
-        calendar_state = engine.environment.get_modality_state("calendar")
+        calendar_state = engine.environment.get_state("calendar")
         if not isinstance(calendar_state, CalendarState):
             raise HTTPException(
                 status_code=500, detail="Calendar state not properly initialized"
@@ -421,14 +421,18 @@ async def create_calendar_event(
 
         # Create and execute immediate event
         event = create_immediate_event(
-            engine=engine, modality="calendar", input_data=calendar_input
+            engine=engine,
+            modality="calendar",
+            data=calendar_input,
+            priority=100,
         )
 
         return ModalityActionResponse(
             event_id=event.event_id,
+            scheduled_time=event.scheduled_time,
             status="executed",
-            message=f"Created calendar event: {request.title}",
-            data={"calendar_event_id": calendar_input.event_id},
+            message=f"Created calendar event: {request.title} (calendar_event_id: {calendar_input.event_id})",
+            modality="calendar",
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -461,46 +465,48 @@ async def update_calendar_event(
     try:
         current_time = engine.environment.time_state.current_time
 
+        # Build kwargs only for fields that are set (not None)
+        # Required fields for update operation
+        input_kwargs = {
+            "operation": "update",
+            "timestamp": current_time,
+            "event_id": request.event_id,
+            "calendar_id": request.calendar_id,
+            "recurrence_scope": request.recurrence_scope,
+        }
+
+        # Optional fields - only include if set
+        optional_fields = [
+            "title", "description", "start", "end", "all_day", "timezone",
+            "location", "status", "organizer", "attendees", "recurrence",
+            "recurrence_exceptions", "recurrence_id", "reminders", "color",
+            "visibility", "transparency", "attachments", "conference_link",
+        ]
+        for field in optional_fields:
+            value = getattr(request, field)
+            if value is not None:
+                input_kwargs[field] = value
+
         # Create calendar input
-        calendar_input = CalendarInput(
-            operation="update",
-            timestamp=current_time,
-            event_id=request.event_id,
-            calendar_id=request.calendar_id,
-            recurrence_scope=request.recurrence_scope,
-            title=request.title,
-            description=request.description,
-            start=request.start,
-            end=request.end,
-            all_day=request.all_day,
-            timezone=request.timezone,
-            location=request.location,
-            status=request.status,
-            organizer=request.organizer,
-            attendees=request.attendees,
-            recurrence=request.recurrence,
-            recurrence_exceptions=request.recurrence_exceptions,
-            recurrence_id=request.recurrence_id,
-            reminders=request.reminders,
-            color=request.color,
-            visibility=request.visibility,
-            transparency=request.transparency,
-            attachments=request.attachments,
-            conference_link=request.conference_link,
-        )
+        calendar_input = CalendarInput(**input_kwargs)
 
         # Validate
         calendar_input.validate_input()
 
         # Create and execute immediate event
         event = create_immediate_event(
-            engine=engine, modality="calendar", input_data=calendar_input
+            engine=engine,
+            modality="calendar",
+            data=calendar_input,
+            priority=100,
         )
 
         return ModalityActionResponse(
             event_id=event.event_id,
+            scheduled_time=event.scheduled_time,
             status="executed",
             message=f"Updated calendar event: {request.event_id}",
+            modality="calendar",
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -548,13 +554,18 @@ async def delete_calendar_event(
 
         # Create and execute immediate event
         event = create_immediate_event(
-            engine=engine, modality="calendar", input_data=calendar_input
+            engine=engine,
+            modality="calendar",
+            data=calendar_input,
+            priority=100,
         )
 
         return ModalityActionResponse(
             event_id=event.event_id,
+            scheduled_time=event.scheduled_time,
             status="executed",
             message=f"Deleted calendar event: {request.event_id}",
+            modality="calendar",
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

@@ -13,6 +13,7 @@ To run in production:
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from pydantic import ValidationError
 
 from api.dependencies import initialize_simulation_engine, shutdown_simulation_engine
@@ -21,6 +22,7 @@ from api.exceptions import (
     SimulationNotRunningError,
     generic_exception_handler,
     modality_not_found_handler,
+    request_validation_exception_handler,
     runtime_error_handler,
     simulation_not_running_handler,
     validation_exception_handler,
@@ -75,6 +77,7 @@ app = FastAPI(
 # Register exception handlers
 # These convert Python exceptions into clean JSON responses
 # Order matters: specific exceptions before general ones
+app.add_exception_handler(RequestValidationError, request_validation_exception_handler)
 app.add_exception_handler(ModalityNotFoundError, modality_not_found_handler)
 app.add_exception_handler(SimulationNotRunningError, simulation_not_running_handler)
 app.add_exception_handler(ValidationError, validation_exception_handler)

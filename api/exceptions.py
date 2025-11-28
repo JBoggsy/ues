@@ -5,6 +5,7 @@ into consistent, user-friendly JSON responses.
 """
 
 from fastapi import Request, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 
@@ -85,6 +86,30 @@ async def simulation_not_running_handler(request: Request, exc: SimulationNotRun
             "error": "Simulation Not Running",
             "detail": exc.message,
             "suggestion": "Start the simulation with POST /simulation/start",
+        },
+    )
+
+
+async def request_validation_exception_handler(
+    request: Request, exc: RequestValidationError
+):
+    """Handle FastAPI request validation errors.
+    
+    These occur when request data doesn't match the expected Pydantic model.
+    This handler ensures all validation errors return 422 status code.
+    
+    Args:
+        request: The incoming request that triggered the error.
+        exc: The RequestValidationError exception.
+    
+    Returns:
+        JSONResponse with validation error details.
+    """
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={
+            "error": "Validation Error",
+            "detail": exc.errors(),
         },
     )
 

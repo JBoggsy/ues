@@ -1043,13 +1043,17 @@ class SMSState(ModalityState):
         Supported query parameters:
             - thread_id: Filter messages by conversation thread
             - phone_number: Filter messages involving this phone number
+            - from_number: Filter by sender phone number
+            - to_number: Filter by recipient phone number
             - direction: Filter by "incoming" or "outgoing"
             - message_type: Filter by "sms" or "rcs"
             - is_read: Filter by read status (boolean)
             - has_attachments: Filter messages with attachments (boolean)
-            - search_text: Search message body text (case-insensitive)
-            - since: Filter messages sent after this datetime
-            - until: Filter messages sent before this datetime
+            - search_text / body_contains: Search message body text (case-insensitive)
+            - since / sent_after: Filter messages sent after this datetime
+            - until / sent_before: Filter messages sent before this datetime
+            - is_deleted: Filter by deleted status (boolean)
+            - delivery_status: Filter by delivery status
             - limit: Maximum number of messages to return
             - offset: Number of messages to skip (for pagination)
             - sort_by: Field to sort by ("sent_at", "from_number", "direction")
@@ -1067,11 +1071,13 @@ class SMSState(ModalityState):
         """
         results = list(self.messages.values())
 
-        if "thread_id" in query_params:
+        # Filter by thread_id
+        if query_params.get("thread_id"):
             thread_id = query_params["thread_id"]
             results = [msg for msg in results if msg.thread_id == thread_id]
 
-        if "phone_number" in query_params:
+        # Filter by phone_number (from or to)
+        if query_params.get("phone_number"):
             number = query_params["phone_number"]
             results = [
                 msg
@@ -1079,36 +1085,63 @@ class SMSState(ModalityState):
                 if msg.from_number == number or number in msg.to_numbers
             ]
 
-        if "direction" in query_params:
+        # Filter by from_number (sender)
+        if query_params.get("from_number"):
+            from_num = query_params["from_number"]
+            results = [msg for msg in results if msg.from_number == from_num]
+
+        # Filter by to_number (recipient)
+        if query_params.get("to_number"):
+            to_num = query_params["to_number"]
+            results = [msg for msg in results if to_num in msg.to_numbers]
+
+        # Filter by direction
+        if query_params.get("direction"):
             direction = query_params["direction"]
             results = [msg for msg in results if msg.direction == direction]
 
-        if "message_type" in query_params:
+        # Filter by message_type
+        if query_params.get("message_type"):
             msg_type = query_params["message_type"]
             results = [msg for msg in results if msg.message_type == msg_type]
 
-        if "is_read" in query_params:
+        # Filter by is_read
+        if query_params.get("is_read") is not None:
             is_read = query_params["is_read"]
             results = [msg for msg in results if msg.is_read == is_read]
 
-        if "has_attachments" in query_params and query_params["has_attachments"]:
+        # Filter by has_attachments
+        if query_params.get("has_attachments"):
             results = [msg for msg in results if msg.attachments]
 
-        if "search_text" in query_params:
-            search = query_params["search_text"].lower()
+        # Filter by is_deleted
+        if query_params.get("is_deleted") is not None:
+            is_deleted = query_params["is_deleted"]
+            results = [msg for msg in results if msg.is_deleted == is_deleted]
+
+        # Filter by delivery_status
+        if query_params.get("delivery_status"):
+            status = query_params["delivery_status"]
+            results = [msg for msg in results if msg.delivery_status == status]
+
+        # Text search (support both naming conventions)
+        search_text = query_params.get("search_text") or query_params.get("body_contains")
+        if search_text:
+            search = search_text.lower()
             results = [msg for msg in results if search in msg.body.lower()]
 
-        if "since" in query_params:
-            since = query_params["since"]
+        # Date filters (support both naming conventions)
+        since = query_params.get("since") or query_params.get("sent_after")
+        if since:
             results = [msg for msg in results if msg.sent_at >= since]
 
-        if "until" in query_params:
-            until = query_params["until"]
+        until = query_params.get("until") or query_params.get("sent_before")
+        if until:
             results = [msg for msg in results if msg.sent_at <= until]
 
         # Sort messages
         sort_by = query_params.get("sort_by", "sent_at")
-        sort_order = query_params.get("sort_order", "asc")
+        sort_order = query_params.get("sort_order", "desc")
         if sort_by in ["sent_at", "from_number", "direction"]:
             results.sort(
                 key=lambda m: getattr(m, sort_by),
@@ -1122,8 +1155,8 @@ class SMSState(ModalityState):
         offset = query_params.get("offset", 0)
         if offset:
             results = results[offset:]
-        if "limit" in query_params:
-            limit = query_params["limit"]
+        limit = query_params.get("limit")
+        if limit:
             results = results[:limit]
 
         return {

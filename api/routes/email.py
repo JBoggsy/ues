@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field, field_validator
 from api.dependencies import SimulationEngineDep
 from api.models import ModalityActionResponse, ModalityStateResponse
 from api.utils import create_immediate_event
+from models.modalities.email_input import EmailInput
 from models.modalities.email_state import Email, EmailState, EmailThread
 
 router = APIRouter(
@@ -293,9 +294,9 @@ async def get_email_state(engine: SimulationEngineDep) -> EmailStateResponse:
         engine: The simulation engine dependency.
 
     Returns:
-        Complete email state with metadata.
+        Complete email state with all messages.
     """
-    email_state = engine.environment.get_modality_state("email")
+    email_state = engine.environment.get_state("email")
 
     if not isinstance(email_state, EmailState):
         raise HTTPException(
@@ -344,7 +345,7 @@ async def query_emails(
     Returns:
         Filtered email results with counts.
     """
-    email_state = engine.environment.get_modality_state("email")
+    email_state = engine.environment.get_state("email")
 
     if not isinstance(email_state, EmailState):
         raise HTTPException(
@@ -352,91 +353,34 @@ async def query_emails(
             detail="Email state not properly initialized",
         )
 
-    # Start with all emails
-    results = list(email_state.emails.values())
+    query_params = {
+        "folder": request.folder,
+        "is_read": request.is_read,
+        "is_starred": request.is_starred,
+        "from_address": request.from_address,
+        "to_address": request.to_address,
+        "subject_contains": request.subject_contains,
+        "body_contains": request.body_contains,
+        "has_attachments": request.has_attachments,
+        "labels": request.labels,
+        "thread_id": request.thread_id,
+        "priority": request.priority,
+        "sent_after": request.sent_after,
+        "sent_before": request.sent_before,
+        "received_after": request.received_after,
+        "received_before": request.received_before,
+        "limit": request.limit,
+        "offset": request.offset,
+        "sort_by": request.sort_by,
+        "sort_order": request.sort_order,
+    }
 
-    # Apply filters
-    if request.folder is not None:
-        results = [e for e in results if e.folder == request.folder]
-
-    if request.is_read is not None:
-        results = [e for e in results if e.is_read == request.is_read]
-
-    if request.is_starred is not None:
-        results = [e for e in results if e.is_starred == request.is_starred]
-
-    if request.from_address is not None:
-        results = [e for e in results if e.from_address == request.from_address]
-
-    if request.to_address is not None:
-        results = [
-            e
-            for e in results
-            if request.to_address in e.to_addresses
-            or request.to_address in e.cc_addresses
-            or request.to_address in e.bcc_addresses
-        ]
-
-    if request.subject_contains is not None:
-        subject_lower = request.subject_contains.lower()
-        results = [e for e in results if subject_lower in e.subject.lower()]
-
-    if request.body_contains is not None:
-        body_lower = request.body_contains.lower()
-        results = [e for e in results if body_lower in e.body_text.lower()]
-
-    if request.has_attachments is not None:
-        has_attachments = len(results) > 0 and len(results[0].attachments) > 0
-        if request.has_attachments:
-            results = [e for e in results if len(e.attachments) > 0]
-        else:
-            results = [e for e in results if len(e.attachments) == 0]
-
-    if request.labels is not None:
-        # Email must have ALL specified labels (AND logic)
-        results = [e for e in results if all(label in e.labels for label in request.labels)]
-
-    if request.thread_id is not None:
-        results = [e for e in results if e.thread_id == request.thread_id]
-
-    if request.priority is not None:
-        results = [e for e in results if e.priority == request.priority]
-
-    if request.sent_after is not None:
-        results = [e for e in results if e.sent_at >= request.sent_after]
-
-    if request.sent_before is not None:
-        results = [e for e in results if e.sent_at <= request.sent_before]
-
-    if request.received_after is not None:
-        results = [e for e in results if e.received_at >= request.received_after]
-
-    if request.received_before is not None:
-        results = [e for e in results if e.received_at <= request.received_before]
-
-    # Get total count before pagination
-    total_count = len(results)
-
-    # Apply sorting
-    if request.sort_by:
-        reverse = request.sort_order == "desc"
-        try:
-            results.sort(key=lambda e: getattr(e, request.sort_by), reverse=reverse)
-        except AttributeError:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Invalid sort_by field: {request.sort_by}",
-            )
-
-    # Apply pagination
-    offset = request.offset
-    limit = request.limit or total_count  # Default to all results if no limit
-    results = results[offset : offset + limit]
+    result = email_state.query(query_params)
 
     return EmailQueryResponse(
-        emails=results,
-        total_count=total_count,
-        returned_count=len(results),
+        emails=result["emails"],
+        total_count=result["total_count"],
+        returned_count=result["returned_count"],
         query=request.model_dump(exclude_none=True),
     )
 
@@ -458,33 +402,27 @@ async def send_email(
         Action response with event details.
     """
     try:
-        current_time = engine.environment.time_state.current_time
-
-        # Convert request to event data
-        event_data = {
-            "operation": "send",
-            "from_address": request.from_address,
-            "to_addresses": request.to_addresses,
-            "cc_addresses": request.cc_addresses,
-            "bcc_addresses": request.bcc_addresses,
-            "subject": request.subject,
-            "body_text": request.body_text,
-            "priority": request.priority,
-        }
-
-        # Add optional fields
-        if request.reply_to_address:
-            event_data["reply_to_address"] = request.reply_to_address
-        if request.body_html:
-            event_data["body_html"] = request.body_html
-        if request.attachments:
-            event_data["attachments"] = [att.model_dump() for att in request.attachments]
+        # Convert request to EmailInput
+        email_input = EmailInput(
+            timestamp=engine.environment.time_state.current_time,
+            operation="send",
+            from_address=request.from_address,
+            to_addresses=request.to_addresses,
+            cc_addresses=request.cc_addresses if request.cc_addresses else [],
+            bcc_addresses=request.bcc_addresses if request.bcc_addresses else [],
+            subject=request.subject,
+            body_text=request.body_text,
+            body_html=request.body_html,
+            reply_to_address=request.reply_to_address,
+            priority=request.priority,
+            attachments=[att.model_dump() for att in request.attachments] if request.attachments else [],
+        )
 
         # Create and add event
         event = create_immediate_event(
             engine=engine,
             modality="email",
-            data=event_data,
+            data=email_input,
             priority=100,
         )
 
@@ -519,41 +457,31 @@ async def receive_email(
         Action response with event details.
     """
     try:
-        current_time = engine.environment.time_state.current_time
-
-        # Convert request to event data
-        event_data = {
-            "operation": "receive",
-            "from_address": request.from_address,
-            "to_addresses": request.to_addresses,
-            "cc_addresses": request.cc_addresses,
-            "bcc_addresses": request.bcc_addresses,
-            "subject": request.subject,
-            "body_text": request.body_text,
-            "priority": request.priority,
-        }
-
-        # Add optional fields
-        if request.reply_to_address:
-            event_data["reply_to_address"] = request.reply_to_address
-        if request.body_html:
-            event_data["body_html"] = request.body_html
-        if request.attachments:
-            event_data["attachments"] = [att.model_dump() for att in request.attachments]
-        if request.thread_id:
-            event_data["thread_id"] = request.thread_id
-        if request.in_reply_to:
-            event_data["in_reply_to"] = request.in_reply_to
-        if request.references:
-            event_data["references"] = request.references
-        if request.sent_at:
-            event_data["sent_at"] = request.sent_at.isoformat()
+        # Convert request to EmailInput
+        email_input = EmailInput(
+            timestamp=engine.environment.time_state.current_time,
+            operation="receive",
+            from_address=request.from_address,
+            to_addresses=request.to_addresses,
+            cc_addresses=request.cc_addresses if request.cc_addresses else [],
+            bcc_addresses=request.bcc_addresses if request.bcc_addresses else [],
+            subject=request.subject,
+            body_text=request.body_text,
+            body_html=request.body_html,
+            reply_to_address=request.reply_to_address,
+            priority=request.priority,
+            attachments=[att.model_dump() for att in request.attachments] if request.attachments else [],
+            thread_id=request.thread_id,
+            in_reply_to=request.in_reply_to,
+            references=request.references if request.references else [],
+            sent_at=request.sent_at,
+        )
 
         # Create and add event
         event = create_immediate_event(
             engine=engine,
             modality="email",
-            data=event_data,
+            data=email_input,
             priority=100,
         )
 
@@ -587,15 +515,17 @@ async def mark_emails_read(
         Action response with event details.
     """
     try:
-        event_data = {
-            "operation": "mark_read",
-            "message_ids": request.message_ids,
-        }
+        # Convert request to EmailInput
+        email_input = EmailInput(
+            timestamp=engine.environment.time_state.current_time,
+            operation="mark_read",
+            message_ids=request.message_ids,
+        )
 
         event = create_immediate_event(
             engine=engine,
             modality="email",
-            data=event_data,
+            data=email_input,
             priority=100,
         )
 
@@ -629,15 +559,17 @@ async def mark_emails_unread(
         Action response with event details.
     """
     try:
-        event_data = {
-            "operation": "mark_unread",
-            "message_ids": request.message_ids,
-        }
+        # Convert request to EmailInput
+        email_input = EmailInput(
+            timestamp=engine.environment.time_state.current_time,
+            operation="mark_unread",
+            message_ids=request.message_ids,
+        )
 
         event = create_immediate_event(
             engine=engine,
             modality="email",
-            data=event_data,
+            data=email_input,
             priority=100,
         )
 
@@ -671,15 +603,17 @@ async def star_emails(
         Action response with event details.
     """
     try:
-        event_data = {
-            "operation": "star",
-            "message_ids": request.message_ids,
-        }
+        # Convert request to EmailInput
+        email_input = EmailInput(
+            timestamp=engine.environment.time_state.current_time,
+            operation="star",
+            message_ids=request.message_ids,
+        )
 
         event = create_immediate_event(
             engine=engine,
             modality="email",
-            data=event_data,
+            data=email_input,
             priority=100,
         )
 
@@ -713,15 +647,17 @@ async def unstar_emails(
         Action response with event details.
     """
     try:
-        event_data = {
-            "operation": "unstar",
-            "message_ids": request.message_ids,
-        }
+        # Convert request to EmailInput
+        email_input = EmailInput(
+            timestamp=engine.environment.time_state.current_time,
+            operation="unstar",
+            message_ids=request.message_ids,
+        )
 
         event = create_immediate_event(
             engine=engine,
             modality="email",
-            data=event_data,
+            data=email_input,
             priority=100,
         )
 
@@ -755,15 +691,17 @@ async def archive_emails(
         Action response with event details.
     """
     try:
-        event_data = {
-            "operation": "archive",
-            "message_ids": request.message_ids,
-        }
+        # Convert request to EmailInput
+        email_input = EmailInput(
+            timestamp=engine.environment.time_state.current_time,
+            operation="archive",
+            message_ids=request.message_ids,
+        )
 
         event = create_immediate_event(
             engine=engine,
             modality="email",
-            data=event_data,
+            data=email_input,
             priority=100,
         )
 
@@ -797,15 +735,17 @@ async def delete_emails(
         Action response with event details.
     """
     try:
-        event_data = {
-            "operation": "delete",
-            "message_ids": request.message_ids,
-        }
+        # Convert request to EmailInput
+        email_input = EmailInput(
+            timestamp=engine.environment.time_state.current_time,
+            operation="delete",
+            message_ids=request.message_ids,
+        )
 
         event = create_immediate_event(
             engine=engine,
             modality="email",
-            data=event_data,
+            data=email_input,
             priority=100,
         )
 
@@ -839,16 +779,18 @@ async def add_labels_to_emails(
         Action response with event details.
     """
     try:
-        event_data = {
-            "operation": "add_label",
-            "message_ids": request.message_ids,
-            "labels": request.labels,
-        }
+        # Convert request to EmailInput
+        email_input = EmailInput(
+            timestamp=engine.environment.time_state.current_time,
+            operation="add_label",
+            message_ids=request.message_ids,
+            labels=request.labels,
+        )
 
         event = create_immediate_event(
             engine=engine,
             modality="email",
-            data=event_data,
+            data=email_input,
             priority=100,
         )
 
@@ -882,16 +824,18 @@ async def remove_labels_from_emails(
         Action response with event details.
     """
     try:
-        event_data = {
-            "operation": "remove_label",
-            "message_ids": request.message_ids,
-            "labels": request.labels,
-        }
+        # Convert request to EmailInput
+        email_input = EmailInput(
+            timestamp=engine.environment.time_state.current_time,
+            operation="remove_label",
+            message_ids=request.message_ids,
+            labels=request.labels,
+        )
 
         event = create_immediate_event(
             engine=engine,
             modality="email",
-            data=event_data,
+            data=email_input,
             priority=100,
         )
 
@@ -925,16 +869,18 @@ async def move_emails(
         Action response with event details.
     """
     try:
-        event_data = {
-            "operation": "move",
-            "message_ids": request.message_ids,
-            "folder": request.folder,
-        }
+        # Convert request to EmailInput
+        email_input = EmailInput(
+            timestamp=engine.environment.time_state.current_time,
+            operation="move",
+            message_ids=request.message_ids,
+            folder=request.folder,
+        )
 
         event = create_immediate_event(
             engine=engine,
             modality="email",
-            data=event_data,
+            data=email_input,
             priority=100,
         )
 

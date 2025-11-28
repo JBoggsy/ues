@@ -126,7 +126,7 @@ async def get_weather_state(engine: SimulationEngineDep):
     Returns:
         WeatherStateResponse: Complete weather state with all locations.
     """
-    weather_state = engine.environment.get_modality_state("weather")
+    weather_state = engine.environment.get_state("weather")
 
     if not isinstance(weather_state, WeatherState):
         raise HTTPException(
@@ -155,7 +155,7 @@ async def query_weather(request: WeatherQueryRequest, engine: SimulationEngineDe
     Raises:
         HTTPException: If query parameters are invalid or query fails.
     """
-    weather_state = engine.environment.get_modality_state("weather")
+    weather_state = engine.environment.get_state("weather")
 
     if not isinstance(weather_state, WeatherState):
         raise HTTPException(
@@ -208,39 +208,33 @@ async def update_weather(request: UpdateWeatherRequest, engine: SimulationEngine
         HTTPException: If the weather update fails validation or execution.
     """
     try:
-        current_time = engine.environment.time_state.current_time
-
+        # Convert request to WeatherInput
         weather_input = WeatherInput(
-            timestamp=current_time,
+            timestamp=engine.environment.time_state.current_time,
             latitude=request.latitude,
             longitude=request.longitude,
             report=request.report,
         )
 
         event = create_immediate_event(
-            current_time=current_time,
+            engine=engine,
             modality="weather",
-            input_data=weather_input,
+            data=weather_input,
+            priority=100,
         )
-
-        engine.add_event(event)
 
         return ModalityActionResponse(
             event_id=event.event_id,
+            scheduled_time=event.scheduled_time,
             status="executed",
             message=f"Weather updated for location ({request.latitude}, {request.longitude})",
+            modality="weather",
         )
     except ValueError as e:
         raise HTTPException(
             status_code=400,
             detail=f"Invalid weather data: {str(e)}",
         )
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to update weather: {str(e)}",
-        )
-        raise
     except Exception as e:
         raise HTTPException(
             status_code=500,

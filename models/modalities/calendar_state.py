@@ -608,7 +608,7 @@ class CalendarState(ModalityState):
         calendar_ids = query_params.get("calendar_ids")
         start_date = query_params.get("start")
         end_date = query_params.get("end")
-        search_text = query_params.get("search", "").lower()
+        search_text = (query_params.get("search") or "").lower()
         status_filter = query_params.get("status")
         has_attendees_filter = query_params.get("has_attendees")
         recurring_filter = query_params.get("recurring")

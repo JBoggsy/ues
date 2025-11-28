@@ -815,7 +815,7 @@ class EmailState(ModalityState):
         """
         results = list(self.emails.values())
 
-        if "folder" in query_params:
+        if query_params.get("folder") is not None:
             folder = query_params["folder"]
             if folder in self.folders:
                 folder_ids = set(self.folders[folder])
@@ -823,7 +823,7 @@ class EmailState(ModalityState):
             else:
                 results = []
 
-        if "label" in query_params:
+        if query_params.get("label") is not None:
             label = query_params["label"]
             if label in self.labels:
                 label_ids = set(self.labels[label])
@@ -831,15 +831,29 @@ class EmailState(ModalityState):
             else:
                 results = []
 
-        if "is_read" in query_params:
+        # Support for labels (plural) - filters emails that have ALL specified labels
+        if query_params.get("labels") is not None:
+            labels_to_match = query_params["labels"]
+            if labels_to_match:
+                # Get message IDs that have all specified labels
+                for label in labels_to_match:
+                    if label in self.labels:
+                        label_ids = set(self.labels[label])
+                        results = [e for e in results if e.message_id in label_ids]
+                    else:
+                        # If any label doesn't exist, no results match
+                        results = []
+                        break
+
+        if query_params.get("is_read") is not None:
             is_read = query_params["is_read"]
             results = [e for e in results if e.is_read == is_read]
 
-        if "is_starred" in query_params:
+        if query_params.get("is_starred") is not None:
             is_starred = query_params["is_starred"]
             results = [e for e in results if e.is_starred == is_starred]
 
-        if "has_attachments" in query_params:
+        if query_params.get("has_attachments") is not None:
             has_attachments = query_params["has_attachments"]
             results = [
                 e
@@ -847,11 +861,11 @@ class EmailState(ModalityState):
                 if (len(e.attachments) > 0) == has_attachments
             ]
 
-        if "from_address" in query_params:
+        if query_params.get("from_address") is not None:
             from_address = query_params["from_address"].lower()
             results = [e for e in results if from_address in e.from_address.lower()]
 
-        if "to_address" in query_params:
+        if query_params.get("to_address") is not None:
             to_address = query_params["to_address"].lower()
             results = [
                 e
@@ -859,23 +873,32 @@ class EmailState(ModalityState):
                 if any(to_address in addr.lower() for addr in e.to_addresses)
             ]
 
-        if "subject_contains" in query_params:
+        if query_params.get("subject_contains") is not None:
             subject_text = query_params["subject_contains"].lower()
             results = [e for e in results if subject_text in e.subject.lower()]
 
-        if "body_contains" in query_params:
+        if query_params.get("body_contains") is not None:
             body_text = query_params["body_contains"].lower()
             results = [e for e in results if body_text in e.body_text.lower()]
 
-        if "date_from" in query_params:
+        # Support both date_from/date_to and received_after/received_before
+        if query_params.get("date_from") is not None:
             date_from = query_params["date_from"]
             results = [e for e in results if e.received_at >= date_from]
 
-        if "date_to" in query_params:
+        if query_params.get("received_after") is not None:
+            received_after = query_params["received_after"]
+            results = [e for e in results if e.received_at >= received_after]
+
+        if query_params.get("date_to") is not None:
             date_to = query_params["date_to"]
             results = [e for e in results if e.received_at <= date_to]
 
-        if "thread_id" in query_params:
+        if query_params.get("received_before") is not None:
+            received_before = query_params["received_before"]
+            results = [e for e in results if e.received_at <= received_before]
+
+        if query_params.get("thread_id") is not None:
             thread_id = query_params["thread_id"]
             results = [e for e in results if e.thread_id == thread_id]
 

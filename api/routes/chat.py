@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 from api.dependencies import SimulationEngineDep
 from api.models import ModalityActionResponse
 from api.utils import create_immediate_event
+from models.modalities.chat_input import ChatInput
 from models.modalities.chat_state import ChatMessage, ConversationMetadata, ChatState
 
 router = APIRouter(
@@ -178,7 +179,7 @@ async def get_chat_state(engine: SimulationEngineDep) -> ChatStateResponse:
     Returns:
         Complete chat state with metadata.
     """
-    chat_state = engine.environment.get_modality_state("chat")
+    chat_state = engine.environment.get_state("chat")
 
     if not isinstance(chat_state, ChatState):
         raise HTTPException(
@@ -212,7 +213,7 @@ async def query_chat(
     Returns:
         Filtered message results with counts.
     """
-    chat_state = engine.environment.get_modality_state("chat")
+    chat_state = engine.environment.get_state("chat")
 
     if not isinstance(chat_state, ChatState):
         raise HTTPException(
@@ -282,20 +283,21 @@ async def send_chat_message(
         Action response with event details.
     """
     try:
-        # Convert request to event data
-        event_data = {
-            "operation": "send_message",
-            "role": request.role,
-            "content": request.content,
-            "conversation_id": request.conversation_id,
-            "metadata": request.metadata,
-        }
+        # Convert request to ChatInput
+        chat_input = ChatInput(
+            timestamp=engine.environment.time_state.current_time,
+            operation="send_message",
+            role=request.role,
+            content=request.content,
+            conversation_id=request.conversation_id,
+            metadata=request.metadata,
+        )
 
         # Create and add event
         event = create_immediate_event(
             engine=engine,
             modality="chat",
-            data=event_data,
+            data=chat_input,
             priority=100,
         )
 
@@ -329,17 +331,18 @@ async def delete_chat_message(
         Action response with event details.
     """
     try:
-        # Convert request to event data
-        event_data = {
-            "operation": "delete_message",
-            "message_id": request.message_id,
-        }
+        # Convert request to ChatInput
+        chat_input = ChatInput(
+            timestamp=engine.environment.time_state.current_time,
+            operation="delete_message",
+            message_id=request.message_id,
+        )
 
         # Create and add event
         event = create_immediate_event(
             engine=engine,
             modality="chat",
-            data=event_data,
+            data=chat_input,
             priority=100,
         )
 
@@ -373,17 +376,18 @@ async def clear_conversation(
         Action response with event details.
     """
     try:
-        # Convert request to event data
-        event_data = {
-            "operation": "clear_conversation",
-            "conversation_id": request.conversation_id,
-        }
+        # Convert request to ChatInput
+        chat_input = ChatInput(
+            timestamp=engine.environment.time_state.current_time,
+            operation="clear_conversation",
+            conversation_id=request.conversation_id,
+        )
 
         # Create and add event
         event = create_immediate_event(
             engine=engine,
             modality="chat",
-            data=event_data,
+            data=chat_input,
             priority=100,
         )
 
