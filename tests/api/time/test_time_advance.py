@@ -268,8 +268,8 @@ class TestPostTimeAdvance:
         # Both should report the same current_time
         assert advance_data["current_time"] == state_data["current_time"]
         
-        # Verify all expected fields present
+        # Verify all expected fields present in AdvanceTimeResponse
         assert "current_time" in advance_data
-        assert "time_scale" in advance_data
-        assert "is_paused" in advance_data
-        assert "auto_advance" in advance_data
+        assert "time_advanced" in advance_data
+        assert "events_executed" in advance_data
+        assert "execution_details" in advance_data

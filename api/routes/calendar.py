@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 from api.dependencies import SimulationEngineDep
 from api.models import ModalityActionResponse
@@ -434,7 +434,11 @@ async def create_calendar_event(
             message=f"Created calendar event: {request.title} (calendar_event_id: {calendar_input.event_id})",
             modality="calendar",
         )
+    except ValidationError as e:
+        # Pydantic validation failed
+        raise HTTPException(status_code=422, detail=f"Validation error: {str(e)}")
     except ValueError as e:
+        # Business logic error (e.g., from validate_input)
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(
@@ -508,7 +512,11 @@ async def update_calendar_event(
             message=f"Updated calendar event: {request.event_id}",
             modality="calendar",
         )
+    except ValidationError as e:
+        # Pydantic validation failed
+        raise HTTPException(status_code=422, detail=f"Validation error: {str(e)}")
     except ValueError as e:
+        # Business logic error (e.g., from validate_input)
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(
@@ -567,7 +575,11 @@ async def delete_calendar_event(
             message=f"Deleted calendar event: {request.event_id}",
             modality="calendar",
         )
+    except ValidationError as e:
+        # Pydantic validation failed
+        raise HTTPException(status_code=422, detail=f"Validation error: {str(e)}")
     except ValueError as e:
+        # Business logic error (e.g., from validate_input)
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(

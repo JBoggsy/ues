@@ -1,5 +1,21 @@
 # UES Development TODO
 
+## Test Suite Summary
+
+**Total Tests: 1,807 (all passing)**
+
+| Category | Test Count | Location |
+|----------|------------|----------|
+| Core Infrastructure Models | 309 | `tests/models/` |
+| Priority 1 Modality Models | 234 | `tests/models/` |
+| Priority 2 Modality Models | 357 | `tests/models/` |
+| API Integration Tests | 470 | `tests/api/{events,time,environment,simulation,modalities}/` |
+| API Unit Tests | 285 | `tests/api/unit/` |
+| API Workflow Tests | 47 | `tests/api/workflows/` |
+| Cross-Cutting Tests | 105 | `tests/api/cross_cutting/` |
+
+Run all tests: `uv run pytest`
+
 ## Phase 1: Data Models (Foundation)
 
 ### Core Infrastructure
@@ -135,16 +151,16 @@
   - [x] Priority 2 modality fixtures (chat, email, calendar, sms)
   - [x] Simulation scenario fixtures (morning_routine, busy_workday, travel_day)
   - [ ] Priority 3 modality fixtures (when implemented)
-- [ ] Write unit tests for modalities (input/state classes)
-  - [x] Priority 1 Modalities
-    - [x] Location (35 input tests, 34 state tests) - includes serialization/deserialization
-    - [x] Time (39 input tests, 39 state tests) - includes serialization/deserialization
-    - [x] Weather (input and state tests)
-  - [x] Priority 2 Modalities
-    - [x] Chat (46 input tests, 47 state tests) - includes serialization/deserialization
-    - [x] Email (input and state tests)
-    - [x] Calendar (52 input tests, 42 state tests) - includes serialization/deserialization
-    - [x] SMS (input and state tests)
+- [x] Write unit tests for modalities (input/state classes) - 591 tests for implemented modalities
+  - [x] Priority 1 Modalities (234 tests total)
+    - [x] Location (74 tests) - includes serialization/deserialization
+    - [x] Time (83 tests) - includes serialization/deserialization
+    - [x] Weather (77 tests) - includes serialization/deserialization
+  - [x] Priority 2 Modalities (357 tests total)
+    - [x] Chat (114 tests) - includes serialization/deserialization
+    - [x] Email (56 tests) - includes serialization/deserialization
+    - [x] Calendar (94 tests) - includes serialization/deserialization
+    - [x] SMS (93 tests) - includes serialization/deserialization
   - [ ] Priority 3 Modalities (when implemented)
     - [ ] Contacts (input and state tests)
     - [ ] File System (input and state tests)
@@ -152,7 +168,7 @@
     - [ ] Slack (input and state tests)
     - [ ] Social Media (input and state tests)
     - [ ] Screen (input and state tests)
-- [ ] Write unit tests for core infrastructure
+- [x] Write unit tests for core infrastructure (309 tests total)
   - [x] SimulatorEvent
   - [x] EventQueue
   - [x] SimulatorTime
@@ -252,42 +268,47 @@
   - [x] Modality submission response models (ModalitySubmitResponse)
   - [x] Environment validation response models (ValidationResponse)
 
-### Testing
-- [ ] Write API integration tests
-  - [ ] Test all time control endpoints
-  - [ ] Test all event management endpoints
-  - [ ] Test all environment query endpoints
-  - [ ] Test all simulation control endpoints
-  - [ ] Test modality convenience endpoints
-  - [ ] Test error handling and validation
-  - [ ] Test concurrent API requests
-- [ ] Write modality route integration tests
-  - [ ] Email routes: test all 11 action endpoints + state/query
-  - [ ] SMS routes: test all 6 action endpoints + state/query
-  - [ ] Chat routes: test all 3 action endpoints + state/query
-  - [ ] Calendar routes: test create/update/delete + state/query
-  - [ ] Location routes: test update + state/query
-  - [ ] Weather routes: test update + state/query
-  - [ ] Test state retrieval consistency
-  - [ ] Test query endpoints with various filters
-  - [ ] Test error handling (invalid data, missing modality, etc.)
-  - [ ] Verify OpenAPI schema generation
-- [ ] Write API unit tests
-  - [ ] Test request validation
-  - [ ] Test response serialization
-  - [ ] Test dependency injection
-  - [ ] Test error response formatting
+### Testing (907 tests passing)
+- [x] Write API integration tests (520 tests)
+  - [x] Test all time control endpoints (50 tests in `tests/api/time/`)
+  - [x] Test all event management endpoints (63 tests in `tests/api/events/`)
+  - [x] Test all environment query endpoints (34 tests in `tests/api/environment/`)
+  - [x] Test all simulation control endpoints (75 tests in `tests/api/simulation/`)
+  - [x] Test modality convenience endpoints (248 tests in `tests/api/modalities/`)
+  - [x] Test error handling and validation (49 tests in `tests/api/cross_cutting/`)
+  - [x] Test concurrent API requests (23 tests in `tests/api/cross_cutting/`)
+  - [x] Test state consistency (33 tests in `tests/api/cross_cutting/`)
+- [x] Write modality route integration tests (248 tests in `tests/api/modalities/`)
+  - [x] Email routes: test all 11 action endpoints + state/query (62 tests)
+  - [x] SMS routes: test all 6 action endpoints + state/query (46 tests)
+  - [x] Chat routes: test all 3 action endpoints + state/query (33 tests)
+  - [x] Calendar routes: test create/update/delete + state/query (38 tests)
+  - [x] Location routes: test update + state/query (39 tests)
+  - [x] Weather routes: test update + state/query (30 tests)
+  - [x] Test state retrieval consistency
+  - [x] Test query endpoints with various filters
+  - [x] Test error handling (invalid data, missing modality, etc.)
+  - [x] Verify OpenAPI schema generation
+- [x] Write API unit tests (285 tests in `tests/api/unit/`)
+  - [x] Test request validation (129 tests)
+  - [x] Test response serialization (55 tests)
+  - [x] Test dependency injection (30 tests)
+  - [x] Test error response formatting (71 tests)
+- [x] Write workflow integration tests (47 tests in `tests/api/workflows/`)
+  - [x] Scenario 1: Basic manual time control (12 tests)
+  - [x] Scenario 2: Multi-modality morning simulation (17 tests)
+  - [x] Scenario 3: Interactive agent conversation (18 tests)
+  - See `tests/progress/API_TESTING_PROGRESS.md` for detailed test coverage
 
 ### Documentation & Examples
 - [x] Set up automatic OpenAPI/Swagger documentation
-- [ ] Create API usage examples
-  - [ ] Example: Manual time control workflow
-  - [ ] Example: Event-driven simulation
-  - [ ] Example: Auto-advance with fast-forward
-  - [ ] Example: Agent responding to user messages
-  - [ ] Example: Scheduled event creation
-- [ ] Create Postman/Thunder Client collection
-- [ ] Write API client library (optional, for easier testing)
+- [ ] Create API usage guides and examples
+  - [x] Quickstart guide (`docs/guides/QUICKSTART.md`)
+  - [ ] Tutorial: Manual time control workflow
+  - [ ] Tutorial: Building an agent response loop
+  - [ ] Examples collection (copy-paste snippets)
+- [ ] Create Postman/Thunder Client collection (optional)
+- [ ] Write API client library (optional)
 
 ## Phase 3: Web App UI (After API)
 - [ ] TBD - Design interface based on API capabilities

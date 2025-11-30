@@ -14,6 +14,12 @@ from models.time import SimulatorTime
 from models.environment import Environment
 from models.queue import EventQueue
 from models.modalities.weather_state import WeatherState
+from models.modalities.email_state import EmailState
+from models.modalities.sms_state import SMSState
+from models.modalities.chat_state import ChatState
+from models.modalities.calendar_state import CalendarState
+from models.modalities.location_state import LocationState
+from models.modalities.time_state import TimeState
 
 
 # Global state
@@ -69,15 +75,25 @@ def initialize_simulation_engine() -> SimulationEngine:
         last_wall_time_update=now,
     )
     
-    # Create initial weather state (empty - will be populated via API)
-    initial_weather = WeatherState(
-        last_updated=now,
-    )
+    # Create initial modality states (all empty - will be populated via API)
+    initial_weather = WeatherState(last_updated=now)
+    initial_email = EmailState(last_updated=now)
+    initial_sms = SMSState(last_updated=now, user_phone_number="+15550000000")
+    initial_chat = ChatState(last_updated=now)
+    initial_calendar = CalendarState(last_updated=now)
+    initial_location = LocationState(last_updated=now)
+    initial_time_prefs = TimeState(last_updated=now)
     
-    # Create initial environment with weather modality
+    # Create initial environment with all modalities registered
     initial_environment = Environment(
         modality_states={
-            "weather": initial_weather,  # Add weather to the environment
+            "weather": initial_weather,
+            "email": initial_email,
+            "sms": initial_sms,
+            "chat": initial_chat,
+            "calendar": initial_calendar,
+            "location": initial_location,
+            "time": initial_time_prefs,
         },
         time_state=initial_time,
     )

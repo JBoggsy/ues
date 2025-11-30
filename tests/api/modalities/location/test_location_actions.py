@@ -204,7 +204,7 @@ class TestPostLocationUpdate:
             "/location/update",
             json={"latitude": 91.0, "longitude": -74.0060},
         )
-        assert response.status_code == 400
+        assert response.status_code == 422
         assert "latitude" in response.json()["detail"].lower()
         
         # Latitude too low
@@ -212,7 +212,7 @@ class TestPostLocationUpdate:
             "/location/update",
             json={"latitude": -91.0, "longitude": -74.0060},
         )
-        assert response.status_code == 400
+        assert response.status_code == 422
 
     def test_update_validates_longitude_range(self, client_with_engine):
         """Test that longitude outside valid range (-180 to 180) returns error.
@@ -226,7 +226,7 @@ class TestPostLocationUpdate:
             "/location/update",
             json={"latitude": 40.7128, "longitude": 181.0},
         )
-        assert response.status_code == 400
+        assert response.status_code == 422
         assert "longitude" in response.json()["detail"].lower()
         
         # Longitude too low
@@ -234,7 +234,7 @@ class TestPostLocationUpdate:
             "/location/update",
             json={"latitude": 40.7128, "longitude": -181.0},
         )
-        assert response.status_code == 400
+        assert response.status_code == 422
 
     def test_update_accepts_boundary_coordinates(self, client_with_engine):
         """Test that boundary coordinate values are accepted."""

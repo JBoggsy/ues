@@ -10,6 +10,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from api.dependencies import SimulationEngineDep
+from models.event import EventStatus
 
 # Create router for simulation control endpoints
 router = APIRouter(
@@ -78,6 +79,7 @@ class SimulationStatusResponse(BaseModel):
         is_running: Whether simulation is currently active.
         current_time: Current simulator time.
         is_paused: Whether time advancement is paused.
+        auto_advance: Whether auto-advance mode is enabled.
         time_scale: Current time multiplier.
         pending_events: Count of pending events.
         executed_events: Count of executed events.
@@ -88,6 +90,7 @@ class SimulationStatusResponse(BaseModel):
     is_running: bool
     current_time: str
     is_paused: bool
+    auto_advance: bool
     time_scale: float
     pending_events: int
     executed_events: int
@@ -133,6 +136,7 @@ async def start_simulation(request: StartSimulationRequest, engine: SimulationEn
             auto_advance=request.auto_advance,
             time_scale=request.time_scale,
         )
+        print("Simulation started:", result)
         
         return StartSimulationResponse(
             simulation_id=result["simulation_id"],
@@ -202,11 +206,10 @@ async def get_simulation_status(engine: SimulationEngineDep):
     
     Returns:
         Current simulation status and statistics.
-    """
-    from models.event import EventStatus
-    
+    """    
     time_state = engine.environment.time_state
     all_events = engine.event_queue.events
+    auto_advance = time_state.auto_advance
     
     # Count events by status
     pending = sum(1 for e in all_events if e.status == EventStatus.PENDING)
@@ -221,6 +224,7 @@ async def get_simulation_status(engine: SimulationEngineDep):
         is_running=engine.is_running,
         current_time=time_state.current_time.isoformat(),
         is_paused=time_state.is_paused,
+        auto_advance=auto_advance,
         time_scale=time_state.time_scale,
         pending_events=pending,
         executed_events=executed,

@@ -198,7 +198,9 @@ class TestSimulationEngineLifecycle:
         result = engine.stop()
 
         assert result["status"] == "stopped"
-        assert "not running" in result["message"].lower()
+        # When stopping a non-running simulation, optional fields are None
+        assert result["final_time"] is None
+        assert result["total_events"] is None
 
     def test_reset(self):
         """SIMULATION_ENGINE-SPECIFIC: Test resetting simulation state."""

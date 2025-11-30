@@ -32,8 +32,11 @@ class TestWeatherStateInstantiation:
     default values, and proper inheritance from ModalityState.
     """
 
-    def test_instantiation_with_defaults(self):
+    def test_instantiation_with_defaults(self, monkeypatch):
         """Test creating WeatherState with default values."""
+        # Ensure no API key is picked up from environment
+        monkeypatch.delenv("OPENWEATHER_API_KEY", raising=False)
+        
         now = datetime.now(timezone.utc)
         state = create_weather_state(last_updated=now)
         
@@ -609,8 +612,11 @@ class TestWeatherStateSerialization:
         
         assert restored.openweather_api_key == original.openweather_api_key
 
-    def test_serialization_handles_none_api_key(self):
+    def test_serialization_handles_none_api_key(self, monkeypatch):
         """Test serialization when API key is None."""
+        # Ensure no API key is picked up from environment
+        monkeypatch.delenv("OPENWEATHER_API_KEY", raising=False)
+        
         original = create_weather_state()
         
         data = original.model_dump()

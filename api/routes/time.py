@@ -14,15 +14,10 @@ from api.dependencies import SimulationEngineDep
 from models.simulation import SimulationEngine
 
 
-# Create a router - this is like a mini FastAPI app for time-related routes
 router = APIRouter(
     prefix="/simulator/time",
     tags=["time"],  # Groups endpoints in the auto-generated docs
 )
-
-
-# Request/Response Models
-# These define the shape of data going in and out of your endpoints
 
 
 class TimeStateResponse(BaseModel):
@@ -53,6 +48,40 @@ class AdvanceTimeRequest(BaseModel):
         gt=0,
         description="Number of seconds to advance (must be positive)",
     )
+
+
+class EventExecutionDetail(BaseModel):
+    """Details about a single event that was executed.
+    
+    Attributes:
+        event_id: Unique identifier of the event.
+        modality: The modality type (email, sms, etc.).
+        status: Execution status (executed, failed, etc.).
+        error: Error message if the event failed, None otherwise.
+    """
+    
+    event_id: str
+    modality: str
+    status: str
+    error: Optional[str] = None
+
+
+class AdvanceTimeResponse(BaseModel):
+    """Response model for advance_time endpoint.
+    
+    Mirrors the return dict of SimulationEngine.advance_time().
+    
+    Attributes:
+        current_time: The new current simulator time after advancement.
+        time_advanced: String representation of the time delta that was advanced.
+        events_executed: Number of events that were executed during advancement.
+        execution_details: Details about each event that was executed.
+    """
+    
+    current_time: datetime
+    time_advanced: str
+    events_executed: int
+    execution_details: list[EventExecutionDetail]
 
 
 class SetTimeRequest(BaseModel):
@@ -95,7 +124,7 @@ async def get_time_state(engine: SimulationEngineDep):
     )
 
 
-@router.post("/advance", response_model=TimeStateResponse)
+@router.post("/advance", response_model=AdvanceTimeResponse)
 async def advance_time(request: AdvanceTimeRequest, engine: SimulationEngineDep):
     """Advance simulator time by a specified duration.
     
@@ -107,20 +136,27 @@ async def advance_time(request: AdvanceTimeRequest, engine: SimulationEngineDep)
         engine: The SimulationEngine instance (injected by FastAPI).
     
     Returns:
-        Updated time state after advancing.
+        Summary of advancement including current time and executed events.
     
     Raises:
         HTTPException: If time advancement fails.
     """
     try:
-        engine.advance_time(delta=timedelta(seconds=request.seconds))
-        time_state = engine.environment.time_state
+        result = engine.advance_time(delta=timedelta(seconds=request.seconds))
         
-        return TimeStateResponse(
-            current_time=time_state.current_time,
-            time_scale=time_state.time_scale,
-            is_paused=time_state.is_paused,
-            auto_advance=time_state.auto_advance,
+        return AdvanceTimeResponse(
+            current_time=datetime.fromisoformat(result["current_time"]),
+            time_advanced=result["time_advanced"],
+            events_executed=result["events_executed"],
+            execution_details=[
+                EventExecutionDetail(
+                    event_id=detail["event_id"],
+                    modality=detail["modality"],
+                    status=detail["status"],
+                    error=detail["error"],
+                )
+                for detail in result["execution_details"]
+            ],
         )
     except ValueError as e:
         raise HTTPException(

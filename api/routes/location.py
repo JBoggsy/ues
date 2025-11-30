@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Any, Optional
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 from api.dependencies import SimulationEngineDep
 from api.models import ModalityActionResponse
@@ -234,7 +234,14 @@ async def update_location(request: UpdateLocationRequest, engine: SimulationEngi
             message=f"Location updated to ({request.latitude}, {request.longitude})",
             modality="location",
         )
+    except ValidationError as e:
+        # Pydantic validation failed (e.g., lat/lon out of range)
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid location data: {str(e)}",
+        )
     except ValueError as e:
+        # Business logic error (after validation passes)
         raise HTTPException(
             status_code=400,
             detail=f"Invalid location data: {str(e)}",

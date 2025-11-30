@@ -8,7 +8,7 @@ and unit conversion. Also supports real-time weather queries via OpenWeather API
 from typing import Any, Literal, Optional
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 from api.dependencies import SimulationEngineDep
 from api.models import ModalityActionResponse
@@ -230,7 +230,14 @@ async def update_weather(request: UpdateWeatherRequest, engine: SimulationEngine
             message=f"Weather updated for location ({request.latitude}, {request.longitude})",
             modality="weather",
         )
+    except ValidationError as e:
+        # Pydantic validation failed (e.g., lat/lon out of range)
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid weather data: {str(e)}",
+        )
     except ValueError as e:
+        # Business logic error (after validation passes)
         raise HTTPException(
             status_code=400,
             detail=f"Invalid weather data: {str(e)}",

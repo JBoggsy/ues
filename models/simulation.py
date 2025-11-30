@@ -169,26 +169,37 @@ class SimulationEngine(BaseModel):
             "events_failed": failed_events,
         }
 
-    def reset(self) -> None:
+    def reset(self) -> int:
         """Reset simulation to initial state.
         
         Stops simulation if running.
-        Clears all executed event records.
-        Resets time to initial value.
-        Resets environment to initial states.
+        Resets all events to pending status (preserves events for replay).
+        
+        Note: Time and environment states are NOT reset by this method.
+        Events are preserved but their execution state is cleared, allowing
+        the same simulation scenario to be replayed.
+        
+        Returns:
+            Number of events that were reset.
         """
+        from models.event import EventStatus
+        
         # Stop if running
         if self.is_running:
             self.stop()
 
-        # Reset event statuses
+        # Count events for return value
+        event_count = len(self.event_queue.events)
+        
+        # Reset all events to pending status
         for event in self.event_queue.events:
-            if event.status in [EventStatus.EXECUTED, EventStatus.FAILED, EventStatus.SKIPPED]:
-                event.status = EventStatus.PENDING
-                event.executed_at = None
-                event.error_message = None
+            event.status = EventStatus.PENDING
+            event.executed_at = None
+            event.error_message = None
 
-        logger.info(f"Simulation {self.simulation_id} reset")
+        logger.info(f"Simulation {self.simulation_id} reset, reset {event_count} events to pending")
+        
+        return event_count
 
     # ===== Time Control Methods =====
 
