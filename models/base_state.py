@@ -136,3 +136,18 @@ class ModalityState(BaseModel):
             Dictionary describing the differences.
         """
         return {"error": "get_diff not implemented for this modality"}
+
+    @property
+    def summary(self) -> str:
+        """Return a brief human-readable summary of the current state.
+
+        This is used by the /environment/state endpoint to provide quick
+        overviews of each modality without returning full state data.
+
+        Subclasses should override this to provide meaningful summaries
+        specific to their modality (e.g., "3 unread emails, 5 total" for email).
+
+        Returns:
+            A brief summary string describing the current state.
+        """
+        return f"{self.modality_type} state (override summary property for details)"

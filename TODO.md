@@ -55,6 +55,16 @@ Run all tests: `uv run pytest`
   - See `docs/modalities/SMS.md` for comprehensive design
   - Depends on: Contacts modality (for display names, blocking)
 
+### Modality State Summaries
+- [ ] Override `summary` property for each `ModalityState` subclass (used by `/environment/state`)
+  - [ ] `LocationState.summary` - e.g., "At 123 Main St, New York" or "Location not set"
+  - [ ] `TimeState.summary` - e.g., "UTC, 12h format"
+  - [ ] `WeatherState.summary` - e.g., "Weather data for 3 locations"
+  - [ ] `ChatState.summary` - e.g., "15 messages in 2 conversations"
+  - [ ] `EmailState.summary` - e.g., "3 unread, 12 total emails"
+  - [ ] `CalendarState.summary` - e.g., "2 events today, 5 this week"
+  - [ ] `SMSState.summary` - e.g., "4 conversations, 2 unread"
+
 ### Priority 3 Modalities (Complex Integrations)
 - [ ] **Contacts**: `ContactInput` (add/update/delete contact) + `ContactState` (contact database)
   - ContactInput fields: phone, email, name, birthday, address, photo, notes, blocked status
@@ -300,14 +310,30 @@ Run all tests: `uv run pytest`
   - [x] Scenario 3: Interactive agent conversation (18 tests)
   - See `tests/progress/API_TESTING_PROGRESS.md` for detailed test coverage
 
+### Simulation Reset & Clear Functionality
+- [ ] Implement robust `reset` functionality for `/simulation/reset`
+  - **Desired behavior**: Reset simulation to an "initial state" that can be defined/loaded
+  - Requires tracking initial state: initial time, initial events (set to pending), initial modality states
+  - Open questions:
+    - What counts as "initial"? First state after start? A saved snapshot? A loaded script?
+    - Should support loading simulation scripts/scenarios that define initial state
+    - May require `SimulationSnapshot` or `SimulationScenario` model
+  - Current status: Returns 501 Not Implemented
+- [ ] Implement `clear` functionality for `/simulation/clear`
+  - **Desired behavior**: Completely empty the simulation environment
+  - Destroys all events (removes from queue entirely)
+  - Resets all modality states to empty defaults
+  - Resets time to a default (e.g., current wall-clock time or a fixed default)
+  - Use case: Start completely fresh without any prior state
+  - Current status: Not implemented (endpoint doesn't exist yet)
+
 ### Documentation & Examples
 - [x] Set up automatic OpenAPI/Swagger documentation
 - [ ] Create API usage guides and examples
   - [x] Quickstart guide (`docs/guides/QUICKSTART.md`)
-  - [ ] Tutorial: Manual time control workflow
+  - [x] Tutorial: Manual time control workflow (`docs/guides/TUTORIAL_MANUAL_TIME.md`)
   - [ ] Tutorial: Building an agent response loop
   - [ ] Examples collection (copy-paste snippets)
-- [ ] Create Postman/Thunder Client collection (optional)
 - [ ] Write API client library (optional)
 
 ## Phase 3: Web App UI (After API)

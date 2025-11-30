@@ -15,7 +15,7 @@ from api.dependencies import SimulationEngineDep
 from api.models import ModalityActionResponse, ModalityStateResponse
 from api.utils import create_immediate_event
 from models.modalities.email_input import EmailInput
-from models.modalities.email_state import Email, EmailState, EmailThread
+from models.modalities.email_state import Email, EmailState, EmailSummary, EmailThread
 
 router = APIRouter(
     prefix="/email",
@@ -260,6 +260,32 @@ class EmailStateResponse(BaseModel):
     starred_count: int
 
 
+class EmailSummaryStateResponse(BaseModel):
+    """Response model for email state endpoint with summary=true.
+
+    Returns compact email summaries (without full body content) and statistics.
+
+    Attributes:
+        modality_type: Always "email".
+        current_time: Current simulator time.
+        user_email_address: The simulated user's email address.
+        statistics: Overall email statistics.
+        folders: Folder names with message and unread counts.
+        labels: Label names with message counts.
+        emails: Email summaries (without full body content).
+        threads: Thread information.
+    """
+
+    modality_type: str = Field(default="email")
+    current_time: datetime
+    user_email_address: str
+    statistics: dict
+    folders: dict[str, dict]
+    labels: dict[str, int]
+    emails: dict[str, EmailSummary]
+    threads: dict[str, EmailThread]
+
+
 class EmailQueryResponse(BaseModel):
     """Response model for email query endpoint.
 
@@ -283,8 +309,11 @@ class EmailQueryResponse(BaseModel):
 # ============================================================================
 
 
-@router.get("/state", response_model=EmailStateResponse)
-async def get_email_state(engine: SimulationEngineDep) -> EmailStateResponse:
+@router.get("/state")
+async def get_email_state(
+    engine: SimulationEngineDep,
+    summary: bool = False,
+) -> EmailStateResponse | EmailSummaryStateResponse:
     """Get current email state.
 
     Returns a complete snapshot of the email system including all messages,
@@ -292,9 +321,11 @@ async def get_email_state(engine: SimulationEngineDep) -> EmailStateResponse:
 
     Args:
         engine: The simulation engine dependency.
+        summary: If True, return compact summaries without full email body
+            content. Useful for getting an overview without large payloads.
 
     Returns:
-        Complete email state with all messages.
+        Complete email state with all messages, or summary if summary=True.
     """
     email_state = engine.environment.get_state("email")
 
@@ -302,6 +333,21 @@ async def get_email_state(engine: SimulationEngineDep) -> EmailStateResponse:
         raise HTTPException(
             status_code=500,
             detail="Email state not properly initialized",
+        )
+
+    current_time = engine.environment.time_state.current_time
+
+    # Return summary response if requested
+    if summary:
+        summary_data = email_state.get_summary_data()
+        return EmailSummaryStateResponse(
+            current_time=current_time,
+            user_email_address=summary_data["user_email_address"],
+            statistics=summary_data["statistics"],
+            folders=summary_data["folders"],
+            labels=summary_data["labels"],
+            emails=summary_data["emails"],
+            threads=summary_data["threads"],
         )
 
     # Calculate folder and label counts
@@ -317,7 +363,7 @@ async def get_email_state(engine: SimulationEngineDep) -> EmailStateResponse:
     starred_count = sum(1 for email in email_state.emails.values() if email.is_starred)
 
     return EmailStateResponse(
-        current_time=engine.environment.time_state.current_time,
+        current_time=current_time,
         user_email_address=email_state.user_email_address,
         emails=email_state.emails,
         threads=email_state.threads,

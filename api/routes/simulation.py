@@ -233,33 +233,35 @@ async def get_simulation_status(engine: SimulationEngineDep):
     )
 
 
-@router.post("/reset", response_model=ResetSimulationResponse)
+@router.post("/reset")
 async def reset_simulation(engine: SimulationEngineDep):
-    """Reset simulation to initial state.
+    """Reset simulation to initial state (NOT YET IMPLEMENTED).
     
-    Clears executed events and resets the environment. The simulation
-    will be stopped if it's currently running.
+    This endpoint will reset the simulation to a defined "initial state",
+    which includes:
+    - Resetting time to the initial simulation time
+    - Resetting all events to pending status (preserving initial events)
+    - Resetting all modality states to their initial values
+    
+    The "initial state" concept requires additional infrastructure:
+    - Tracking/snapshotting the initial state when simulation starts
+    - Or loading initial state from a simulation script/scenario file
+    
+    For now, use `/simulation/clear` to completely empty the simulation,
+    or manually reconfigure as needed.
     
     Args:
         engine: The SimulationEngine instance (injected by FastAPI).
     
     Returns:
-        Confirmation of reset operation.
+        501 Not Implemented error.
     """
-    try:
-        # Count events before reset
-        events_before = len(engine.event_queue.events)
-        
-        # Reset the simulation
-        engine.reset()
-        
-        return ResetSimulationResponse(
-            status="reset",
-            message="Simulation reset to initial state",
-            cleared_events=events_before,
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to reset simulation: {str(e)}",
-        )
+    raise HTTPException(
+        status_code=501,
+        detail=(
+            "Reset functionality is not yet implemented. "
+            "Resetting to an 'initial state' requires tracking what the initial "
+            "time, events, and modality states were when the simulation started. "
+            "Use POST /simulation/clear to completely empty the simulation instead."
+        ),
+    )

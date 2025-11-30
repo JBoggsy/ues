@@ -97,12 +97,18 @@ Manage simulation lifecycle:
 - `POST /simulation/start` - Start simulation
 - `POST /simulation/stop` - Stop simulation gracefully
 - `GET /simulation/status` - Get status and metrics
-- `POST /simulation/reset` - Reset to initial state
+- `POST /simulation/reset` - Reset to initial state (**NOT YET IMPLEMENTED**)
+- `POST /simulation/clear` - Clear all events and states (**NOT YET IMPLEMENTED**)
+
+**Reset vs Clear:**
+- **Reset** (planned): Restores simulation to a defined "initial state" - the time, events, and modality states that existed when the simulation was first configured. Useful for replaying the same scenario multiple times. Requires infrastructure for tracking/loading initial state.
+- **Clear** (planned): Completely empties the simulation - destroys all events, resets all modality states to empty defaults, and resets time. Useful for starting completely fresh.
 
 **Use Cases:**
 - Initialize new simulation run
 - Monitor simulation health
-- Reset for fresh testing
+- Reset for replaying scenarios (when implemented)
+- Clear for fresh testing (when implemented)
 
 ---
 

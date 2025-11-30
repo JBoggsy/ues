@@ -181,9 +181,7 @@ class SimulationEngine(BaseModel):
         
         Returns:
             Number of events that were reset.
-        """
-        from models.event import EventStatus
-        
+        """        
         # Stop if running
         if self.is_running:
             self.stop()

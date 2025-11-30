@@ -28,12 +28,14 @@ class TimeStateResponse(BaseModel):
         time_scale: Multiplier for time progression (1.0 = real-time).
         is_paused: Whether time progression is paused.
         auto_advance: Whether time advances automatically.
+        mode: The current time control mode ("manual", "auto", or "paused").
     """
     
     current_time: datetime
     time_scale: float
     is_paused: bool
     auto_advance: bool
+    mode: str
 
 
 class AdvanceTimeRequest(BaseModel):
@@ -72,15 +74,19 @@ class AdvanceTimeResponse(BaseModel):
     Mirrors the return dict of SimulationEngine.advance_time().
     
     Attributes:
+        previous_time: The simulator time before advancement.
         current_time: The new current simulator time after advancement.
         time_advanced: String representation of the time delta that was advanced.
-        events_executed: Number of events that were executed during advancement.
+        events_executed: Number of events that were successfully executed.
+        events_failed: Number of events that failed during execution.
         execution_details: Details about each event that was executed.
     """
     
+    previous_time: datetime
     current_time: datetime
     time_advanced: str
     events_executed: int
+    events_failed: int
     execution_details: list[EventExecutionDetail]
 
 
@@ -101,7 +107,7 @@ class SetTimeRequest(BaseModel):
 # Each function below handles one API endpoint
 
 
-@router.get("/", response_model=TimeStateResponse)
+@router.get("", response_model=TimeStateResponse)
 async def get_time_state(engine: SimulationEngineDep):
     """Get the current simulator time state.
     
@@ -112,15 +118,24 @@ async def get_time_state(engine: SimulationEngineDep):
         engine: The SimulationEngine instance (injected by FastAPI).
     
     Returns:
-        Current time state including time, scale, pause status, and auto-advance.
+        Current time state including time, scale, pause status, auto-advance, and mode.
     """
     time_state = engine.environment.time_state
+    
+    # Determine mode based on state
+    if time_state.is_paused:
+        mode = "paused"
+    elif time_state.auto_advance:
+        mode = "auto"
+    else:
+        mode = "manual"
     
     return TimeStateResponse(
         current_time=time_state.current_time,
         time_scale=time_state.time_scale,
         is_paused=time_state.is_paused,
         auto_advance=time_state.auto_advance,
+        mode=mode,
     )
 
 
@@ -136,18 +151,29 @@ async def advance_time(request: AdvanceTimeRequest, engine: SimulationEngineDep)
         engine: The SimulationEngine instance (injected by FastAPI).
     
     Returns:
-        Summary of advancement including current time and executed events.
+        Summary of advancement including previous time, current time, and executed events.
     
     Raises:
         HTTPException: If time advancement fails.
     """
     try:
+        # Capture previous time before advancing
+        previous_time = engine.environment.time_state.current_time
+        
         result = engine.advance_time(delta=timedelta(seconds=request.seconds))
         
+        # Calculate events_failed from execution_details
+        events_failed = sum(
+            1 for detail in result["execution_details"]
+            if detail["status"] == "failed"
+        )
+        
         return AdvanceTimeResponse(
+            previous_time=previous_time,
             current_time=datetime.fromisoformat(result["current_time"]),
             time_advanced=result["time_advanced"],
             events_executed=result["events_executed"],
+            events_failed=events_failed,
             execution_details=[
                 EventExecutionDetail(
                     event_id=detail["event_id"],
@@ -190,11 +216,13 @@ class SkipToNextResponse(BaseModel):
     """Response model for skip_to_next endpoint.
     
     Attributes:
+        previous_time: The simulator time before the skip.
         current_time: The new current simulator time.
         events_executed: Number of events executed at the target time.
         next_event_time: Time of the next pending event, or None if no more events.
     """
     
+    previous_time: datetime
     current_time: datetime
     events_executed: int
     next_event_time: Optional[datetime] = None
@@ -263,12 +291,15 @@ async def skip_to_next_event(engine: SimulationEngineDep):
         engine: The SimulationEngine instance (injected by FastAPI).
     
     Returns:
-        Summary of the skip operation including events executed.
+        Summary of the skip operation including previous time and events executed.
     
     Raises:
         HTTPException: If there are no pending events or operation fails.
     """
     try:
+        # Capture previous time before skipping
+        previous_time = engine.environment.time_state.current_time
+        
         result = engine.skip_to_next_event()
         
         # Check if no pending events
@@ -279,6 +310,7 @@ async def skip_to_next_event(engine: SimulationEngineDep):
             )
         
         return SkipToNextResponse(
+            previous_time=previous_time,
             current_time=datetime.fromisoformat(result["current_time"]),
             events_executed=result["events_executed"],
             next_event_time=(
@@ -320,11 +352,20 @@ async def set_time_scale(request: SetScaleRequest, engine: SimulationEngineDep):
         
         time_state = engine.environment.time_state
         
+        # Determine mode based on state
+        if time_state.is_paused:
+            mode = "paused"
+        elif time_state.auto_advance:
+            mode = "auto"
+        else:
+            mode = "manual"
+        
         return TimeStateResponse(
             current_time=time_state.current_time,
             time_scale=time_state.time_scale,
             is_paused=time_state.is_paused,
             auto_advance=time_state.auto_advance,
+            mode=mode,
         )
     except ValueError as e:
         raise HTTPException(
@@ -349,12 +390,13 @@ async def pause_time(engine: SimulationEngineDep):
         engine: The SimulationEngine instance (injected by FastAPI).
     
     Returns:
-        A confirmation message with the current pause state.
+        A confirmation message with the current time and pause state.
     """
     engine.pause()
     
     return {
         "message": "Time paused",
+        "current_time": engine.environment.time_state.current_time,
         "is_paused": engine.environment.time_state.is_paused,
     }
 
@@ -370,11 +412,12 @@ async def resume_time(engine: SimulationEngineDep):
         engine: The SimulationEngine instance (injected by FastAPI).
     
     Returns:
-        A confirmation message with the current pause state.
+        A confirmation message with the current time and pause state.
     """
     engine.resume()
     
     return {
         "message": "Time resumed",
+        "current_time": engine.environment.time_state.current_time,
         "is_paused": engine.environment.time_state.is_paused,
     }

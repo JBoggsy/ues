@@ -134,6 +134,7 @@ class EventResponse(BaseModel):
         created_at: When the event was created.
         executed_at: When the event was executed (if applicable).
         error_message: Error details if execution failed.
+        data: The event payload (ModalityInput data).
     """
 
     event_id: str
@@ -144,6 +145,7 @@ class EventResponse(BaseModel):
     created_at: datetime
     executed_at: Optional[datetime] = None
     error_message: Optional[str] = None
+    data: Optional[dict[str, Any]] = None
 
 
 class EventListResponse(BaseModel):
@@ -496,7 +498,7 @@ async def get_event(event_id: str, engine: SimulationEngineDep):
         engine: The SimulationEngine instance (injected by FastAPI).
     
     Returns:
-        Full event details.
+        Full event details including the event data payload.
     
     Raises:
         HTTPException: If event is not found.
@@ -514,6 +516,14 @@ async def get_event(event_id: str, engine: SimulationEngineDep):
             detail=f"Event {event_id} not found",
         )
     
+    # Serialize the event data if it exists
+    event_data = None
+    if event.data is not None:
+        if hasattr(event.data, 'model_dump'):
+            event_data = event.data.model_dump()
+        elif isinstance(event.data, dict):
+            event_data = event.data
+    
     return EventResponse(
         event_id=event.event_id,
         scheduled_time=event.scheduled_time,
@@ -523,6 +533,7 @@ async def get_event(event_id: str, engine: SimulationEngineDep):
         created_at=event.created_at,
         executed_at=event.executed_at,
         error_message=event.error_message,
+        data=event_data,
     )
 
 

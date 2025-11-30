@@ -141,6 +141,73 @@ class EmailThread(BaseModel):
         self.unread_count = max(0, self.unread_count + delta)
 
 
+class EmailSummary(BaseModel):
+    """Summary representation of an email for compact API responses.
+
+    Contains only essential metadata without full body content.
+
+    Args:
+        message_id: Unique message identifier.
+        thread_id: Thread identifier for conversation grouping.
+        from_address: Sender email address.
+        to_addresses: Primary recipient addresses.
+        subject: Email subject line.
+        sent_at: When email was originally sent.
+        received_at: When email arrived in inbox.
+        is_read: Read/unread status.
+        is_starred: Starred/flagged status.
+        folder: Current folder location.
+        has_attachments: Whether email has attachments.
+        attachment_count: Number of attachments.
+        body_preview: First ~100 chars of body text.
+    """
+
+    message_id: str = Field(description="Unique message identifier")
+    thread_id: str = Field(description="Thread identifier for conversation grouping")
+    from_address: str = Field(description="Sender email address")
+    to_addresses: list[str] = Field(description="Primary recipient addresses")
+    subject: str = Field(description="Email subject line")
+    sent_at: datetime = Field(description="When email was originally sent")
+    received_at: datetime = Field(description="When email arrived in inbox")
+    is_read: bool = Field(description="Read/unread status")
+    is_starred: bool = Field(description="Starred/flagged status")
+    folder: str = Field(description="Current folder location")
+    has_attachments: bool = Field(description="Whether email has attachments")
+    attachment_count: int = Field(description="Number of attachments")
+    body_preview: str = Field(description="First ~100 chars of body text")
+
+    @classmethod
+    def from_email(cls, email: "Email", preview_length: int = 100) -> "EmailSummary":
+        """Create an EmailSummary from a full Email object.
+
+        Args:
+            email: The full Email object to summarize.
+            preview_length: Maximum length of body preview (default 100).
+
+        Returns:
+            An EmailSummary instance.
+        """
+        body_preview = email.body_text[:preview_length]
+        if len(email.body_text) > preview_length:
+            body_preview = body_preview.rstrip() + "..."
+
+        return cls(
+            message_id=email.message_id,
+            thread_id=email.thread_id,
+            from_address=email.from_address,
+            to_addresses=email.to_addresses,
+            subject=email.subject,
+            sent_at=email.sent_at,
+            received_at=email.received_at,
+            is_read=email.is_read,
+            is_starred=email.is_starred,
+            folder=email.folder,
+            has_attachments=len(email.attachments) > 0,
+            attachment_count=len(email.attachments),
+            body_preview=body_preview,
+        )
+
+
 class EmailState(ModalityState):
     """Current email system state.
 
@@ -762,6 +829,58 @@ class EmailState(ModalityState):
             "folders": folder_summaries,
             "label_count": len(self.labels),
             "draft_count": len(self.drafts),
+        }
+
+    def get_summary_data(self) -> dict[str, Any]:
+        """Return a compact summary of email state without full email contents.
+
+        This method provides statistics and email summaries (without full body
+        content) for use with the `summary=true` query parameter.
+
+        Returns:
+            Dictionary with email summaries and statistics.
+        """
+        # Calculate folder statistics
+        folder_stats = {}
+        for folder_name, message_ids in self.folders.items():
+            folder_stats[folder_name] = {
+                "message_count": len(message_ids),
+                "unread_count": self._get_unread_count(folder_name),
+            }
+
+        # Calculate overall statistics
+        total_unread = sum(1 for e in self.emails.values() if not e.is_read)
+        total_starred = sum(1 for e in self.emails.values() if e.is_starred)
+
+        # Create email summaries (compact representation without full body)
+        email_summaries = {
+            msg_id: EmailSummary.from_email(email).model_dump()
+            for msg_id, email in self.emails.items()
+        }
+
+        # Create thread summaries
+        thread_summaries = {
+            thread_id: thread.model_dump()
+            for thread_id, thread in self.threads.items()
+        }
+
+        return {
+            "modality_type": self.modality_type,
+            "last_updated": self.last_updated.isoformat(),
+            "update_count": self.update_count,
+            "user_email_address": self.user_email_address,
+            "statistics": {
+                "total_emails": len(self.emails),
+                "total_threads": len(self.threads),
+                "total_unread": total_unread,
+                "total_starred": total_starred,
+                "total_drafts": len(self.drafts),
+                "total_labels": len(self.labels),
+            },
+            "folders": folder_stats,
+            "labels": {label: len(ids) for label, ids in self.labels.items()},
+            "emails": email_summaries,
+            "threads": thread_summaries,
         }
 
     def validate_state(self) -> list[str]:

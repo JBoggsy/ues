@@ -86,11 +86,11 @@ async def get_environment_state(engine: SimulationEngineDep):
         name: state.model_dump() for name, state in env.modality_states.items()
     }
     
-    # Build summary list
+    # Build summary list using each state's summary property
     summaries = [
         ModalitySummary(
             modality_type=name,
-            state_summary=f"{name} state with {len(state.model_dump())} fields",
+            state_summary=state.summary,
         )
         for name, state in env.modality_states.items()
     ]
