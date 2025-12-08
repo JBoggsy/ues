@@ -880,3 +880,401 @@ class CalendarState(ModalityState):
                 del self.events[event_id]
 
         del self.calendars[calendar_id]
+
+    def clear(self) -> None:
+        """Reset calendar state to empty defaults.
+
+        Clears all events and non-default calendars, returning the state
+        to a freshly created condition. The default 'primary' calendar
+        is recreated as empty.
+        """
+        self.events.clear()
+        # Recreate with just the default calendar (empty)
+        self.calendars = {
+            "primary": Calendar(
+                calendar_id="primary",
+                name="Personal",
+                color="#4285f4",
+            )
+        }
+        self.update_count = 0
+
+    def create_undo_data(self, input_data: "ModalityInput") -> dict[str, Any]:
+        """Capture minimal data needed to undo applying a CalendarInput.
+
+        For calendar operations:
+        - create: Store event_id to remove, plus calendar creation flag if new calendar
+        - update: Store full previous event state, plus any created events (for split/occurrence)
+        - delete: Store full deleted event, plus any modifications (for exception/split)
+
+        Args:
+            input_data: The CalendarInput that will be applied.
+
+        Returns:
+            Dictionary containing minimal data needed to undo the operation.
+        """
+        if not isinstance(input_data, CalendarInput):
+            raise ValueError(
+                f"CalendarState can only create undo data for CalendarInput, "
+                f"got {type(input_data)}"
+            )
+
+        # Validate input to ensure event_id is set for create operations
+        input_data.validate_input()
+
+        base_undo: dict[str, Any] = {
+            "state_previous_update_count": self.update_count,
+            "state_previous_last_updated": self.last_updated.isoformat(),
+        }
+
+        if input_data.operation == "create":
+            calendar_id = input_data.calendar_id
+            is_new_calendar = calendar_id not in self.calendars
+
+            return {
+                **base_undo,
+                "action": "remove_event",
+                "event_id": input_data.event_id,
+                "calendar_id": calendar_id,
+                "was_new_calendar": is_new_calendar,
+            }
+
+        elif input_data.operation == "update":
+            event_id = input_data.event_id
+            if event_id not in self.events:
+                # Event doesn't exist - update will fail, undo is noop
+                return {
+                    **base_undo,
+                    "action": "noop",
+                }
+
+            event = self.events[event_id]
+            calendar = self.calendars[event.calendar_id]
+
+            # Store the full previous event state
+            previous_event = event.model_dump(mode="json")
+
+            # Store calendar's previous updated_at
+            previous_calendar_updated_at = calendar.updated_at.isoformat()
+
+            # Determine what will happen based on recurrence scope
+            if event.is_recurring():
+                if input_data.recurrence_scope == "all":
+                    # Simple update to all occurrences
+                    return {
+                        **base_undo,
+                        "action": "restore_event",
+                        "event_id": event_id,
+                        "previous_event": previous_event,
+                        "calendar_id": event.calendar_id,
+                        "previous_calendar_updated_at": previous_calendar_updated_at,
+                    }
+                elif input_data.recurrence_scope == "this_and_future":
+                    # Will create a new split event - need to capture for removal
+                    return {
+                        **base_undo,
+                        "action": "restore_event_remove_split",
+                        "event_id": event_id,
+                        "previous_event": previous_event,
+                        "calendar_id": event.calendar_id,
+                        "previous_calendar_updated_at": previous_calendar_updated_at,
+                        # The new event ID will be generated during apply_input
+                        # We need to capture the calendar's event_ids to find it
+                        "previous_event_ids": list(calendar.event_ids),
+                    }
+                elif input_data.recurrence_scope == "this" and input_data.recurrence_id:
+                    # Will create a modified occurrence
+                    return {
+                        **base_undo,
+                        "action": "restore_event_remove_occurrence",
+                        "event_id": event_id,
+                        "previous_event": previous_event,
+                        "calendar_id": event.calendar_id,
+                        "previous_calendar_updated_at": previous_calendar_updated_at,
+                        "recurrence_id": input_data.recurrence_id,
+                        "previous_event_ids": list(calendar.event_ids),
+                    }
+                else:
+                    # Default for recurring event (scope is "this" without recurrence_id)
+                    return {
+                        **base_undo,
+                        "action": "restore_event",
+                        "event_id": event_id,
+                        "previous_event": previous_event,
+                        "calendar_id": event.calendar_id,
+                        "previous_calendar_updated_at": previous_calendar_updated_at,
+                    }
+            else:
+                # Non-recurring event update (simple field changes)
+                return {
+                    **base_undo,
+                    "action": "restore_event",
+                    "event_id": event_id,
+                    "previous_event": previous_event,
+                    "calendar_id": event.calendar_id,
+                    "previous_calendar_updated_at": previous_calendar_updated_at,
+                }
+
+        elif input_data.operation == "delete":
+            event_id = input_data.event_id
+            if event_id not in self.events:
+                # Event doesn't exist - delete will fail, undo is noop
+                return {
+                    **base_undo,
+                    "action": "noop",
+                }
+
+            event = self.events[event_id]
+            calendar = self.calendars[event.calendar_id]
+
+            # Store the full event being deleted
+            deleted_event = event.model_dump(mode="json")
+            previous_calendar_updated_at = calendar.updated_at.isoformat()
+
+            if event.is_recurring() and input_data.recurrence_scope != "all":
+                if input_data.recurrence_scope == "this" and input_data.recurrence_id:
+                    # Will add exception date - just need to remove it
+                    return {
+                        **base_undo,
+                        "action": "remove_exception",
+                        "event_id": event_id,
+                        "recurrence_id": input_data.recurrence_id,
+                        "previous_event": deleted_event,
+                        "calendar_id": event.calendar_id,
+                        "previous_calendar_updated_at": previous_calendar_updated_at,
+                    }
+                elif input_data.recurrence_scope == "this_and_future":
+                    # Will split event - need to remove new event and restore original
+                    return {
+                        **base_undo,
+                        "action": "restore_event_remove_split",
+                        "event_id": event_id,
+                        "previous_event": deleted_event,
+                        "calendar_id": event.calendar_id,
+                        "previous_calendar_updated_at": previous_calendar_updated_at,
+                        "previous_event_ids": list(calendar.event_ids),
+                    }
+            else:
+                # Full deletion - need to restore event
+                return {
+                    **base_undo,
+                    "action": "restore_deleted_event",
+                    "event_id": event_id,
+                    "deleted_event": deleted_event,
+                    "calendar_id": event.calendar_id,
+                    "previous_calendar_updated_at": previous_calendar_updated_at,
+                }
+
+        else:
+            raise ValueError(f"Unknown operation: {input_data.operation}")
+
+    def apply_undo(self, undo_data: dict[str, Any]) -> None:
+        """Apply undo data to reverse a previous calendar input application.
+
+        Handles:
+        - remove_event: Removes an event that was created
+        - restore_event: Restores previous event state after update
+        - restore_event_remove_split: Restores event and removes split event
+        - restore_event_remove_occurrence: Restores event and removes modified occurrence
+        - remove_exception: Removes an exception date that was added
+        - restore_deleted_event: Restores a fully deleted event
+        - noop: Does nothing (for operations that had no effect)
+
+        Args:
+            undo_data: Dictionary returned by create_undo_data().
+
+        Raises:
+            ValueError: If undo_data is invalid or action is unknown.
+            RuntimeError: If state has been modified in a way that prevents undo.
+        """
+        action = undo_data.get("action")
+        if not action:
+            raise ValueError("Undo data missing 'action' field")
+
+        if action == "noop":
+            # Restore state-level metadata only
+            self.update_count = undo_data["state_previous_update_count"]
+            self.last_updated = datetime.fromisoformat(
+                undo_data["state_previous_last_updated"]
+            )
+            return
+
+        if action == "remove_event":
+            event_id = undo_data.get("event_id")
+            if not event_id:
+                raise ValueError("Undo data missing 'event_id' field")
+
+            calendar_id = undo_data.get("calendar_id")
+            if not calendar_id:
+                raise ValueError("Undo data missing 'calendar_id' field")
+
+            # Remove the created event
+            if event_id in self.events:
+                del self.events[event_id]
+            else:
+                raise RuntimeError(f"Cannot undo: event '{event_id}' not found")
+
+            # Remove from calendar's event_ids
+            if calendar_id in self.calendars:
+                self.calendars[calendar_id].event_ids.discard(event_id)
+
+                # If this was a new calendar, remove it
+                if undo_data.get("was_new_calendar"):
+                    del self.calendars[calendar_id]
+
+        elif action == "restore_event":
+            event_id = undo_data.get("event_id")
+            if not event_id:
+                raise ValueError("Undo data missing 'event_id' field")
+
+            previous_event_data = undo_data.get("previous_event")
+            if not previous_event_data:
+                raise ValueError("Undo data missing 'previous_event' field")
+
+            if event_id not in self.events:
+                raise RuntimeError(f"Cannot undo: event '{event_id}' not found")
+
+            # Restore the event to its previous state
+            self.events[event_id] = CalendarEvent(**previous_event_data)
+
+            # Restore calendar updated_at
+            calendar_id = undo_data.get("calendar_id")
+            if calendar_id and calendar_id in self.calendars:
+                prev_updated = undo_data.get("previous_calendar_updated_at")
+                if prev_updated:
+                    self.calendars[calendar_id].updated_at = datetime.fromisoformat(
+                        prev_updated
+                    )
+
+        elif action == "restore_event_remove_split":
+            event_id = undo_data.get("event_id")
+            if not event_id:
+                raise ValueError("Undo data missing 'event_id' field")
+
+            previous_event_data = undo_data.get("previous_event")
+            if not previous_event_data:
+                raise ValueError("Undo data missing 'previous_event' field")
+
+            calendar_id = undo_data.get("calendar_id")
+            if not calendar_id:
+                raise ValueError("Undo data missing 'calendar_id' field")
+
+            # Restore the original event
+            self.events[event_id] = CalendarEvent(**previous_event_data)
+
+            # Find and remove the newly created split event
+            previous_event_ids = set(undo_data.get("previous_event_ids", []))
+            if calendar_id in self.calendars:
+                current_event_ids = self.calendars[calendar_id].event_ids
+                new_event_ids = current_event_ids - previous_event_ids
+
+                for new_event_id in new_event_ids:
+                    if new_event_id in self.events:
+                        del self.events[new_event_id]
+                    current_event_ids.discard(new_event_id)
+
+                # Restore calendar updated_at
+                prev_updated = undo_data.get("previous_calendar_updated_at")
+                if prev_updated:
+                    self.calendars[calendar_id].updated_at = datetime.fromisoformat(
+                        prev_updated
+                    )
+
+        elif action == "restore_event_remove_occurrence":
+            event_id = undo_data.get("event_id")
+            if not event_id:
+                raise ValueError("Undo data missing 'event_id' field")
+
+            previous_event_data = undo_data.get("previous_event")
+            if not previous_event_data:
+                raise ValueError("Undo data missing 'previous_event' field")
+
+            calendar_id = undo_data.get("calendar_id")
+            if not calendar_id:
+                raise ValueError("Undo data missing 'calendar_id' field")
+
+            # Restore the parent event (removes the exception date)
+            self.events[event_id] = CalendarEvent(**previous_event_data)
+
+            # Find and remove the modified occurrence
+            previous_event_ids = set(undo_data.get("previous_event_ids", []))
+            if calendar_id in self.calendars:
+                current_event_ids = self.calendars[calendar_id].event_ids
+                new_event_ids = current_event_ids - previous_event_ids
+
+                for new_event_id in new_event_ids:
+                    if new_event_id in self.events:
+                        del self.events[new_event_id]
+                    current_event_ids.discard(new_event_id)
+
+                # Restore calendar updated_at
+                prev_updated = undo_data.get("previous_calendar_updated_at")
+                if prev_updated:
+                    self.calendars[calendar_id].updated_at = datetime.fromisoformat(
+                        prev_updated
+                    )
+
+        elif action == "remove_exception":
+            event_id = undo_data.get("event_id")
+            if not event_id:
+                raise ValueError("Undo data missing 'event_id' field")
+
+            recurrence_id = undo_data.get("recurrence_id")
+            if not recurrence_id:
+                raise ValueError("Undo data missing 'recurrence_id' field")
+
+            if event_id not in self.events:
+                raise RuntimeError(f"Cannot undo: event '{event_id}' not found")
+
+            # Remove the exception date
+            self.events[event_id].recurrence_exceptions.discard(recurrence_id)
+
+            # Restore event's previous state
+            previous_event_data = undo_data.get("previous_event")
+            if previous_event_data:
+                self.events[event_id] = CalendarEvent(**previous_event_data)
+
+            # Restore calendar updated_at
+            calendar_id = undo_data.get("calendar_id")
+            if calendar_id and calendar_id in self.calendars:
+                prev_updated = undo_data.get("previous_calendar_updated_at")
+                if prev_updated:
+                    self.calendars[calendar_id].updated_at = datetime.fromisoformat(
+                        prev_updated
+                    )
+
+        elif action == "restore_deleted_event":
+            event_id = undo_data.get("event_id")
+            if not event_id:
+                raise ValueError("Undo data missing 'event_id' field")
+
+            deleted_event_data = undo_data.get("deleted_event")
+            if not deleted_event_data:
+                raise ValueError("Undo data missing 'deleted_event' field")
+
+            calendar_id = undo_data.get("calendar_id")
+            if not calendar_id:
+                raise ValueError("Undo data missing 'calendar_id' field")
+
+            # Restore the deleted event
+            self.events[event_id] = CalendarEvent(**deleted_event_data)
+
+            # Add event back to calendar's event_ids
+            if calendar_id in self.calendars:
+                self.calendars[calendar_id].event_ids.add(event_id)
+
+                # Restore calendar updated_at
+                prev_updated = undo_data.get("previous_calendar_updated_at")
+                if prev_updated:
+                    self.calendars[calendar_id].updated_at = datetime.fromisoformat(
+                        prev_updated
+                    )
+
+        else:
+            raise ValueError(f"Unknown undo action: {action}")
+
+        # Restore state-level metadata
+        self.update_count = undo_data["state_previous_update_count"]
+        self.last_updated = datetime.fromisoformat(
+            undo_data["state_previous_last_updated"]
+        )

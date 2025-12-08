@@ -1096,3 +1096,730 @@ class TestChatStateSerialization:
         # This is expected behavior, so we skip validation for this test
         # The important check is that max_history_size is enforced
         assert len(state.messages) <= state.max_history_size
+
+
+class TestChatStateCreateUndoData:
+    """Test ChatState.create_undo_data() method.
+    
+    GENERAL PATTERN: All ModalityState subclasses must implement create_undo_data()
+    to capture minimal data needed to reverse an apply_input() operation.
+    
+    CHAT-SPECIFIC: Handles three operations:
+    - send_message: Captures message_id and conversation creation status
+    - delete_message: Captures the full message being deleted
+    - clear_conversation: Captures all messages and metadata being cleared
+    """
+
+    def test_create_undo_data_send_message_new_conversation(self):
+        """Test create_undo_data for send_message to a new conversation.
+        
+        CHAT-SPECIFIC: When creating a new conversation, stores flag to remove it on undo.
+        """
+        state = create_chat_state()
+        chat_input = create_chat_input(
+            role="user",
+            content="Hello!",
+            conversation_id="new-chat",
+        )
+        
+        undo_data = state.create_undo_data(chat_input)
+        
+        assert undo_data["action"] == "remove_message"
+        assert undo_data["message_id"] == chat_input.message_id
+        assert undo_data["conversation_id"] == "new-chat"
+        assert undo_data["was_new_conversation"] is True
+        assert "previous_conv_metadata" not in undo_data
+
+    def test_create_undo_data_send_message_existing_conversation(self):
+        """Test create_undo_data for send_message to an existing conversation.
+        
+        CHAT-SPECIFIC: Stores previous conversation metadata for restoration.
+        """
+        state = create_chat_state()
+        
+        # Create the conversation first
+        first_input = create_chat_input(
+            role="user",
+            content="First message",
+            conversation_id="existing-chat",
+        )
+        state.apply_input(first_input)
+        
+        # Create undo data for second message
+        second_input = create_chat_input(
+            role="assistant",
+            content="Response",
+            conversation_id="existing-chat",
+        )
+        undo_data = state.create_undo_data(second_input)
+        
+        assert undo_data["action"] == "remove_message"
+        assert undo_data["was_new_conversation"] is False
+        assert "previous_conv_metadata" in undo_data
+        assert undo_data["previous_conv_metadata"]["message_count"] == 1
+        assert "user" in undo_data["previous_conv_metadata"]["participant_roles"]
+
+    def test_create_undo_data_send_message_captures_removed_at_capacity(self):
+        """Test create_undo_data captures removed message when at capacity.
+        
+        CHAT-SPECIFIC: When history is at max_history_size, oldest message is captured.
+        """
+        state = create_chat_state(max_history_size=3)
+        
+        # Fill to capacity
+        for i in range(3):
+            state.apply_input(create_chat_input(
+                role="user",
+                content=f"Message {i}",
+                timestamp=datetime.now(timezone.utc) + timedelta(seconds=i),
+            ))
+        
+        # Verify at capacity
+        assert len(state.messages) == 3
+        oldest_id = state.messages[0].message_id
+        
+        # Create undo data for message that will push out oldest
+        new_input = create_chat_input(
+            role="user",
+            content="Overflow message",
+            timestamp=datetime.now(timezone.utc) + timedelta(seconds=10),
+        )
+        undo_data = state.create_undo_data(new_input)
+        
+        assert "removed_message" in undo_data
+        assert undo_data["removed_message"]["message_id"] == oldest_id
+
+    def test_create_undo_data_send_message_no_removed_when_not_at_capacity(self):
+        """Test create_undo_data doesn't capture removed message when not at capacity.
+        
+        CHAT-SPECIFIC: Only capture removed_message when actually at max capacity.
+        """
+        state = create_chat_state(max_history_size=100)
+        
+        # Add a few messages (well under capacity)
+        for i in range(3):
+            state.apply_input(create_chat_input(
+                role="user",
+                content=f"Message {i}",
+            ))
+        
+        new_input = create_chat_input(
+            role="user",
+            content="New message",
+        )
+        undo_data = state.create_undo_data(new_input)
+        
+        assert "removed_message" not in undo_data
+
+    def test_create_undo_data_delete_message_existing(self):
+        """Test create_undo_data for delete_message operation.
+        
+        CHAT-SPECIFIC: Captures full message data for restoration.
+        """
+        state = create_chat_state()
+        
+        # Add a message to delete
+        msg_input = create_chat_input(
+            role="user",
+            content="Message to delete",
+            conversation_id="test",
+        )
+        state.apply_input(msg_input)
+        
+        # Create undo data for delete
+        delete_input = ChatInput(
+            timestamp=datetime.now(timezone.utc),
+            operation="delete_message",
+            message_id=msg_input.message_id,
+            conversation_id="test",
+        )
+        undo_data = state.create_undo_data(delete_input)
+        
+        assert undo_data["action"] == "restore_message"
+        assert "message" in undo_data
+        assert undo_data["message"]["message_id"] == msg_input.message_id
+        assert undo_data["message"]["content"] == "Message to delete"
+        assert undo_data["message"]["role"] == "user"
+
+    def test_create_undo_data_delete_message_nonexistent(self):
+        """Test create_undo_data for deleting a non-existent message.
+        
+        CHAT-SPECIFIC: Returns noop action when message doesn't exist.
+        """
+        state = create_chat_state()
+        
+        delete_input = ChatInput(
+            timestamp=datetime.now(timezone.utc),
+            operation="delete_message",
+            message_id="nonexistent-id",
+            conversation_id="test",
+        )
+        undo_data = state.create_undo_data(delete_input)
+        
+        assert undo_data["action"] == "noop"
+
+    def test_create_undo_data_clear_conversation(self):
+        """Test create_undo_data for clear_conversation operation.
+        
+        CHAT-SPECIFIC: Captures all messages and metadata for the conversation.
+        """
+        state = create_chat_state()
+        
+        # Add messages to conversation
+        for i in range(3):
+            state.apply_input(create_chat_input(
+                role="user" if i % 2 == 0 else "assistant",
+                content=f"Message {i}",
+                conversation_id="to-clear",
+                timestamp=datetime.now(timezone.utc) + timedelta(seconds=i),
+            ))
+        
+        # Create undo data for clear
+        clear_input = ChatInput(
+            timestamp=datetime.now(timezone.utc),
+            operation="clear_conversation",
+            conversation_id="to-clear",
+        )
+        undo_data = state.create_undo_data(clear_input)
+        
+        assert undo_data["action"] == "restore_conversation"
+        assert undo_data["conversation_id"] == "to-clear"
+        assert len(undo_data["cleared_messages"]) == 3
+        assert undo_data["conv_metadata"] is not None
+        assert undo_data["conv_metadata"]["message_count"] == 3
+
+    def test_create_undo_data_clear_empty_conversation(self):
+        """Test create_undo_data for clearing an empty/nonexistent conversation.
+        
+        CHAT-SPECIFIC: Returns empty cleared_messages list.
+        """
+        state = create_chat_state()
+        
+        clear_input = ChatInput(
+            timestamp=datetime.now(timezone.utc),
+            operation="clear_conversation",
+            conversation_id="empty-conv",
+        )
+        undo_data = state.create_undo_data(clear_input)
+        
+        assert undo_data["action"] == "restore_conversation"
+        assert len(undo_data["cleared_messages"]) == 0
+        assert undo_data["conv_metadata"] is None
+
+    def test_create_undo_data_captures_state_metadata(self):
+        """Test that create_undo_data captures state-level metadata.
+        
+        GENERAL PATTERN: Undo data should include state-level update_count and last_updated.
+        """
+        state = create_chat_state()
+        state.apply_input(create_chat_input())
+        
+        original_update_count = state.update_count
+        original_last_updated = state.last_updated
+        
+        new_input = create_chat_input(content="Second message")
+        undo_data = state.create_undo_data(new_input)
+        
+        assert "state_previous_update_count" in undo_data
+        assert "state_previous_last_updated" in undo_data
+        assert undo_data["state_previous_update_count"] == original_update_count
+
+    def test_create_undo_data_raises_for_invalid_input_type(self):
+        """Test that create_undo_data raises for non-ChatInput.
+        
+        GENERAL PATTERN: All modalities should validate input type.
+        """
+        from models.modalities.location_input import LocationInput
+        
+        state = create_chat_state()
+        invalid_input = LocationInput(
+            latitude=40.0,
+            longitude=-74.0,
+            timestamp=datetime.now(timezone.utc),
+        )
+        
+        with pytest.raises(ValueError, match="ChatInput"):
+            state.create_undo_data(invalid_input)
+
+    def test_create_undo_data_does_not_modify_state(self):
+        """Test that create_undo_data does not modify state.
+        
+        GENERAL PATTERN: create_undo_data should be read-only.
+        """
+        state = create_chat_state()
+        state.apply_input(create_chat_input())
+        
+        original_update_count = state.update_count
+        original_message_count = len(state.messages)
+        
+        new_input = create_chat_input(content="New message")
+        state.create_undo_data(new_input)
+        
+        assert state.update_count == original_update_count
+        assert len(state.messages) == original_message_count
+
+
+class TestChatStateApplyUndo:
+    """Test ChatState.apply_undo() method.
+    
+    GENERAL PATTERN: All ModalityState subclasses must implement apply_undo()
+    to reverse a previous apply_input() operation using undo data.
+    
+    CHAT-SPECIFIC: Handles removing sent messages, restoring deleted messages,
+    and restoring cleared conversations.
+    """
+
+    def test_apply_undo_removes_sent_message(self):
+        """Test that apply_undo removes a message that was sent.
+        
+        CHAT-SPECIFIC: remove_message action removes the message from state.
+        """
+        state = create_chat_state()
+        chat_input = create_chat_input(content="Hello!")
+        
+        # Capture undo data, then apply
+        undo_data = state.create_undo_data(chat_input)
+        state.apply_input(chat_input)
+        
+        assert len(state.messages) == 1
+        
+        # Apply undo
+        state.apply_undo(undo_data)
+        
+        assert len(state.messages) == 0
+
+    def test_apply_undo_removes_new_conversation(self):
+        """Test that apply_undo removes a conversation that was created.
+        
+        CHAT-SPECIFIC: When send_message created a new conversation, undo removes it.
+        """
+        state = create_chat_state()
+        chat_input = create_chat_input(
+            content="First message",
+            conversation_id="new-conv",
+        )
+        
+        undo_data = state.create_undo_data(chat_input)
+        state.apply_input(chat_input)
+        
+        assert "new-conv" in state.conversations
+        
+        state.apply_undo(undo_data)
+        
+        assert "new-conv" not in state.conversations
+
+    def test_apply_undo_restores_conversation_metadata(self):
+        """Test that apply_undo restores previous conversation metadata.
+        
+        CHAT-SPECIFIC: When undoing send to existing conversation, metadata is restored.
+        """
+        state = create_chat_state()
+        
+        # First message creates conversation
+        first_input = create_chat_input(
+            role="user",
+            content="First",
+            conversation_id="chat",
+        )
+        state.apply_input(first_input)
+        
+        original_meta = state.conversations["chat"].model_copy()
+        
+        # Second message
+        second_input = create_chat_input(
+            role="assistant",
+            content="Second",
+            conversation_id="chat",
+        )
+        undo_data = state.create_undo_data(second_input)
+        state.apply_input(second_input)
+        
+        # Metadata should have changed
+        assert state.conversations["chat"].message_count == 2
+        
+        # Undo
+        state.apply_undo(undo_data)
+        
+        assert state.conversations["chat"].message_count == original_meta.message_count
+        assert state.conversations["chat"].last_message_at == original_meta.last_message_at
+
+    def test_apply_undo_restores_state_metadata(self):
+        """Test that apply_undo restores state-level metadata.
+        
+        GENERAL PATTERN: State-level update_count and last_updated are restored.
+        """
+        state = create_chat_state()
+        state.apply_input(create_chat_input())
+        
+        original_update_count = state.update_count
+        original_last_updated = state.last_updated
+        
+        second_input = create_chat_input(content="Second")
+        undo_data = state.create_undo_data(second_input)
+        state.apply_input(second_input)
+        
+        state.apply_undo(undo_data)
+        
+        assert state.update_count == original_update_count
+        assert state.last_updated == original_last_updated
+
+    def test_apply_undo_restores_capacity_removed_message(self):
+        """Test that apply_undo restores a message removed due to capacity.
+        
+        CHAT-SPECIFIC: When send_message caused oldest to be removed, it's restored.
+        """
+        state = create_chat_state(max_history_size=2)
+        
+        # Fill to capacity
+        for i in range(2):
+            state.apply_input(create_chat_input(
+                content=f"Message {i}",
+                timestamp=datetime.now(timezone.utc) + timedelta(seconds=i),
+            ))
+        
+        oldest_id = state.messages[0].message_id
+        oldest_content = state.messages[0].content
+        
+        # Add one more (removes oldest)
+        overflow_input = create_chat_input(
+            content="Overflow",
+            timestamp=datetime.now(timezone.utc) + timedelta(seconds=10),
+        )
+        undo_data = state.create_undo_data(overflow_input)
+        state.apply_input(overflow_input)
+        
+        # Oldest should be gone
+        assert all(m.message_id != oldest_id for m in state.messages)
+        
+        # Undo
+        state.apply_undo(undo_data)
+        
+        # Oldest should be back
+        assert any(m.message_id == oldest_id for m in state.messages)
+        restored = next(m for m in state.messages if m.message_id == oldest_id)
+        assert restored.content == oldest_content
+
+    def test_apply_undo_restores_deleted_message(self):
+        """Test that apply_undo restores a deleted message.
+        
+        CHAT-SPECIFIC: restore_message action adds the message back.
+        """
+        state = create_chat_state()
+        
+        # Add a message
+        msg_input = create_chat_input(
+            role="user",
+            content="To be deleted",
+            conversation_id="test",
+        )
+        state.apply_input(msg_input)
+        
+        # Delete it
+        delete_input = ChatInput(
+            timestamp=datetime.now(timezone.utc),
+            operation="delete_message",
+            message_id=msg_input.message_id,
+            conversation_id="test",
+        )
+        undo_data = state.create_undo_data(delete_input)
+        state.apply_input(delete_input)
+        
+        assert len(state.messages) == 0
+        
+        # Undo the delete
+        state.apply_undo(undo_data)
+        
+        assert len(state.messages) == 1
+        assert state.messages[0].content == "To be deleted"
+
+    def test_apply_undo_noop_for_nonexistent_delete(self):
+        """Test that apply_undo handles noop action correctly.
+        
+        CHAT-SPECIFIC: When delete was a no-op, undo only restores metadata.
+        """
+        state = create_chat_state()
+        state.apply_input(create_chat_input())
+        
+        original_update_count = state.update_count
+        
+        # Delete non-existent message
+        delete_input = ChatInput(
+            timestamp=datetime.now(timezone.utc),
+            operation="delete_message",
+            message_id="nonexistent",
+            conversation_id="default",
+        )
+        undo_data = state.create_undo_data(delete_input)
+        state.apply_input(delete_input)
+        
+        # Undo should just restore metadata
+        state.apply_undo(undo_data)
+        
+        assert state.update_count == original_update_count
+        assert len(state.messages) == 1  # Original message still there
+
+    def test_apply_undo_restores_cleared_conversation(self):
+        """Test that apply_undo restores a cleared conversation.
+        
+        CHAT-SPECIFIC: restore_conversation action restores all messages and metadata.
+        """
+        state = create_chat_state()
+        
+        # Add messages
+        for i in range(3):
+            state.apply_input(create_chat_input(
+                role="user" if i % 2 == 0 else "assistant",
+                content=f"Message {i}",
+                conversation_id="to-clear",
+                timestamp=datetime.now(timezone.utc) + timedelta(seconds=i),
+            ))
+        
+        original_messages = [m.content for m in state.messages]
+        
+        # Clear conversation
+        clear_input = ChatInput(
+            timestamp=datetime.now(timezone.utc),
+            operation="clear_conversation",
+            conversation_id="to-clear",
+        )
+        undo_data = state.create_undo_data(clear_input)
+        state.apply_input(clear_input)
+        
+        assert len(state.messages) == 0
+        assert "to-clear" not in state.conversations
+        
+        # Undo
+        state.apply_undo(undo_data)
+        
+        assert len(state.messages) == 3
+        restored_messages = [m.content for m in state.messages]
+        assert restored_messages == original_messages
+        assert "to-clear" in state.conversations
+        assert state.conversations["to-clear"].message_count == 3
+
+    def test_apply_undo_raises_for_missing_action(self):
+        """Test that apply_undo raises for undo_data without action.
+        
+        GENERAL PATTERN: Undo data must have an action field.
+        """
+        state = create_chat_state()
+        
+        with pytest.raises(ValueError, match="action"):
+            state.apply_undo({"message_id": "test"})
+
+    def test_apply_undo_raises_for_missing_message_id(self):
+        """Test that apply_undo raises for remove_message without message_id.
+        
+        GENERAL PATTERN: remove_message action needs message_id.
+        """
+        state = create_chat_state()
+        
+        with pytest.raises(ValueError, match="message_id"):
+            state.apply_undo({
+                "action": "remove_message",
+                "conversation_id": "test",
+                "state_previous_update_count": 0,
+                "state_previous_last_updated": datetime.now(timezone.utc).isoformat(),
+            })
+
+    def test_apply_undo_raises_for_unknown_action(self):
+        """Test that apply_undo raises for unknown action.
+        
+        GENERAL PATTERN: Only valid actions should be accepted.
+        """
+        state = create_chat_state()
+        
+        with pytest.raises(ValueError, match="Unknown undo action"):
+            state.apply_undo({
+                "action": "invalid_action",
+                "state_previous_update_count": 0,
+                "state_previous_last_updated": datetime.now(timezone.utc).isoformat(),
+            })
+
+    def test_apply_undo_raises_for_message_not_found(self):
+        """Test that apply_undo raises when message to remove doesn't exist.
+        
+        GENERAL PATTERN: Cannot undo if state has been modified inconsistently.
+        """
+        state = create_chat_state()
+        
+        with pytest.raises(RuntimeError, match="not found"):
+            state.apply_undo({
+                "action": "remove_message",
+                "message_id": "nonexistent",
+                "conversation_id": "test",
+                "was_new_conversation": True,
+                "state_previous_update_count": 0,
+                "state_previous_last_updated": datetime.now(timezone.utc).isoformat(),
+            })
+
+    def test_undo_full_cycle_send_new_conversation(self):
+        """Test complete undo cycle for sending to a new conversation.
+        
+        INTEGRATION: create_undo_data -> apply_input -> apply_undo should be idempotent.
+        """
+        state = create_chat_state()
+        original_snapshot = state.get_snapshot()
+        
+        chat_input = create_chat_input(
+            content="Hello",
+            conversation_id="new",
+        )
+        
+        undo_data = state.create_undo_data(chat_input)
+        state.apply_input(chat_input)
+        state.apply_undo(undo_data)
+        
+        restored_snapshot = state.get_snapshot()
+        assert restored_snapshot["total_message_count"] == original_snapshot["total_message_count"]
+        assert restored_snapshot["update_count"] == original_snapshot["update_count"]
+        assert restored_snapshot["conversation_count"] == original_snapshot["conversation_count"]
+
+    def test_undo_full_cycle_send_existing_conversation(self):
+        """Test complete undo cycle for sending to an existing conversation.
+        
+        INTEGRATION: create_undo_data -> apply_input -> apply_undo should be idempotent.
+        """
+        state = create_chat_state()
+        
+        # Create conversation
+        state.apply_input(create_chat_input(
+            content="First",
+            conversation_id="chat",
+        ))
+        original_snapshot = state.get_snapshot()
+        
+        # Undo cycle for second message
+        second_input = create_chat_input(
+            content="Second",
+            conversation_id="chat",
+        )
+        
+        undo_data = state.create_undo_data(second_input)
+        state.apply_input(second_input)
+        state.apply_undo(undo_data)
+        
+        restored_snapshot = state.get_snapshot()
+        assert restored_snapshot["total_message_count"] == original_snapshot["total_message_count"]
+        assert restored_snapshot["update_count"] == original_snapshot["update_count"]
+
+    def test_undo_full_cycle_delete_message(self):
+        """Test complete undo cycle for delete_message operation.
+        
+        INTEGRATION: create_undo_data -> apply_input -> apply_undo should be idempotent.
+        """
+        state = create_chat_state()
+        
+        # Add a message
+        msg_input = create_chat_input(content="To delete")
+        state.apply_input(msg_input)
+        original_snapshot = state.get_snapshot()
+        
+        # Undo cycle for delete
+        delete_input = ChatInput(
+            timestamp=datetime.now(timezone.utc),
+            operation="delete_message",
+            message_id=msg_input.message_id,
+            conversation_id="default",
+        )
+        
+        undo_data = state.create_undo_data(delete_input)
+        state.apply_input(delete_input)
+        state.apply_undo(undo_data)
+        
+        restored_snapshot = state.get_snapshot()
+        assert restored_snapshot["total_message_count"] == original_snapshot["total_message_count"]
+        assert restored_snapshot["update_count"] == original_snapshot["update_count"]
+
+    def test_undo_full_cycle_clear_conversation(self):
+        """Test complete undo cycle for clear_conversation operation.
+        
+        INTEGRATION: create_undo_data -> apply_input -> apply_undo should be idempotent.
+        """
+        state = create_chat_state()
+        
+        # Add messages
+        for i in range(3):
+            state.apply_input(create_chat_input(
+                content=f"Message {i}",
+                conversation_id="chat",
+            ))
+        original_snapshot = state.get_snapshot()
+        
+        # Undo cycle for clear
+        clear_input = ChatInput(
+            timestamp=datetime.now(timezone.utc),
+            operation="clear_conversation",
+            conversation_id="chat",
+        )
+        
+        undo_data = state.create_undo_data(clear_input)
+        state.apply_input(clear_input)
+        state.apply_undo(undo_data)
+        
+        restored_snapshot = state.get_snapshot()
+        assert restored_snapshot["total_message_count"] == original_snapshot["total_message_count"]
+        assert restored_snapshot["update_count"] == original_snapshot["update_count"]
+        assert restored_snapshot["conversation_count"] == original_snapshot["conversation_count"]
+
+    def test_multiple_undo_operations_same_conversation(self):
+        """Test multiple sequential undo operations on same conversation.
+        
+        INTEGRATION: Multiple undos should work correctly in sequence.
+        """
+        state = create_chat_state()
+        
+        undo_stack = []
+        
+        # Build up messages
+        for i in range(5):
+            chat_input = create_chat_input(
+                content=f"Message {i}",
+                conversation_id="chat",
+                timestamp=datetime.now(timezone.utc) + timedelta(seconds=i),
+            )
+            undo_data = state.create_undo_data(chat_input)
+            undo_stack.append(undo_data)
+            state.apply_input(chat_input)
+        
+        assert len(state.messages) == 5
+        assert state.update_count == 5
+        
+        # Undo all in reverse
+        for undo_data in reversed(undo_stack):
+            state.apply_undo(undo_data)
+        
+        assert len(state.messages) == 0
+        assert state.update_count == 0
+        assert len(state.conversations) == 0
+
+    def test_multiple_undo_operations_multiple_conversations(self):
+        """Test undo operations across multiple conversations.
+        
+        INTEGRATION: Undos should work correctly across different conversations.
+        """
+        state = create_chat_state()
+        
+        undo_stack = []
+        
+        # Messages to different conversations
+        for conv_id in ["work", "personal", "default"]:
+            for i in range(2):
+                chat_input = create_chat_input(
+                    content=f"{conv_id} message {i}",
+                    conversation_id=conv_id,
+                    timestamp=datetime.now(timezone.utc) + timedelta(seconds=len(undo_stack)),
+                )
+                undo_data = state.create_undo_data(chat_input)
+                undo_stack.append(undo_data)
+                state.apply_input(chat_input)
+        
+        assert len(state.messages) == 6
+        assert len(state.conversations) == 3
+        
+        # Undo all
+        for undo_data in reversed(undo_stack):
+            state.apply_undo(undo_data)
+        
+        assert len(state.messages) == 0
+        assert len(state.conversations) == 0

@@ -2,14 +2,14 @@
 
 ## Test Suite Summary
 
-**Total Tests: 1,807 (all passing)**
+**Total Tests: 2,135 (2,133 passing, 2 skipped)**
 
 | Category | Test Count | Location |
 |----------|------------|----------|
-| Core Infrastructure Models | 309 | `tests/models/` |
+| Core Infrastructure Models | 392 | `tests/models/` (includes 61 undo + 22 simulation undo tests) |
 | Priority 1 Modality Models | 234 | `tests/models/` |
-| Priority 2 Modality Models | 357 | `tests/models/` |
-| API Integration Tests | 470 | `tests/api/{events,time,environment,simulation,modalities}/` |
+| Priority 2 Modality Models | 549 | `tests/models/` (includes 192 modality undo tests) |
+| API Integration Tests | 523 | `tests/api/{events,time,environment,simulation,modalities}/` (includes 40 undo/redo + 20 reset tests) |
 | API Unit Tests | 285 | `tests/api/unit/` |
 | API Workflow Tests | 47 | `tests/api/workflows/` |
 | Cross-Cutting Tests | 105 | `tests/api/cross_cutting/` |
@@ -178,12 +178,13 @@ Run all tests: `uv run pytest`
     - [ ] Slack (input and state tests)
     - [ ] Social Media (input and state tests)
     - [ ] Screen (input and state tests)
-- [x] Write unit tests for core infrastructure (309 tests total)
+- [x] Write unit tests for core infrastructure (331 tests total)
   - [x] SimulatorEvent
   - [x] EventQueue
   - [x] SimulatorTime
   - [x] Environment
-  - [x] SimulationEngine
+  - [x] SimulationEngine (includes 22 undo/redo tests)
+  - [x] UndoEntry and UndoStack (61 tests)
 - [x] Document model schemas with examples
   - [x] Core infrastructure (SimulatorEvent, EventQueue, SimulatorTime, Environment, SimulationEngine)
   - [x] Base classes (ModalityInput, ModalityState)
@@ -310,22 +311,59 @@ Run all tests: `uv run pytest`
   - [x] Scenario 3: Interactive agent conversation (18 tests)
   - See `tests/progress/API_TESTING_PROGRESS.md` for detailed test coverage
 
-### Simulation Reset & Clear Functionality
-- [ ] Implement robust `reset` functionality for `/simulation/reset`
-  - **Desired behavior**: Reset simulation to an "initial state" that can be defined/loaded
-  - Requires tracking initial state: initial time, initial events (set to pending), initial modality states
-  - Open questions:
-    - What counts as "initial"? First state after start? A saved snapshot? A loaded script?
-    - Should support loading simulation scripts/scenarios that define initial state
-    - May require `SimulationSnapshot` or `SimulationScenario` model
-  - Current status: Returns 501 Not Implemented
-- [ ] Implement `clear` functionality for `/simulation/clear`
+### Simulation Clear, Undo/Redo & Reset Functionality
+
+#### Clear Functionality ✅
+- [x] Implement `clear` functionality for `/simulation/clear`
   - **Desired behavior**: Completely empty the simulation environment
   - Destroys all events (removes from queue entirely)
   - Resets all modality states to empty defaults
-  - Resets time to a default (e.g., current wall-clock time or a fixed default)
+  - Optionally resets time (only if user specifies a time to reset to)
   - Use case: Start completely fresh without any prior state
-  - Current status: Not implemented (endpoint doesn't exist yet)
+  - Implementation:
+    - [x] Add abstract `clear()` method to `ModalityState` base class
+    - [x] Implement `clear()` for each modality state (Location, Time, Weather, Chat, Email, Calendar, SMS)
+    - [x] Add `clear_all_states()` method to `Environment`
+    - [x] Add `clear(reset_time_to: Optional[datetime])` method to `SimulationEngine`
+    - [x] Add `POST /simulation/clear` API endpoint
+  - Tests: 13 tests in `tests/api/simulation/test_simulation_clear.py`
+
+#### Undo/Redo Functionality
+- [x] Implement undo data capture for each modality state ✅ (192 tests)
+  - **Design**: Each modality captures minimal undo data before input is applied
+  - Space-efficient: Additive ops store just IDs, destructive ops store full objects
+  - See `docs/MODALITY_UNDO_NOTES.md` for implementation patterns and lessons learned
+  - Implementation:
+    - [x] Add `create_undo_data(input_data: ModalityInput) -> dict` to `ModalityState` base class
+    - [x] Add `apply_undo(undo_data: dict) -> None` to `ModalityState` base class
+    - [x] Implement undo methods for each modality state:
+      - [x] Weather (20 tests) - add/update location with history capacity handling
+      - [x] Chat (29 tests) - send/delete/clear with conversation side effects
+      - [x] Calendar (29 tests) - CRUD + recurring event scope variations
+      - [x] Location (19 tests) - update with history capacity handling
+      - [x] Time (17 tests) - update with preference history
+      - [x] Email (40 tests) - 19 operation types, bulk operations, thread restoration
+      - [x] SMS (38 tests) - 13 action types, group/participant management
+- [x] Implement simulation-level undo/redo orchestration ✅ (22 tests)
+  - [x] Create `UndoEntry` model (event_id, modality, undo_data, executed_at) ✅ (12 tests)
+  - [x] Create `UndoStack` model (undo_stack, redo_stack, max_size) ✅ (49 tests)
+  - [x] Modify `SimulatorEvent.execute()` to capture and return undo data ✅
+  - [x] Add `undo_stack: UndoStack` field to `SimulationEngine` ✅
+  - [x] Add `undo(count: int = 1)` method to `SimulationEngine` ✅
+  - [x] Add `redo(count: int = 1)` method to `SimulationEngine` ✅
+  - [x] Add `POST /simulation/undo` API endpoint ✅ (20 tests)
+  - [x] Add `POST /simulation/redo` API endpoint ✅ (20 tests)
+
+#### Reset Functionality ✅
+- [x] Implement robust `reset` functionality for `/simulation/reset`
+  - **Behavior**: Roll back ALL executed events in reverse order (complete undo)
+  - Events remain in queue but reset to PENDING status
+  - Time is NOT automatically reset (user can set time separately if desired)
+  - Uses undo stack infrastructure to reverse all event applications
+  - Implementation:
+    - [x] Modify `SimulationEngine.reset()` to use undo stack ✅
+    - [x] Update `POST /simulation/reset` endpoint (remove 501 response) ✅
+  - Tests: 20 tests in `tests/api/simulation/test_simulation_reset.py`
 
 ### Documentation & Examples
 - [x] Set up automatic OpenAPI/Swagger documentation

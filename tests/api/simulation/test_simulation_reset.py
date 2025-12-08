@@ -393,35 +393,38 @@ class TestPostSimulationReset:
     # ===== Environment State =====
 
     def test_reset_resets_environment_state(self, client_with_engine):
-        """Test that POST /simulation/reset does NOT reset modality states.
-        
-        Note: The current implementation does NOT reset modality states.
-        Modality state changes persist through reset.
-        
+        """Test that POST /simulation/reset undoes all state changes.
+
+        The reset operation reverses all executed events using the undo stack,
+        so modality states are restored to their values before execution.
+
         Verifies:
-        - Modify location modality state
-        - After reset, location state is preserved (not reset)
+        - Modify location modality state via an executed event
+        - After reset, location state is reversed (undone)
         """
         client, engine = client_with_engine
-        
+
         # Get current time
         time_response = client.get("/simulator/time")
         current_time = datetime.fromisoformat(time_response.json()["current_time"])
-        
+
+        # Get initial location state
+        initial_location = client.get("/location/state").json()
+
         # Update location via an event
         event_time = current_time + timedelta(seconds=1)
         request = make_event_request(event_time, "location", location_event_data(
             latitude=45.0,
             longitude=-120.0
         ))
-        
+
         create_response = client.post("/events", json=request)
         assert create_response.status_code == 200
-        
+
         # Execute the event
         advance_response = client.post("/simulator/time/advance", json={"seconds": 2})
         assert advance_response.status_code == 200
-        
+
         # Verify location was updated
         location_response = client.get("/location/state")
         assert location_response.status_code == 200
@@ -429,18 +432,20 @@ class TestPostSimulationReset:
         # Location data is inside "current" dict
         assert location_data["current"]["latitude"] == 45.0
         assert location_data["current"]["longitude"] == -120.0
-        
+
         # Reset the simulation
         reset_response = client.post("/simulation/reset")
         assert reset_response.status_code == 200
-        
-        # Verify location state is preserved (not reset to initial values)
+        # Verify events were undone
+        assert reset_response.json()["events_undone"] == 1
+
+        # Verify location state is restored to initial values (undone)
         location_response = client.get("/location/state")
         assert location_response.status_code == 200
-        # Location should still reflect the updated values
         after_reset_data = location_response.json()
-        assert after_reset_data["current"]["latitude"] == location_data["current"]["latitude"]
-        assert after_reset_data["current"]["longitude"] == location_data["current"]["longitude"]
+        # Location should be back to initial values (the undo reversed the change)
+        assert after_reset_data["current"]["latitude"] == initial_location["current"]["latitude"]
+        assert after_reset_data["current"]["longitude"] == initial_location["current"]["longitude"]
 
     def test_reset_preserves_modality_registrations(self, client_with_engine):
         """Test that POST /simulation/reset preserves registered modalities.

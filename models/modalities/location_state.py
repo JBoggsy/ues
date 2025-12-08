@@ -339,3 +339,150 @@ class LocationState(ModalityState):
             results = results[:limit]
 
         return {"locations": results, "count": len(results), "total_count": total_count}
+
+    def clear(self) -> None:
+        """Reset location state to empty defaults.
+
+        Clears current location and all history, returning the state to
+        a freshly created condition.
+        """
+        self.current_latitude = None
+        self.current_longitude = None
+        self.current_address = None
+        self.current_named_location = None
+        self.current_altitude = None
+        self.current_accuracy = None
+        self.current_speed = None
+        self.current_bearing = None
+        self.location_history.clear()
+        self.update_count = 0
+
+    def create_undo_data(self, input_data: "ModalityInput") -> dict[str, Any]:
+        """Capture minimal data needed to undo applying a LocationInput.
+
+        For location updates:
+        - First update (no previous location): Store flag to clear current location
+        - Update with previous location: Store previous location data to restore
+        - Update at capacity: Also store the oldest history entry that will be trimmed
+
+        Args:
+            input_data: The LocationInput that will be applied.
+
+        Returns:
+            Dictionary containing minimal data needed to undo the operation.
+        """
+        from models.modalities.location_input import LocationInput
+
+        if not isinstance(input_data, LocationInput):
+            raise ValueError(
+                f"LocationState can only create undo data for LocationInput, "
+                f"got {type(input_data)}"
+            )
+
+        base_undo: dict[str, Any] = {
+            "state_previous_update_count": self.update_count,
+            "state_previous_last_updated": self.last_updated.isoformat(),
+        }
+
+        # Check if this is the first location (no previous to restore)
+        if self.current_latitude is None or self.current_longitude is None:
+            return {
+                **base_undo,
+                "action": "clear_current",
+            }
+
+        # There's a current location that will become a history entry
+        # Store it so we can restore it on undo
+        undo_data: dict[str, Any] = {
+            **base_undo,
+            "action": "restore_previous",
+            "previous_latitude": self.current_latitude,
+            "previous_longitude": self.current_longitude,
+            "previous_address": self.current_address,
+            "previous_named_location": self.current_named_location,
+            "previous_altitude": self.current_altitude,
+            "previous_accuracy": self.current_accuracy,
+            "previous_speed": self.current_speed,
+            "previous_bearing": self.current_bearing,
+        }
+
+        # Check if we're at capacity - oldest entry will be trimmed
+        if len(self.location_history) >= self.max_history_size:
+            oldest = self.location_history[0]
+            undo_data["removed_history_entry"] = {
+                "timestamp": oldest.timestamp.isoformat(),
+                "latitude": oldest.latitude,
+                "longitude": oldest.longitude,
+                "address": oldest.address,
+                "named_location": oldest.named_location,
+                "altitude": oldest.altitude,
+                "accuracy": oldest.accuracy,
+                "speed": oldest.speed,
+                "bearing": oldest.bearing,
+            }
+
+        return undo_data
+
+    def apply_undo(self, undo_data: dict[str, Any]) -> None:
+        """Apply undo data to reverse a previous location input application.
+
+        Args:
+            undo_data: Dictionary returned by create_undo_data().
+
+        Raises:
+            ValueError: If undo_data is missing required fields or has unknown action.
+        """
+        action = undo_data.get("action")
+        if not action:
+            raise ValueError("Undo data missing 'action' field")
+
+        if action == "clear_current":
+            # First update was applied - clear current location back to None
+            self.current_latitude = None
+            self.current_longitude = None
+            self.current_address = None
+            self.current_named_location = None
+            self.current_altitude = None
+            self.current_accuracy = None
+            self.current_speed = None
+            self.current_bearing = None
+
+        elif action == "restore_previous":
+            # Remove the history entry that was added (it's at the end)
+            if self.location_history:
+                self.location_history.pop()
+
+            # Restore the oldest history entry if it was trimmed due to capacity
+            if "removed_history_entry" in undo_data:
+                entry_data = undo_data["removed_history_entry"]
+                restored_entry = LocationHistoryEntry(
+                    timestamp=datetime.fromisoformat(entry_data["timestamp"]),
+                    latitude=entry_data["latitude"],
+                    longitude=entry_data["longitude"],
+                    address=entry_data.get("address"),
+                    named_location=entry_data.get("named_location"),
+                    altitude=entry_data.get("altitude"),
+                    accuracy=entry_data.get("accuracy"),
+                    speed=entry_data.get("speed"),
+                    bearing=entry_data.get("bearing"),
+                )
+                self.location_history.insert(0, restored_entry)
+
+            # Restore previous current location
+            self.current_latitude = undo_data["previous_latitude"]
+            self.current_longitude = undo_data["previous_longitude"]
+            self.current_address = undo_data.get("previous_address")
+            self.current_named_location = undo_data.get("previous_named_location")
+            self.current_altitude = undo_data.get("previous_altitude")
+            self.current_accuracy = undo_data.get("previous_accuracy")
+            self.current_speed = undo_data.get("previous_speed")
+            self.current_bearing = undo_data.get("previous_bearing")
+
+        else:
+            raise ValueError(f"Unknown undo action: {action}")
+
+        # Restore state-level metadata
+        self.update_count = undo_data["state_previous_update_count"]
+        self.last_updated = datetime.fromisoformat(
+            undo_data["state_previous_last_updated"]
+        )

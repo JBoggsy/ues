@@ -960,3 +960,985 @@ class TestCalendarStateFromFixtures:
         assert state.modality_type == "calendar"
         assert state.last_updated is not None
         assert "primary" in state.calendars
+
+
+class TestCalendarStateCreateUndoData:
+    """Test CalendarState.create_undo_data() method.
+    
+    GENERAL PATTERN: All ModalityState subclasses must implement create_undo_data()
+    to capture minimal data needed to reverse an apply_input() operation.
+    
+    CALENDAR-SPECIFIC: Handles create, update, and delete operations with
+    special handling for recurring events (scope-based updates/deletions).
+    """
+
+    def test_create_undo_data_for_create_event(self):
+        """Test create_undo_data for creating a new event.
+        
+        CALENDAR-SPECIFIC: Only needs event_id to remove on undo.
+        """
+        state = CalendarState(
+            last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+        )
+        
+        create_input = CalendarInput(
+            timestamp=datetime(2025, 1, 1, 13, 0, tzinfo=timezone.utc),
+            operation="create",
+            title="Test Event",
+            start=datetime(2025, 1, 15, 14, 0, tzinfo=timezone.utc),
+            end=datetime(2025, 1, 15, 15, 0, tzinfo=timezone.utc),
+        )
+        create_input.validate_input()
+        
+        undo_data = state.create_undo_data(create_input)
+        
+        assert undo_data["action"] == "remove_event"
+        assert undo_data["event_id"] == create_input.event_id
+        assert undo_data["calendar_id"] == "primary"
+        assert undo_data["was_new_calendar"] is False
+
+    def test_create_undo_data_for_create_event_new_calendar(self):
+        """Test create_undo_data when creating event in a new calendar.
+        
+        CALENDAR-SPECIFIC: Tracks that calendar was also created as side effect.
+        """
+        state = CalendarState(
+            last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+        )
+        
+        create_input = CalendarInput(
+            timestamp=datetime(2025, 1, 1, 13, 0, tzinfo=timezone.utc),
+            operation="create",
+            calendar_id="work",
+            title="Work Event",
+            start=datetime(2025, 1, 15, 14, 0, tzinfo=timezone.utc),
+            end=datetime(2025, 1, 15, 15, 0, tzinfo=timezone.utc),
+        )
+        create_input.validate_input()
+        
+        undo_data = state.create_undo_data(create_input)
+        
+        assert undo_data["action"] == "remove_event"
+        assert undo_data["calendar_id"] == "work"
+        assert undo_data["was_new_calendar"] is True
+
+    def test_create_undo_data_for_update_simple(self):
+        """Test create_undo_data for simple update (non-recurring).
+        
+        CALENDAR-SPECIFIC: Stores full previous event state.
+        """
+        state = CalendarState(
+            last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+        )
+        
+        # First create an event
+        create_input = CalendarInput(
+            timestamp=datetime(2025, 1, 1, 13, 0, tzinfo=timezone.utc),
+            operation="create",
+            title="Original Title",
+            start=datetime(2025, 1, 15, 14, 0, tzinfo=timezone.utc),
+            end=datetime(2025, 1, 15, 15, 0, tzinfo=timezone.utc),
+        )
+        create_input.validate_input()
+        state.apply_input(create_input)
+        
+        # Create update input
+        update_input = CalendarInput(
+            timestamp=datetime(2025, 1, 1, 14, 0, tzinfo=timezone.utc),
+            operation="update",
+            event_id=create_input.event_id,
+            title="Updated Title",
+            start=datetime(2025, 1, 15, 14, 0, tzinfo=timezone.utc),
+            end=datetime(2025, 1, 15, 15, 0, tzinfo=timezone.utc),
+        )
+        
+        undo_data = state.create_undo_data(update_input)
+        
+        assert undo_data["action"] == "restore_event"
+        assert undo_data["event_id"] == create_input.event_id
+        assert undo_data["previous_event"]["title"] == "Original Title"
+
+    def test_create_undo_data_for_update_nonexistent(self):
+        """Test create_undo_data for updating non-existent event.
+        
+        CALENDAR-SPECIFIC: Returns noop action.
+        """
+        state = CalendarState(
+            last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+        )
+        
+        update_input = CalendarInput(
+            timestamp=datetime(2025, 1, 1, 14, 0, tzinfo=timezone.utc),
+            operation="update",
+            event_id="nonexistent-event",
+            title="Updated Title",
+            start=datetime(2025, 1, 15, 14, 0, tzinfo=timezone.utc),
+            end=datetime(2025, 1, 15, 15, 0, tzinfo=timezone.utc),
+        )
+        
+        undo_data = state.create_undo_data(update_input)
+        
+        assert undo_data["action"] == "noop"
+
+    def test_create_undo_data_for_update_recurring_all(self):
+        """Test create_undo_data for updating all occurrences of recurring event.
+        
+        CALENDAR-SPECIFIC: Simple restore_event action for all-scope updates.
+        """
+        state = CalendarState(
+            last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+        )
+        
+        # Create recurring event
+        create_input = CalendarInput(
+            timestamp=datetime(2025, 1, 1, 13, 0, tzinfo=timezone.utc),
+            operation="create",
+            title="Daily Standup",
+            start=datetime(2025, 1, 15, 9, 0, tzinfo=timezone.utc),
+            end=datetime(2025, 1, 15, 9, 30, tzinfo=timezone.utc),
+            recurrence=RecurrenceRule(
+                frequency="daily",
+                interval=1,
+                end_type="count",
+                count=10,
+            ),
+        )
+        create_input.validate_input()
+        state.apply_input(create_input)
+        
+        # Update all occurrences
+        update_input = CalendarInput(
+            timestamp=datetime(2025, 1, 1, 14, 0, tzinfo=timezone.utc),
+            operation="update",
+            event_id=create_input.event_id,
+            title="Updated Standup",
+            start=datetime(2025, 1, 15, 9, 0, tzinfo=timezone.utc),
+            end=datetime(2025, 1, 15, 9, 30, tzinfo=timezone.utc),
+            recurrence_scope="all",
+        )
+        
+        undo_data = state.create_undo_data(update_input)
+        
+        assert undo_data["action"] == "restore_event"
+        assert undo_data["previous_event"]["title"] == "Daily Standup"
+
+    def test_create_undo_data_for_update_recurring_this_and_future(self):
+        """Test create_undo_data for updating this and future occurrences.
+        
+        CALENDAR-SPECIFIC: Tracks previous event IDs to find split event.
+        """
+        state = CalendarState(
+            last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+        )
+        
+        # Create recurring event (weekly needs days_of_week)
+        create_input = CalendarInput(
+            timestamp=datetime(2025, 1, 1, 13, 0, tzinfo=timezone.utc),
+            operation="create",
+            title="Weekly Meeting",
+            start=datetime(2025, 1, 15, 14, 0, tzinfo=timezone.utc),
+            end=datetime(2025, 1, 15, 15, 0, tzinfo=timezone.utc),
+            recurrence=RecurrenceRule(
+                frequency="weekly",
+                interval=1,
+                days_of_week=["wednesday"],
+                end_type="never",
+            ),
+        )
+        create_input.validate_input()
+        state.apply_input(create_input)
+        
+        # Update this and future
+        update_input = CalendarInput(
+            timestamp=datetime(2025, 1, 1, 14, 0, tzinfo=timezone.utc),
+            operation="update",
+            event_id=create_input.event_id,
+            title="Updated Meeting",
+            start=datetime(2025, 1, 22, 14, 0, tzinfo=timezone.utc),
+            end=datetime(2025, 1, 22, 15, 0, tzinfo=timezone.utc),
+            recurrence_scope="this_and_future",
+            recurrence_id="2025-01-22",
+        )
+        
+        undo_data = state.create_undo_data(update_input)
+        
+        assert undo_data["action"] == "restore_event_remove_split"
+        assert "previous_event_ids" in undo_data
+        assert undo_data["previous_event"]["title"] == "Weekly Meeting"
+
+    def test_create_undo_data_for_update_single_occurrence(self):
+        """Test create_undo_data for modifying single occurrence.
+        
+        CALENDAR-SPECIFIC: Tracks previous event IDs to find modified occurrence.
+        """
+        state = CalendarState(
+            last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+        )
+        
+        # Create recurring event
+        create_input = CalendarInput(
+            timestamp=datetime(2025, 1, 1, 13, 0, tzinfo=timezone.utc),
+            operation="create",
+            title="Daily Standup",
+            start=datetime(2025, 1, 15, 9, 0, tzinfo=timezone.utc),
+            end=datetime(2025, 1, 15, 9, 30, tzinfo=timezone.utc),
+            recurrence=RecurrenceRule(
+                frequency="daily",
+                interval=1,
+                end_type="count",
+                count=10,
+            ),
+        )
+        create_input.validate_input()
+        state.apply_input(create_input)
+        
+        # Modify single occurrence
+        update_input = CalendarInput(
+            timestamp=datetime(2025, 1, 1, 14, 0, tzinfo=timezone.utc),
+            operation="update",
+            event_id=create_input.event_id,
+            title="Special Standup",
+            start=datetime(2025, 1, 17, 10, 0, tzinfo=timezone.utc),
+            end=datetime(2025, 1, 17, 10, 30, tzinfo=timezone.utc),
+            recurrence_scope="this",
+            recurrence_id="2025-01-17",
+        )
+        
+        undo_data = state.create_undo_data(update_input)
+        
+        assert undo_data["action"] == "restore_event_remove_occurrence"
+        assert undo_data["recurrence_id"] == "2025-01-17"
+        assert "previous_event_ids" in undo_data
+
+    def test_create_undo_data_for_delete(self):
+        """Test create_undo_data for deleting an event.
+        
+        CALENDAR-SPECIFIC: Stores full event for restoration.
+        """
+        state = CalendarState(
+            last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+        )
+        
+        # Create event
+        create_input = CalendarInput(
+            timestamp=datetime(2025, 1, 1, 13, 0, tzinfo=timezone.utc),
+            operation="create",
+            title="Event to Delete",
+            start=datetime(2025, 1, 15, 14, 0, tzinfo=timezone.utc),
+            end=datetime(2025, 1, 15, 15, 0, tzinfo=timezone.utc),
+        )
+        create_input.validate_input()
+        state.apply_input(create_input)
+        
+        # Delete event
+        delete_input = CalendarInput(
+            timestamp=datetime(2025, 1, 1, 14, 0, tzinfo=timezone.utc),
+            operation="delete",
+            event_id=create_input.event_id,
+            title="",
+            start=datetime(2025, 1, 15, 14, 0, tzinfo=timezone.utc),
+            end=datetime(2025, 1, 15, 15, 0, tzinfo=timezone.utc),
+        )
+        
+        undo_data = state.create_undo_data(delete_input)
+        
+        assert undo_data["action"] == "restore_deleted_event"
+        assert undo_data["deleted_event"]["title"] == "Event to Delete"
+
+    def test_create_undo_data_for_delete_nonexistent(self):
+        """Test create_undo_data for deleting non-existent event.
+        
+        CALENDAR-SPECIFIC: Returns noop action.
+        """
+        state = CalendarState(
+            last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+        )
+        
+        delete_input = CalendarInput(
+            timestamp=datetime(2025, 1, 1, 14, 0, tzinfo=timezone.utc),
+            operation="delete",
+            event_id="nonexistent",
+            title="",
+            start=datetime(2025, 1, 15, 14, 0, tzinfo=timezone.utc),
+            end=datetime(2025, 1, 15, 15, 0, tzinfo=timezone.utc),
+        )
+        
+        undo_data = state.create_undo_data(delete_input)
+        
+        assert undo_data["action"] == "noop"
+
+    def test_create_undo_data_for_delete_single_occurrence(self):
+        """Test create_undo_data for deleting single occurrence of recurring event.
+        
+        CALENDAR-SPECIFIC: Captures exception date to remove.
+        """
+        state = CalendarState(
+            last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+        )
+        
+        # Create recurring event
+        create_input = CalendarInput(
+            timestamp=datetime(2025, 1, 1, 13, 0, tzinfo=timezone.utc),
+            operation="create",
+            title="Daily Standup",
+            start=datetime(2025, 1, 15, 9, 0, tzinfo=timezone.utc),
+            end=datetime(2025, 1, 15, 9, 30, tzinfo=timezone.utc),
+            recurrence=RecurrenceRule(
+                frequency="daily",
+                interval=1,
+                end_type="count",
+                count=10,
+            ),
+        )
+        create_input.validate_input()
+        state.apply_input(create_input)
+        
+        # Delete single occurrence
+        delete_input = CalendarInput(
+            timestamp=datetime(2025, 1, 1, 14, 0, tzinfo=timezone.utc),
+            operation="delete",
+            event_id=create_input.event_id,
+            title="",
+            start=datetime(2025, 1, 15, 9, 0, tzinfo=timezone.utc),
+            end=datetime(2025, 1, 15, 9, 30, tzinfo=timezone.utc),
+            recurrence_scope="this",
+            recurrence_id="2025-01-17",
+        )
+        
+        undo_data = state.create_undo_data(delete_input)
+        
+        assert undo_data["action"] == "remove_exception"
+        assert undo_data["recurrence_id"] == "2025-01-17"
+
+    def test_create_undo_data_captures_state_metadata(self):
+        """Test that create_undo_data captures state-level metadata.
+        
+        GENERAL PATTERN: Undo data should include state-level update_count and last_updated.
+        """
+        state = CalendarState(
+            last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+        )
+        
+        # Apply one event
+        create_input = CalendarInput(
+            timestamp=datetime(2025, 1, 1, 13, 0, tzinfo=timezone.utc),
+            operation="create",
+            title="First Event",
+            start=datetime(2025, 1, 15, 14, 0, tzinfo=timezone.utc),
+            end=datetime(2025, 1, 15, 15, 0, tzinfo=timezone.utc),
+        )
+        create_input.validate_input()
+        state.apply_input(create_input)
+        
+        original_update_count = state.update_count
+        
+        # Create second event
+        second_input = CalendarInput(
+            timestamp=datetime(2025, 1, 1, 14, 0, tzinfo=timezone.utc),
+            operation="create",
+            title="Second Event",
+            start=datetime(2025, 1, 16, 14, 0, tzinfo=timezone.utc),
+            end=datetime(2025, 1, 16, 15, 0, tzinfo=timezone.utc),
+        )
+        second_input.validate_input()
+        
+        undo_data = state.create_undo_data(second_input)
+        
+        assert "state_previous_update_count" in undo_data
+        assert "state_previous_last_updated" in undo_data
+        assert undo_data["state_previous_update_count"] == original_update_count
+
+    def test_create_undo_data_raises_for_invalid_input_type(self):
+        """Test that create_undo_data raises for non-CalendarInput.
+        
+        GENERAL PATTERN: All modalities should validate input type.
+        """
+        from models.modalities.location_input import LocationInput
+        
+        state = CalendarState(
+            last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+        )
+        
+        invalid_input = LocationInput(
+            latitude=40.0,
+            longitude=-74.0,
+            timestamp=datetime.now(timezone.utc),
+        )
+        
+        with pytest.raises(ValueError, match="CalendarInput"):
+            state.create_undo_data(invalid_input)
+
+    def test_create_undo_data_does_not_modify_state(self):
+        """Test that create_undo_data does not modify state.
+        
+        GENERAL PATTERN: create_undo_data should be read-only.
+        """
+        state = CalendarState(
+            last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+        )
+        
+        create_input = CalendarInput(
+            timestamp=datetime(2025, 1, 1, 13, 0, tzinfo=timezone.utc),
+            operation="create",
+            title="Test Event",
+            start=datetime(2025, 1, 15, 14, 0, tzinfo=timezone.utc),
+            end=datetime(2025, 1, 15, 15, 0, tzinfo=timezone.utc),
+        )
+        create_input.validate_input()
+        state.apply_input(create_input)
+        
+        original_update_count = state.update_count
+        original_event_count = len(state.events)
+        
+        # Create another input and get undo data (shouldn't modify state)
+        another_input = CalendarInput(
+            timestamp=datetime(2025, 1, 1, 14, 0, tzinfo=timezone.utc),
+            operation="create",
+            title="Another Event",
+            start=datetime(2025, 1, 16, 14, 0, tzinfo=timezone.utc),
+            end=datetime(2025, 1, 16, 15, 0, tzinfo=timezone.utc),
+        )
+        another_input.validate_input()
+        state.create_undo_data(another_input)
+        
+        assert state.update_count == original_update_count
+        assert len(state.events) == original_event_count
+
+
+class TestCalendarStateApplyUndo:
+    """Test CalendarState.apply_undo() method.
+    
+    GENERAL PATTERN: All ModalityState subclasses must implement apply_undo()
+    to reverse a previous apply_input() operation using undo data.
+    
+    CALENDAR-SPECIFIC: Handles removing created events, restoring deleted events,
+    undoing recurring event modifications, and handling split events.
+    """
+
+    def test_apply_undo_removes_created_event(self):
+        """Test that apply_undo removes a created event.
+        
+        CALENDAR-SPECIFIC: remove_event action deletes the event from state.
+        """
+        state = CalendarState(
+            last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+        )
+        
+        create_input = CalendarInput(
+            timestamp=datetime(2025, 1, 1, 13, 0, tzinfo=timezone.utc),
+            operation="create",
+            title="Test Event",
+            start=datetime(2025, 1, 15, 14, 0, tzinfo=timezone.utc),
+            end=datetime(2025, 1, 15, 15, 0, tzinfo=timezone.utc),
+        )
+        create_input.validate_input()
+        
+        undo_data = state.create_undo_data(create_input)
+        state.apply_input(create_input)
+        
+        assert len(state.events) == 1
+        
+        state.apply_undo(undo_data)
+        
+        assert len(state.events) == 0
+
+    def test_apply_undo_removes_new_calendar(self):
+        """Test that apply_undo removes calendar created as side effect.
+        
+        CALENDAR-SPECIFIC: When event creation created a new calendar, undo removes it.
+        """
+        state = CalendarState(
+            last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+        )
+        
+        create_input = CalendarInput(
+            timestamp=datetime(2025, 1, 1, 13, 0, tzinfo=timezone.utc),
+            operation="create",
+            calendar_id="work",
+            title="Work Event",
+            start=datetime(2025, 1, 15, 14, 0, tzinfo=timezone.utc),
+            end=datetime(2025, 1, 15, 15, 0, tzinfo=timezone.utc),
+        )
+        create_input.validate_input()
+        
+        undo_data = state.create_undo_data(create_input)
+        state.apply_input(create_input)
+        
+        assert "work" in state.calendars
+        
+        state.apply_undo(undo_data)
+        
+        assert "work" not in state.calendars
+
+    def test_apply_undo_restores_updated_event(self):
+        """Test that apply_undo restores event after update.
+        
+        CALENDAR-SPECIFIC: restore_event action restores previous event state.
+        """
+        state = CalendarState(
+            last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+        )
+        
+        # Create event
+        create_input = CalendarInput(
+            timestamp=datetime(2025, 1, 1, 13, 0, tzinfo=timezone.utc),
+            operation="create",
+            title="Original Title",
+            location="Room A",
+            start=datetime(2025, 1, 15, 14, 0, tzinfo=timezone.utc),
+            end=datetime(2025, 1, 15, 15, 0, tzinfo=timezone.utc),
+        )
+        create_input.validate_input()
+        state.apply_input(create_input)
+        
+        # Update event
+        update_input = CalendarInput(
+            timestamp=datetime(2025, 1, 1, 14, 0, tzinfo=timezone.utc),
+            operation="update",
+            event_id=create_input.event_id,
+            title="Updated Title",
+            location="Room B",
+            start=datetime(2025, 1, 15, 14, 0, tzinfo=timezone.utc),
+            end=datetime(2025, 1, 15, 15, 0, tzinfo=timezone.utc),
+        )
+        
+        undo_data = state.create_undo_data(update_input)
+        state.apply_input(update_input)
+        
+        assert state.events[create_input.event_id].title == "Updated Title"
+        assert state.events[create_input.event_id].location == "Room B"
+        
+        state.apply_undo(undo_data)
+        
+        assert state.events[create_input.event_id].title == "Original Title"
+        assert state.events[create_input.event_id].location == "Room A"
+
+    def test_apply_undo_restores_deleted_event(self):
+        """Test that apply_undo restores a deleted event.
+        
+        CALENDAR-SPECIFIC: restore_deleted_event action brings back the event.
+        """
+        state = CalendarState(
+            last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+        )
+        
+        # Create event
+        create_input = CalendarInput(
+            timestamp=datetime(2025, 1, 1, 13, 0, tzinfo=timezone.utc),
+            operation="create",
+            title="Event to Delete",
+            start=datetime(2025, 1, 15, 14, 0, tzinfo=timezone.utc),
+            end=datetime(2025, 1, 15, 15, 0, tzinfo=timezone.utc),
+        )
+        create_input.validate_input()
+        state.apply_input(create_input)
+        
+        event_id = create_input.event_id
+        
+        # Delete event
+        delete_input = CalendarInput(
+            timestamp=datetime(2025, 1, 1, 14, 0, tzinfo=timezone.utc),
+            operation="delete",
+            event_id=event_id,
+            title="",
+            start=datetime(2025, 1, 15, 14, 0, tzinfo=timezone.utc),
+            end=datetime(2025, 1, 15, 15, 0, tzinfo=timezone.utc),
+        )
+        
+        undo_data = state.create_undo_data(delete_input)
+        state.apply_input(delete_input)
+        
+        assert event_id not in state.events
+        
+        state.apply_undo(undo_data)
+        
+        assert event_id in state.events
+        assert state.events[event_id].title == "Event to Delete"
+
+    def test_apply_undo_removes_exception_date(self):
+        """Test that apply_undo removes exception date for single occurrence delete.
+        
+        CALENDAR-SPECIFIC: remove_exception action removes the exception.
+        """
+        state = CalendarState(
+            last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+        )
+        
+        # Create recurring event
+        create_input = CalendarInput(
+            timestamp=datetime(2025, 1, 1, 13, 0, tzinfo=timezone.utc),
+            operation="create",
+            title="Daily Standup",
+            start=datetime(2025, 1, 15, 9, 0, tzinfo=timezone.utc),
+            end=datetime(2025, 1, 15, 9, 30, tzinfo=timezone.utc),
+            recurrence=RecurrenceRule(
+                frequency="daily",
+                interval=1,
+                end_type="count",
+                count=10,
+            ),
+        )
+        create_input.validate_input()
+        state.apply_input(create_input)
+        
+        event_id = create_input.event_id
+        
+        # Delete single occurrence
+        delete_input = CalendarInput(
+            timestamp=datetime(2025, 1, 1, 14, 0, tzinfo=timezone.utc),
+            operation="delete",
+            event_id=event_id,
+            title="",
+            start=datetime(2025, 1, 17, 9, 0, tzinfo=timezone.utc),
+            end=datetime(2025, 1, 17, 9, 30, tzinfo=timezone.utc),
+            recurrence_scope="this",
+            recurrence_id="2025-01-17",
+        )
+        
+        undo_data = state.create_undo_data(delete_input)
+        state.apply_input(delete_input)
+        
+        assert "2025-01-17" in state.events[event_id].recurrence_exceptions
+        
+        state.apply_undo(undo_data)
+        
+        assert "2025-01-17" not in state.events[event_id].recurrence_exceptions
+
+    def test_apply_undo_restores_state_metadata(self):
+        """Test that apply_undo restores state-level metadata.
+        
+        GENERAL PATTERN: State-level update_count and last_updated are restored.
+        """
+        state = CalendarState(
+            last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+        )
+        
+        # Create event
+        create_input = CalendarInput(
+            timestamp=datetime(2025, 1, 1, 13, 0, tzinfo=timezone.utc),
+            operation="create",
+            title="Test Event",
+            start=datetime(2025, 1, 15, 14, 0, tzinfo=timezone.utc),
+            end=datetime(2025, 1, 15, 15, 0, tzinfo=timezone.utc),
+        )
+        create_input.validate_input()
+        state.apply_input(create_input)
+        
+        original_update_count = state.update_count
+        original_last_updated = state.last_updated
+        
+        # Create another event
+        second_input = CalendarInput(
+            timestamp=datetime(2025, 1, 1, 14, 0, tzinfo=timezone.utc),
+            operation="create",
+            title="Second Event",
+            start=datetime(2025, 1, 16, 14, 0, tzinfo=timezone.utc),
+            end=datetime(2025, 1, 16, 15, 0, tzinfo=timezone.utc),
+        )
+        second_input.validate_input()
+        
+        undo_data = state.create_undo_data(second_input)
+        state.apply_input(second_input)
+        
+        state.apply_undo(undo_data)
+        
+        assert state.update_count == original_update_count
+        assert state.last_updated == original_last_updated
+
+    def test_apply_undo_noop(self):
+        """Test that apply_undo handles noop action correctly.
+        
+        GENERAL PATTERN: Noop only restores metadata.
+        """
+        state = CalendarState(
+            last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+        )
+        
+        # Create event
+        create_input = CalendarInput(
+            timestamp=datetime(2025, 1, 1, 13, 0, tzinfo=timezone.utc),
+            operation="create",
+            title="Test Event",
+            start=datetime(2025, 1, 15, 14, 0, tzinfo=timezone.utc),
+            end=datetime(2025, 1, 15, 15, 0, tzinfo=timezone.utc),
+        )
+        create_input.validate_input()
+        state.apply_input(create_input)
+        
+        original_update_count = state.update_count
+        
+        # Update nonexistent event (will be noop)
+        update_input = CalendarInput(
+            timestamp=datetime(2025, 1, 1, 14, 0, tzinfo=timezone.utc),
+            operation="update",
+            event_id="nonexistent",
+            title="Updated",
+            start=datetime(2025, 1, 15, 14, 0, tzinfo=timezone.utc),
+            end=datetime(2025, 1, 15, 15, 0, tzinfo=timezone.utc),
+        )
+        
+        undo_data = state.create_undo_data(update_input)
+        
+        # Manually increment to simulate the operation (would fail normally)
+        state.update_count += 1
+        state.last_updated = update_input.timestamp
+        
+        state.apply_undo(undo_data)
+        
+        assert state.update_count == original_update_count
+        assert len(state.events) == 1
+
+    def test_apply_undo_raises_for_missing_action(self):
+        """Test that apply_undo raises for undo_data without action.
+        
+        GENERAL PATTERN: Undo data must have an action field.
+        """
+        state = CalendarState(
+            last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+        )
+        
+        with pytest.raises(ValueError, match="action"):
+            state.apply_undo({"event_id": "test"})
+
+    def test_apply_undo_raises_for_missing_event_id(self):
+        """Test that apply_undo raises for remove_event without event_id.
+        
+        GENERAL PATTERN: remove_event action needs event_id.
+        """
+        state = CalendarState(
+            last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+        )
+        
+        with pytest.raises(ValueError, match="event_id"):
+            state.apply_undo({
+                "action": "remove_event",
+                "calendar_id": "primary",
+                "state_previous_update_count": 0,
+                "state_previous_last_updated": datetime.now(timezone.utc).isoformat(),
+            })
+
+    def test_apply_undo_raises_for_unknown_action(self):
+        """Test that apply_undo raises for unknown action.
+        
+        GENERAL PATTERN: Only valid actions should be accepted.
+        """
+        state = CalendarState(
+            last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+        )
+        
+        with pytest.raises(ValueError, match="Unknown undo action"):
+            state.apply_undo({
+                "action": "invalid_action",
+                "state_previous_update_count": 0,
+                "state_previous_last_updated": datetime.now(timezone.utc).isoformat(),
+            })
+
+    def test_apply_undo_raises_for_event_not_found(self):
+        """Test that apply_undo raises when event to remove doesn't exist.
+        
+        GENERAL PATTERN: Cannot undo if state is inconsistent.
+        """
+        state = CalendarState(
+            last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+        )
+        
+        with pytest.raises(RuntimeError, match="not found"):
+            state.apply_undo({
+                "action": "remove_event",
+                "event_id": "nonexistent",
+                "calendar_id": "primary",
+                "was_new_calendar": False,
+                "state_previous_update_count": 0,
+                "state_previous_last_updated": datetime.now(timezone.utc).isoformat(),
+            })
+
+    def test_undo_full_cycle_create_event(self):
+        """Test complete undo cycle for creating an event.
+        
+        INTEGRATION: create_undo_data -> apply_input -> apply_undo should be idempotent.
+        """
+        state = CalendarState(
+            last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+        )
+        
+        original_snapshot = state.get_snapshot()
+        
+        create_input = CalendarInput(
+            timestamp=datetime(2025, 1, 1, 13, 0, tzinfo=timezone.utc),
+            operation="create",
+            title="Test Event",
+            start=datetime(2025, 1, 15, 14, 0, tzinfo=timezone.utc),
+            end=datetime(2025, 1, 15, 15, 0, tzinfo=timezone.utc),
+        )
+        create_input.validate_input()
+        
+        undo_data = state.create_undo_data(create_input)
+        state.apply_input(create_input)
+        state.apply_undo(undo_data)
+        
+        restored_snapshot = state.get_snapshot()
+        assert restored_snapshot["event_count"] == original_snapshot["event_count"]
+        assert restored_snapshot["update_count"] == original_snapshot["update_count"]
+
+    def test_undo_full_cycle_update_event(self):
+        """Test complete undo cycle for updating an event.
+        
+        INTEGRATION: create_undo_data -> apply_input -> apply_undo should be idempotent.
+        """
+        state = CalendarState(
+            last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+        )
+        
+        # Create event
+        create_input = CalendarInput(
+            timestamp=datetime(2025, 1, 1, 13, 0, tzinfo=timezone.utc),
+            operation="create",
+            title="Original",
+            start=datetime(2025, 1, 15, 14, 0, tzinfo=timezone.utc),
+            end=datetime(2025, 1, 15, 15, 0, tzinfo=timezone.utc),
+        )
+        create_input.validate_input()
+        state.apply_input(create_input)
+        
+        original_snapshot = state.get_snapshot()
+        original_title = state.events[create_input.event_id].title
+        
+        # Update event
+        update_input = CalendarInput(
+            timestamp=datetime(2025, 1, 1, 14, 0, tzinfo=timezone.utc),
+            operation="update",
+            event_id=create_input.event_id,
+            title="Updated",
+            start=datetime(2025, 1, 15, 14, 0, tzinfo=timezone.utc),
+            end=datetime(2025, 1, 15, 15, 0, tzinfo=timezone.utc),
+        )
+        
+        undo_data = state.create_undo_data(update_input)
+        state.apply_input(update_input)
+        state.apply_undo(undo_data)
+        
+        assert state.events[create_input.event_id].title == original_title
+        assert state.update_count == original_snapshot["update_count"]
+
+    def test_undo_full_cycle_delete_event(self):
+        """Test complete undo cycle for deleting an event.
+        
+        INTEGRATION: create_undo_data -> apply_input -> apply_undo should be idempotent.
+        """
+        state = CalendarState(
+            last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+        )
+        
+        # Create event
+        create_input = CalendarInput(
+            timestamp=datetime(2025, 1, 1, 13, 0, tzinfo=timezone.utc),
+            operation="create",
+            title="Event to Delete",
+            start=datetime(2025, 1, 15, 14, 0, tzinfo=timezone.utc),
+            end=datetime(2025, 1, 15, 15, 0, tzinfo=timezone.utc),
+        )
+        create_input.validate_input()
+        state.apply_input(create_input)
+        
+        original_snapshot = state.get_snapshot()
+        
+        # Delete event
+        delete_input = CalendarInput(
+            timestamp=datetime(2025, 1, 1, 14, 0, tzinfo=timezone.utc),
+            operation="delete",
+            event_id=create_input.event_id,
+            title="",
+            start=datetime(2025, 1, 15, 14, 0, tzinfo=timezone.utc),
+            end=datetime(2025, 1, 15, 15, 0, tzinfo=timezone.utc),
+        )
+        
+        undo_data = state.create_undo_data(delete_input)
+        state.apply_input(delete_input)
+        state.apply_undo(undo_data)
+        
+        restored_snapshot = state.get_snapshot()
+        assert restored_snapshot["event_count"] == original_snapshot["event_count"]
+        assert restored_snapshot["update_count"] == original_snapshot["update_count"]
+
+    def test_multiple_undo_operations(self):
+        """Test multiple sequential undo operations.
+        
+        INTEGRATION: Multiple undos should work correctly in sequence.
+        """
+        state = CalendarState(
+            last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+        )
+        
+        undo_stack = []
+        
+        # Create multiple events
+        for i in range(5):
+            create_input = CalendarInput(
+                timestamp=datetime(2025, 1, 1, 13 + i, 0, tzinfo=timezone.utc),
+                operation="create",
+                title=f"Event {i}",
+                start=datetime(2025, 1, 15 + i, 14, 0, tzinfo=timezone.utc),
+                end=datetime(2025, 1, 15 + i, 15, 0, tzinfo=timezone.utc),
+            )
+            create_input.validate_input()
+            
+            undo_data = state.create_undo_data(create_input)
+            undo_stack.append(undo_data)
+            state.apply_input(create_input)
+        
+        assert len(state.events) == 5
+        assert state.update_count == 5
+        
+        # Undo all in reverse
+        for undo_data in reversed(undo_stack):
+            state.apply_undo(undo_data)
+        
+        assert len(state.events) == 0
+        assert state.update_count == 0
+
+    def test_undo_mixed_operations(self):
+        """Test undoing a mix of create, update, and delete operations.
+        
+        INTEGRATION: Different operation types should undo correctly.
+        """
+        state = CalendarState(
+            last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+        )
+        
+        undo_stack = []
+        
+        # Create event
+        create_input = CalendarInput(
+            timestamp=datetime(2025, 1, 1, 13, 0, tzinfo=timezone.utc),
+            operation="create",
+            title="Original",
+            start=datetime(2025, 1, 15, 14, 0, tzinfo=timezone.utc),
+            end=datetime(2025, 1, 15, 15, 0, tzinfo=timezone.utc),
+        )
+        create_input.validate_input()
+        undo_data = state.create_undo_data(create_input)
+        undo_stack.append(undo_data)
+        state.apply_input(create_input)
+        
+        # Update event
+        update_input = CalendarInput(
+            timestamp=datetime(2025, 1, 1, 14, 0, tzinfo=timezone.utc),
+            operation="update",
+            event_id=create_input.event_id,
+            title="Updated",
+            start=datetime(2025, 1, 15, 14, 0, tzinfo=timezone.utc),
+            end=datetime(2025, 1, 15, 15, 0, tzinfo=timezone.utc),
+        )
+        undo_data = state.create_undo_data(update_input)
+        undo_stack.append(undo_data)
+        state.apply_input(update_input)
+        
+        assert state.events[create_input.event_id].title == "Updated"
+        
+        # Undo update - should restore to "Original"
+        state.apply_undo(undo_stack.pop())
+        assert state.events[create_input.event_id].title == "Original"
+        
+        # Undo create - should remove event
+        state.apply_undo(undo_stack.pop())
+        assert len(state.events) == 0

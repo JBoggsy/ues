@@ -802,3 +802,472 @@ class TestTimeStateIntegration:
         # Check history is properly managed
         assert len(state.settings_history) == 20
         assert state.update_count == 50
+
+
+class TestTimeStateCreateUndoData:
+    """Test TimeState.create_undo_data() method.
+    
+    GENERAL PATTERN: All ModalityState subclasses must implement create_undo_data()
+    to capture minimal data needed to reverse an apply_input() operation.
+    """
+
+    def test_create_undo_data_captures_previous_preferences(self):
+        """Test create_undo_data captures current preferences before update."""
+        state = create_time_state(
+            timezone="America/New_York",
+            format_preference="12h",
+        )
+        state.date_format = "MM/DD/YYYY"
+        state.locale = "en_US"
+        state.week_start = "sunday"
+        
+        new_settings = create_time_input(
+            timezone="Europe/London",
+            format_preference="24h",
+        )
+        
+        undo_data = state.create_undo_data(new_settings)
+        
+        assert undo_data["action"] == "restore_previous"
+        assert undo_data["previous_timezone"] == "America/New_York"
+        assert undo_data["previous_format_preference"] == "12h"
+        assert undo_data["previous_date_format"] == "MM/DD/YYYY"
+        assert undo_data["previous_locale"] == "en_US"
+        assert undo_data["previous_week_start"] == "sunday"
+
+    def test_create_undo_data_captures_none_values(self):
+        """Test create_undo_data captures None for unset optional fields."""
+        state = create_time_state(
+            timezone="UTC",
+            format_preference="24h",
+        )
+        # date_format, locale, week_start are all None
+        
+        new_settings = create_time_input(
+            timezone="Asia/Tokyo",
+            format_preference="12h",
+            date_format="YYYY-MM-DD",
+        )
+        
+        undo_data = state.create_undo_data(new_settings)
+        
+        assert undo_data["previous_date_format"] is None
+        assert undo_data["previous_locale"] is None
+        assert undo_data["previous_week_start"] is None
+
+    def test_create_undo_data_at_capacity(self):
+        """Test create_undo_data captures removed history entry at capacity.
+        
+        GENERAL PATTERN: When capacity limits cause entries to be removed,
+        capture them for potential restoration.
+        """
+        now = datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc)
+        state = TimeState(
+            last_updated=now,
+            max_history_size=3,
+        )
+        
+        # Fill to capacity: 3 history entries
+        for i in range(3):
+            state.apply_input(create_time_input(
+                timezone="UTC" if i % 2 == 0 else "America/New_York",
+                format_preference="12h",
+                timestamp=now + timedelta(hours=i + 1),
+            ))
+        
+        assert len(state.settings_history) == 3
+        oldest_tz = state.settings_history[0].timezone
+        
+        # Next update will trim oldest
+        new_settings = create_time_input(
+            timezone="Europe/London",
+            format_preference="24h",
+            timestamp=now + timedelta(hours=5),
+        )
+        
+        undo_data = state.create_undo_data(new_settings)
+        
+        assert "removed_history_entry" in undo_data
+        assert undo_data["removed_history_entry"]["timezone"] == oldest_tz
+
+    def test_create_undo_data_captures_state_metadata(self):
+        """Test create_undo_data captures state-level metadata.
+        
+        GENERAL PATTERN: All undo data must include update_count and last_updated.
+        """
+        now = datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc)
+        state = TimeState(
+            last_updated=now,
+            update_count=5,
+        )
+        
+        time_input = create_time_input()
+        
+        undo_data = state.create_undo_data(time_input)
+        
+        assert undo_data["state_previous_update_count"] == 5
+        assert undo_data["state_previous_last_updated"] == now.isoformat()
+
+    def test_create_undo_data_raises_for_invalid_input_type(self):
+        """Test create_undo_data raises for non-TimeInput.
+        
+        GENERAL PATTERN: Validate input type and fail fast.
+        """
+        from models.modalities.location_input import LocationInput
+        
+        state = create_time_state()
+        location_input = LocationInput(
+            timestamp=datetime.now(timezone.utc),
+            latitude=40.0,
+            longitude=-74.0,
+        )
+        
+        with pytest.raises(ValueError, match="TimeInput"):
+            state.create_undo_data(location_input)
+
+    def test_create_undo_data_does_not_modify_state(self):
+        """Test create_undo_data is read-only.
+        
+        GENERAL PATTERN: create_undo_data should not modify state.
+        """
+        state = create_time_state(timezone="America/New_York")
+        original_tz = state.timezone
+        original_count = state.update_count
+        original_history_len = len(state.settings_history)
+        
+        time_input = create_time_input(timezone="Europe/London")
+        state.create_undo_data(time_input)
+        
+        assert state.timezone == original_tz
+        assert state.update_count == original_count
+        assert len(state.settings_history) == original_history_len
+
+
+class TestTimeStateApplyUndo:
+    """Test TimeState.apply_undo() method.
+    
+    GENERAL PATTERN: All ModalityState subclasses must implement apply_undo()
+    to reverse apply_input() operations using data from create_undo_data().
+    """
+
+    def test_apply_undo_restores_previous_preferences(self):
+        """Test apply_undo restores previous preferences."""
+        now = datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc)
+        state = create_time_state(
+            timezone="America/New_York",
+            format_preference="12h",
+            last_updated=now,
+        )
+        state.date_format = "MM/DD/YYYY"
+        
+        new_settings = create_time_input(
+            timezone="Europe/London",
+            format_preference="24h",
+            date_format="DD/MM/YYYY",
+            timestamp=now + timedelta(hours=1),
+        )
+        
+        undo_data = state.create_undo_data(new_settings)
+        state.apply_input(new_settings)
+        
+        assert state.timezone == "Europe/London"
+        assert state.format_preference == "24h"
+        
+        state.apply_undo(undo_data)
+        
+        assert state.timezone == "America/New_York"
+        assert state.format_preference == "12h"
+        assert state.date_format == "MM/DD/YYYY"
+
+    def test_apply_undo_restores_all_optional_fields(self):
+        """Test apply_undo restores all optional preference fields."""
+        state = create_time_state()
+        state.date_format = "YYYY-MM-DD"
+        state.locale = "ja_JP"
+        state.week_start = "monday"
+        
+        new_settings = create_time_input(
+            timezone="America/Los_Angeles",
+            format_preference="12h",
+            date_format="MM/DD/YYYY",
+            locale="en_US",
+            week_start="sunday",
+        )
+        
+        undo_data = state.create_undo_data(new_settings)
+        state.apply_input(new_settings)
+        
+        state.apply_undo(undo_data)
+        
+        assert state.date_format == "YYYY-MM-DD"
+        assert state.locale == "ja_JP"
+        assert state.week_start == "monday"
+
+    def test_apply_undo_removes_history_entry(self):
+        """Test apply_undo removes the history entry that was added."""
+        now = datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc)
+        state = create_time_state(last_updated=now)
+        
+        new_settings = create_time_input(
+            timezone="Europe/London",
+            format_preference="24h",
+            timestamp=now + timedelta(hours=1),
+        )
+        
+        undo_data = state.create_undo_data(new_settings)
+        state.apply_input(new_settings)
+        
+        assert len(state.settings_history) == 1
+        
+        state.apply_undo(undo_data)
+        
+        assert len(state.settings_history) == 0
+
+    def test_apply_undo_restores_trimmed_history_entry(self):
+        """Test apply_undo restores history entry trimmed at capacity.
+        
+        GENERAL PATTERN: When capacity limits cause entries to be removed,
+        restore them on undo.
+        """
+        now = datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc)
+        state = TimeState(
+            last_updated=now,
+            max_history_size=3,
+        )
+        
+        # Fill to capacity with distinct timezones
+        timezones = ["America/New_York", "Europe/London", "Asia/Tokyo"]
+        for i, tz in enumerate(timezones):
+            state.apply_input(create_time_input(
+                timezone=tz,
+                format_preference="12h" if i % 2 == 0 else "24h",
+                timestamp=now + timedelta(hours=i + 1),
+            ))
+        
+        assert len(state.settings_history) == 3
+        # First entry is the default UTC timezone before any inputs
+        oldest_before = state.settings_history[0].timezone
+        assert oldest_before == "UTC"  # Initial default
+        
+        # Another update will trim the oldest (UTC)
+        new_settings = create_time_input(
+            timezone="Australia/Sydney",
+            format_preference="24h",
+            timestamp=now + timedelta(hours=5),
+        )
+        
+        undo_data = state.create_undo_data(new_settings)
+        state.apply_input(new_settings)
+        
+        # Oldest entry was trimmed - now starts with America/New_York
+        assert state.settings_history[0].timezone == "America/New_York"
+        
+        state.apply_undo(undo_data)
+        
+        # Oldest entry should be restored to UTC
+        assert len(state.settings_history) == 3
+        assert state.settings_history[0].timezone == "UTC"
+
+    def test_apply_undo_restores_state_metadata(self):
+        """Test apply_undo restores state-level metadata.
+        
+        GENERAL PATTERN: Always restore update_count and last_updated.
+        """
+        now = datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc)
+        state = TimeState(
+            last_updated=now,
+            update_count=5,
+        )
+        
+        time_input = create_time_input(
+            timestamp=now + timedelta(hours=1),
+        )
+        
+        undo_data = state.create_undo_data(time_input)
+        state.apply_input(time_input)
+        
+        assert state.update_count == 6
+        assert state.last_updated != now
+        
+        state.apply_undo(undo_data)
+        
+        assert state.update_count == 5
+        assert state.last_updated == now
+
+    def test_apply_undo_raises_for_missing_action(self):
+        """Test apply_undo raises for missing action field.
+        
+        GENERAL PATTERN: Validate required fields.
+        """
+        state = create_time_state()
+        
+        with pytest.raises(ValueError, match="action"):
+            state.apply_undo({})
+
+    def test_apply_undo_raises_for_unknown_action(self):
+        """Test apply_undo raises for unknown action.
+        
+        GENERAL PATTERN: Handle unknown actions gracefully with clear error.
+        """
+        state = create_time_state()
+        
+        with pytest.raises(ValueError, match="Unknown undo action"):
+            state.apply_undo({"action": "invalid_action"})
+
+    def test_undo_full_cycle(self):
+        """Test complete undo cycle restores original state.
+        
+        GENERAL PATTERN: create_undo → apply → undo = original state
+        """
+        now = datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc)
+        state = create_time_state(
+            timezone="America/New_York",
+            format_preference="12h",
+            last_updated=now,
+        )
+        state.date_format = "MM/DD/YYYY"
+        state.locale = "en_US"
+        state.week_start = "sunday"
+        
+        original_snapshot = state.get_snapshot()
+        
+        new_settings = create_time_input(
+            timezone="Europe/Paris",
+            format_preference="24h",
+            date_format="DD/MM/YYYY",
+            locale="fr_FR",
+            week_start="monday",
+            timestamp=now + timedelta(hours=1),
+        )
+        
+        undo_data = state.create_undo_data(new_settings)
+        state.apply_input(new_settings)
+        state.apply_undo(undo_data)
+        
+        restored_snapshot = state.get_snapshot()
+        
+        assert restored_snapshot["current"] == original_snapshot["current"]
+        assert restored_snapshot["update_count"] == original_snapshot["update_count"]
+
+    def test_undo_full_cycle_at_capacity(self):
+        """Test complete undo cycle when at capacity.
+        
+        GENERAL PATTERN: Verify capacity edge case is handled correctly.
+        """
+        now = datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc)
+        state = TimeState(
+            last_updated=now,
+            max_history_size=3,
+        )
+        
+        # Fill to capacity
+        for i in range(3):
+            state.apply_input(create_time_input(
+                timezone=["UTC", "America/New_York", "Europe/London"][i],
+                format_preference="12h",
+                timestamp=now + timedelta(hours=i + 1),
+            ))
+        
+        # Capture state at capacity
+        original_history = [
+            (e.timezone, e.format_preference) for e in state.settings_history
+        ]
+        original_current = (state.timezone, state.format_preference)
+        
+        # Another update
+        new_settings = create_time_input(
+            timezone="Asia/Tokyo",
+            format_preference="24h",
+            timestamp=now + timedelta(hours=5),
+        )
+        
+        undo_data = state.create_undo_data(new_settings)
+        state.apply_input(new_settings)
+        state.apply_undo(undo_data)
+        
+        restored_history = [
+            (e.timezone, e.format_preference) for e in state.settings_history
+        ]
+        restored_current = (state.timezone, state.format_preference)
+        
+        assert restored_history == original_history
+        assert restored_current == original_current
+
+    def test_multiple_sequential_undos(self):
+        """Test multiple sequential undo operations.
+        
+        GENERAL PATTERN: Each undo should be independent and work correctly.
+        """
+        now = datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc)
+        state = TimeState(last_updated=now)
+        
+        undo_data_list = []
+        
+        timezones = ["America/New_York", "Europe/London", "Asia/Tokyo"]
+        
+        # Apply 3 settings changes, capturing undo data each time
+        for i, tz in enumerate(timezones):
+            settings = create_time_input(
+                timezone=tz,
+                format_preference="12h" if i % 2 == 0 else "24h",
+                timestamp=now + timedelta(hours=i + 1),
+            )
+            undo_data_list.append(state.create_undo_data(settings))
+            state.apply_input(settings)
+        
+        assert state.timezone == "Asia/Tokyo"
+        assert len(state.settings_history) == 3
+        
+        # Undo in reverse order
+        state.apply_undo(undo_data_list[2])
+        assert state.timezone == "Europe/London"
+        assert len(state.settings_history) == 2
+        
+        state.apply_undo(undo_data_list[1])
+        assert state.timezone == "America/New_York"
+        assert len(state.settings_history) == 1
+        
+        state.apply_undo(undo_data_list[0])
+        assert state.timezone == "UTC"  # Default
+        assert len(state.settings_history) == 0
+
+    def test_undo_preserves_history_entry_details(self):
+        """Test that undo preserves all history entry details."""
+        now = datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc)
+        state = TimeState(
+            last_updated=now,
+            max_history_size=2,
+        )
+        
+        # Add settings with full details
+        for i in range(3):
+            state.apply_input(create_time_input(
+                timezone=["UTC", "America/New_York", "Europe/London"][i],
+                format_preference="12h" if i % 2 == 0 else "24h",
+                date_format=["YYYY-MM-DD", "MM/DD/YYYY", "DD/MM/YYYY"][i],
+                locale=["en_US", "en_GB", "fr_FR"][i],
+                week_start="sunday" if i % 2 == 0 else "monday",
+                timestamp=now + timedelta(hours=i + 1),
+            ))
+        
+        # Capture first entry before it gets trimmed
+        first_entry = state.settings_history[0]
+        
+        # New update will trim first entry
+        new_settings = create_time_input(
+            timezone="Asia/Tokyo",
+            format_preference="24h",
+            timestamp=now + timedelta(hours=5),
+        )
+        
+        undo_data = state.create_undo_data(new_settings)
+        state.apply_input(new_settings)
+        state.apply_undo(undo_data)
+        
+        # Verify first entry is restored with all details
+        restored_first = state.settings_history[0]
+        assert restored_first.timezone == first_entry.timezone
+        assert restored_first.format_preference == first_entry.format_preference
+        assert restored_first.date_format == first_entry.date_format
+        assert restored_first.locale == first_entry.locale
+        assert restored_first.week_start == first_entry.week_start

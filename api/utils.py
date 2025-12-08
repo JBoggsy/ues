@@ -23,7 +23,7 @@ def create_immediate_event(
     
     This is a common pattern for all modality action endpoints. Creates
     an event scheduled at the current simulator time with high priority,
-    and executes it immediately.
+    and executes it immediately with undo capture.
     
     Args:
         engine: The SimulationEngine instance.
@@ -50,8 +50,12 @@ def create_immediate_event(
         
         engine.add_event(event)
         
-        # Execute the event immediately since it's scheduled for current time
-        event.execute(engine.environment)
+        # Execute the event immediately with undo capture
+        undo_entry = event.execute(engine.environment, capture_undo=True)
+        
+        # Push undo entry to undo stack if captured
+        if undo_entry is not None:
+            engine.undo_stack.push(undo_entry)
         
         return event
     

@@ -6,6 +6,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
+from models.base_input import ModalityInput
 from models.base_state import ModalityState
 from models.modalities.sms_input import SMSInput
 
@@ -1277,3 +1278,588 @@ class SMSState(ModalityState):
             raise ValueError(f"Message {message_id} not found")
 
         self.messages[message_id].is_spam = False
+
+    def clear(self) -> None:
+        """Reset SMS state to empty defaults.
+
+        Clears all messages and conversations, returning the state to
+        a freshly created condition. The user_phone_number is preserved.
+        """
+        self.messages.clear()
+        self.conversations.clear()
+        self.update_count = 0
+
+    def create_undo_data(self, input_data: "ModalityInput") -> dict[str, Any]:
+        """Capture minimal data needed to undo applying an SMSInput.
+
+        Args:
+            input_data: The SMSInput that will be applied.
+
+        Returns:
+            Dictionary containing minimal data needed to undo the operation.
+        """
+        if not isinstance(input_data, SMSInput):
+            raise ValueError(
+                f"SMSState can only create undo data for SMSInput, got {type(input_data)}"
+            )
+
+        # Ensure input is validated (auto-generates message_id, etc.)
+        input_data.validate_input()
+
+        # Common state-level metadata
+        base_undo = {
+            "state_previous_update_count": self.update_count,
+            "state_previous_last_updated": self.last_updated.isoformat(),
+        }
+
+        action = input_data.action
+
+        # Message operations - send/receive creates new message
+        if action in ("send_message", "receive_message"):
+            msg_data = input_data.message_data
+            if not msg_data:
+                return {**base_undo, "action": "noop"}
+
+            from_number = msg_data["from_number"]
+            to_numbers = msg_data["to_numbers"]
+
+            # Check if conversation will be created
+            thread_id = msg_data.get("thread_id")
+            was_new_conversation = False
+            previous_conv_data: dict[str, Any] | None = None
+
+            if not thread_id:
+                all_participants = sorted(set([from_number] + to_numbers))
+                # Check if conversation exists for these participants
+                existing_thread_id = None
+                for conv in self.conversations.values():
+                    conv_numbers = sorted(conv.get_participant_numbers())
+                    if conv_numbers == all_participants:
+                        existing_thread_id = conv.thread_id
+                        break
+                if existing_thread_id:
+                    thread_id = existing_thread_id
+                else:
+                    was_new_conversation = True
+                    # Thread ID will be auto-generated; we can't predict it
+                    # We'll need to find it by diffing conversations after apply
+            else:
+                if thread_id not in self.conversations:
+                    # Will raise ValueError during apply
+                    return {**base_undo, "action": "noop"}
+
+            # If conversation exists, capture its current state
+            if thread_id and thread_id in self.conversations:
+                conv = self.conversations[thread_id]
+                previous_conv_data = {
+                    "message_count": conv.message_count,
+                    "unread_count": conv.unread_count,
+                    "last_message_at": conv.last_message_at.isoformat(),
+                }
+
+            # Check for capacity overflow
+            removed_message_id = None
+            if thread_id and thread_id in self.conversations:
+                messages_in_thread = [
+                    msg for msg in self.messages.values() if msg.thread_id == thread_id
+                ]
+                if len(messages_in_thread) >= self.max_messages_per_conversation:
+                    # Will remove oldest
+                    messages_in_thread.sort(key=lambda m: m.sent_at)
+                    oldest = messages_in_thread[0]
+                    removed_message_id = oldest.message_id
+
+            return {
+                **base_undo,
+                "action": "remove_message",
+                "was_new_conversation": was_new_conversation,
+                "thread_id": thread_id,
+                "previous_conv_data": previous_conv_data,
+                "removed_message_id": removed_message_id,
+                "removed_message": (
+                    self.messages[removed_message_id].model_dump(mode="json")
+                    if removed_message_id
+                    else None
+                ),
+                "previous_conversation_ids": list(self.conversations.keys()),
+            }
+
+        # Delivery status update
+        elif action == "update_delivery_status":
+            update_data = input_data.delivery_update_data
+            if not update_data:
+                return {**base_undo, "action": "noop"}
+
+            message_id = update_data["message_id"]
+            if message_id not in self.messages:
+                return {**base_undo, "action": "noop"}
+
+            message = self.messages[message_id]
+            return {
+                **base_undo,
+                "action": "restore_delivery_status",
+                "message_id": message_id,
+                "previous_delivery_status": message.delivery_status,
+                "previous_delivered_at": (
+                    message.delivered_at.isoformat() if message.delivered_at else None
+                ),
+                "previous_read_at": (
+                    message.read_at.isoformat() if message.read_at else None
+                ),
+                "previous_is_read": message.is_read,
+            }
+
+        # Add reaction
+        elif action == "add_reaction":
+            reaction_data = input_data.reaction_data
+            if not reaction_data:
+                return {**base_undo, "action": "noop"}
+
+            message_id = reaction_data["message_id"]
+            if message_id not in self.messages:
+                return {**base_undo, "action": "noop"}
+
+            # Reaction ID will be auto-generated, need to find it after apply
+            return {
+                **base_undo,
+                "action": "remove_added_reaction",
+                "message_id": message_id,
+                "previous_reaction_count": len(self.messages[message_id].reactions),
+            }
+
+        # Remove reaction
+        elif action == "remove_reaction":
+            reaction_data = input_data.reaction_data
+            if not reaction_data:
+                return {**base_undo, "action": "noop"}
+
+            message_id = reaction_data["message_id"]
+            reaction_id = reaction_data["reaction_id"]
+            if message_id not in self.messages:
+                return {**base_undo, "action": "noop"}
+
+            # Find and capture the reaction being removed
+            message = self.messages[message_id]
+            removed_reaction = None
+            for r in message.reactions:
+                if r.reaction_id == reaction_id:
+                    removed_reaction = r.model_dump(mode="json")
+                    break
+
+            if not removed_reaction:
+                return {**base_undo, "action": "noop"}
+
+            return {
+                **base_undo,
+                "action": "restore_reaction",
+                "message_id": message_id,
+                "removed_reaction": removed_reaction,
+            }
+
+        # Edit message
+        elif action == "edit_message":
+            edit_data = input_data.edit_data
+            if not edit_data:
+                return {**base_undo, "action": "noop"}
+
+            message_id = edit_data["message_id"]
+            if message_id not in self.messages:
+                return {**base_undo, "action": "noop"}
+
+            message = self.messages[message_id]
+            return {
+                **base_undo,
+                "action": "restore_message_body",
+                "message_id": message_id,
+                "previous_body": message.body,
+                "previous_edited_at": (
+                    message.edited_at.isoformat() if message.edited_at else None
+                ),
+            }
+
+        # Delete message (soft delete)
+        elif action == "delete_message":
+            delete_data = input_data.delete_data
+            if not delete_data:
+                return {**base_undo, "action": "noop"}
+
+            message_id = delete_data["message_id"]
+            if message_id not in self.messages:
+                return {**base_undo, "action": "noop"}
+
+            message = self.messages[message_id]
+            return {
+                **base_undo,
+                "action": "restore_message_deleted",
+                "message_id": message_id,
+                "previous_is_deleted": message.is_deleted,
+            }
+
+        # Create group
+        elif action == "create_group":
+            group_data = input_data.group_data
+            if not group_data:
+                return {**base_undo, "action": "noop"}
+
+            # Group thread_id will be auto-generated
+            return {
+                **base_undo,
+                "action": "remove_group",
+                "previous_conversation_ids": list(self.conversations.keys()),
+            }
+
+        # Update group
+        elif action == "update_group":
+            group_data = input_data.group_data
+            if not group_data:
+                return {**base_undo, "action": "noop"}
+
+            thread_id = group_data["thread_id"]
+            if thread_id not in self.conversations:
+                return {**base_undo, "action": "noop"}
+
+            conv = self.conversations[thread_id]
+            return {
+                **base_undo,
+                "action": "restore_group_settings",
+                "thread_id": thread_id,
+                "previous_group_name": conv.group_name,
+                "previous_group_photo_url": conv.group_photo_url,
+            }
+
+        # Add participant
+        elif action == "add_participant":
+            participant_data = input_data.participant_data
+            if not participant_data:
+                return {**base_undo, "action": "noop"}
+
+            thread_id = participant_data["thread_id"]
+            phone_number = participant_data["phone_number"]
+            if thread_id not in self.conversations:
+                return {**base_undo, "action": "noop"}
+
+            # Participant will be added, need to track it for removal
+            return {
+                **base_undo,
+                "action": "remove_added_participant",
+                "thread_id": thread_id,
+                "phone_number": phone_number,
+                "previous_participant_count": len(
+                    self.conversations[thread_id].participants
+                ),
+            }
+
+        # Remove participant / leave group
+        elif action in ("remove_participant", "leave_group"):
+            participant_data = input_data.participant_data
+            if not participant_data:
+                return {**base_undo, "action": "noop"}
+
+            thread_id = participant_data["thread_id"]
+            phone_number = participant_data.get("phone_number", self.user_phone_number)
+            if thread_id not in self.conversations:
+                return {**base_undo, "action": "noop"}
+
+            # Find the participant and capture their current state
+            conv = self.conversations[thread_id]
+            participant_data_captured = None
+            for p in conv.participants:
+                if p.phone_number == phone_number and p.is_active():
+                    participant_data_captured = {
+                        "phone_number": p.phone_number,
+                        "is_admin": p.is_admin,
+                        "joined_at": p.joined_at.isoformat(),
+                        "left_at": None,
+                    }
+                    break
+
+            if not participant_data_captured:
+                return {**base_undo, "action": "noop"}
+
+            return {
+                **base_undo,
+                "action": "restore_participant",
+                "thread_id": thread_id,
+                "participant_data": participant_data_captured,
+            }
+
+        # Update conversation
+        elif action == "update_conversation":
+            update_data = input_data.conversation_update_data
+            if not update_data:
+                return {**base_undo, "action": "noop"}
+
+            thread_id = update_data["thread_id"]
+            if thread_id not in self.conversations:
+                return {**base_undo, "action": "noop"}
+
+            conv = self.conversations[thread_id]
+
+            # Capture all settings that might change
+            previous_settings: dict[str, Any] = {
+                "thread_id": thread_id,
+                "is_pinned": conv.is_pinned,
+                "is_muted": conv.is_muted,
+                "is_archived": conv.is_archived,
+                "draft_message": conv.draft_message,
+                "unread_count": conv.unread_count,
+            }
+
+            # If marking all read, capture affected messages
+            if update_data.get("mark_all_read"):
+                affected_messages = []
+                for msg in self.messages.values():
+                    if msg.thread_id == thread_id and not msg.is_read:
+                        affected_messages.append({
+                            "message_id": msg.message_id,
+                            "previous_is_read": msg.is_read,
+                            "previous_read_at": (
+                                msg.read_at.isoformat() if msg.read_at else None
+                            ),
+                        })
+                previous_settings["affected_messages"] = affected_messages
+
+            return {
+                **base_undo,
+                "action": "restore_conversation_settings",
+                **previous_settings,
+            }
+
+        # Unknown action
+        return {**base_undo, "action": "noop"}
+
+    def apply_undo(self, undo_data: dict[str, Any]) -> None:
+        """Apply undo data to reverse a previous SMS input application.
+
+        Args:
+            undo_data: Dictionary returned by create_undo_data().
+        """
+        action = undo_data.get("action")
+        if not action:
+            raise ValueError("Undo data missing 'action' field")
+
+        # Handle noop first
+        if action == "noop":
+            self.update_count = undo_data["state_previous_update_count"]
+            self.last_updated = datetime.fromisoformat(
+                undo_data["state_previous_last_updated"]
+            )
+            return
+
+        # Remove message (for send_message, receive_message)
+        if action == "remove_message":
+            was_new_conversation = undo_data.get("was_new_conversation", False)
+            previous_conv_ids = undo_data.get("previous_conversation_ids", [])
+            previous_conv_data = undo_data.get("previous_conv_data")
+            removed_message_id = undo_data.get("removed_message_id")
+            removed_message = undo_data.get("removed_message")
+
+            # Find and remove the newly created message
+            current_conv_ids = set(self.conversations.keys())
+            previous_conv_ids_set = set(previous_conv_ids)
+
+            if was_new_conversation:
+                # Find the new conversation
+                new_conv_ids = current_conv_ids - previous_conv_ids_set
+                for new_conv_id in new_conv_ids:
+                    # Remove all messages in this conversation
+                    msgs_to_remove = [
+                        msg_id
+                        for msg_id, msg in self.messages.items()
+                        if msg.thread_id == new_conv_id
+                    ]
+                    for msg_id in msgs_to_remove:
+                        del self.messages[msg_id]
+                    # Remove conversation
+                    del self.conversations[new_conv_id]
+            else:
+                # Find the new message (message not matching any previous message IDs)
+                thread_id = undo_data.get("thread_id")
+                if thread_id and thread_id in self.conversations:
+                    # Find the most recently added message in this thread
+                    thread_messages = [
+                        (msg_id, msg)
+                        for msg_id, msg in self.messages.items()
+                        if msg.thread_id == thread_id
+                    ]
+                    if thread_messages:
+                        # Sort by sent_at descending, remove the newest
+                        thread_messages.sort(key=lambda x: x[1].sent_at, reverse=True)
+                        newest_msg_id = thread_messages[0][0]
+                        del self.messages[newest_msg_id]
+
+                    # Restore conversation metadata
+                    if previous_conv_data:
+                        conv = self.conversations[thread_id]
+                        conv.message_count = previous_conv_data["message_count"]
+                        conv.unread_count = previous_conv_data["unread_count"]
+                        conv.last_message_at = datetime.fromisoformat(
+                            previous_conv_data["last_message_at"]
+                        )
+
+            # Restore removed message due to capacity
+            if removed_message:
+                restored_msg = SMSMessage.model_validate(removed_message)
+                self.messages[restored_msg.message_id] = restored_msg
+
+        # Restore delivery status
+        elif action == "restore_delivery_status":
+            message_id = undo_data.get("message_id")
+            if not message_id:
+                raise ValueError("Undo data missing 'message_id'")
+
+            if message_id in self.messages:
+                msg = self.messages[message_id]
+                msg.delivery_status = undo_data["previous_delivery_status"]
+                msg.is_read = undo_data["previous_is_read"]
+                msg.delivered_at = (
+                    datetime.fromisoformat(undo_data["previous_delivered_at"])
+                    if undo_data.get("previous_delivered_at")
+                    else None
+                )
+                msg.read_at = (
+                    datetime.fromisoformat(undo_data["previous_read_at"])
+                    if undo_data.get("previous_read_at")
+                    else None
+                )
+
+        # Remove added reaction
+        elif action == "remove_added_reaction":
+            message_id = undo_data.get("message_id")
+            previous_count = undo_data.get("previous_reaction_count", 0)
+            if not message_id:
+                raise ValueError("Undo data missing 'message_id'")
+
+            if message_id in self.messages:
+                msg = self.messages[message_id]
+                # Remove reactions added after the previous count
+                msg.reactions = msg.reactions[:previous_count]
+
+        # Restore removed reaction
+        elif action == "restore_reaction":
+            message_id = undo_data.get("message_id")
+            removed_reaction = undo_data.get("removed_reaction")
+            if not message_id or not removed_reaction:
+                raise ValueError("Undo data missing 'message_id' or 'removed_reaction'")
+
+            if message_id in self.messages:
+                msg = self.messages[message_id]
+                restored = MessageReaction.model_validate(removed_reaction)
+                msg.reactions.append(restored)
+
+        # Restore message body
+        elif action == "restore_message_body":
+            message_id = undo_data.get("message_id")
+            if not message_id:
+                raise ValueError("Undo data missing 'message_id'")
+
+            if message_id in self.messages:
+                msg = self.messages[message_id]
+                msg.body = undo_data["previous_body"]
+                msg.edited_at = (
+                    datetime.fromisoformat(undo_data["previous_edited_at"])
+                    if undo_data.get("previous_edited_at")
+                    else None
+                )
+
+        # Restore message deleted state
+        elif action == "restore_message_deleted":
+            message_id = undo_data.get("message_id")
+            if not message_id:
+                raise ValueError("Undo data missing 'message_id'")
+
+            if message_id in self.messages:
+                msg = self.messages[message_id]
+                msg.is_deleted = undo_data["previous_is_deleted"]
+
+        # Remove created group
+        elif action == "remove_group":
+            previous_conv_ids = set(undo_data.get("previous_conversation_ids", []))
+            current_conv_ids = set(self.conversations.keys())
+            new_conv_ids = current_conv_ids - previous_conv_ids
+
+            for new_conv_id in new_conv_ids:
+                # Remove all messages in this group
+                msgs_to_remove = [
+                    msg_id
+                    for msg_id, msg in self.messages.items()
+                    if msg.thread_id == new_conv_id
+                ]
+                for msg_id in msgs_to_remove:
+                    del self.messages[msg_id]
+                # Remove conversation
+                del self.conversations[new_conv_id]
+
+        # Restore group settings
+        elif action == "restore_group_settings":
+            thread_id = undo_data.get("thread_id")
+            if not thread_id:
+                raise ValueError("Undo data missing 'thread_id'")
+
+            if thread_id in self.conversations:
+                conv = self.conversations[thread_id]
+                conv.group_name = undo_data.get("previous_group_name")
+                conv.group_photo_url = undo_data.get("previous_group_photo_url")
+
+        # Remove added participant
+        elif action == "remove_added_participant":
+            thread_id = undo_data.get("thread_id")
+            phone_number = undo_data.get("phone_number")
+            previous_count = undo_data.get("previous_participant_count", 0)
+            if not thread_id or not phone_number:
+                raise ValueError("Undo data missing 'thread_id' or 'phone_number'")
+
+            if thread_id in self.conversations:
+                conv = self.conversations[thread_id]
+                # Remove participants added after previous count
+                conv.participants = conv.participants[:previous_count]
+
+        # Restore removed participant
+        elif action == "restore_participant":
+            thread_id = undo_data.get("thread_id")
+            participant_data = undo_data.get("participant_data")
+            if not thread_id or not participant_data:
+                raise ValueError("Undo data missing 'thread_id' or 'participant_data'")
+
+            if thread_id in self.conversations:
+                conv = self.conversations[thread_id]
+                # Find the participant and clear left_at
+                for p in conv.participants:
+                    if p.phone_number == participant_data["phone_number"]:
+                        p.left_at = None
+                        break
+
+        # Restore conversation settings
+        elif action == "restore_conversation_settings":
+            thread_id = undo_data.get("thread_id")
+            if not thread_id:
+                raise ValueError("Undo data missing 'thread_id'")
+
+            if thread_id in self.conversations:
+                conv = self.conversations[thread_id]
+                conv.is_pinned = undo_data["is_pinned"]
+                conv.is_muted = undo_data["is_muted"]
+                conv.is_archived = undo_data["is_archived"]
+                conv.draft_message = undo_data.get("draft_message")
+                conv.unread_count = undo_data["unread_count"]
+
+                # Restore affected messages' read state
+                for msg_data in undo_data.get("affected_messages", []):
+                    msg_id = msg_data["message_id"]
+                    if msg_id in self.messages:
+                        msg = self.messages[msg_id]
+                        msg.is_read = msg_data["previous_is_read"]
+                        msg.read_at = (
+                            datetime.fromisoformat(msg_data["previous_read_at"])
+                            if msg_data.get("previous_read_at")
+                            else None
+                        )
+
+        else:
+            raise ValueError(f"Unknown undo action: {action}")
+
+        # Restore state-level metadata
+        self.update_count = undo_data["state_previous_update_count"]
+        self.last_updated = datetime.fromisoformat(
+            undo_data["state_previous_last_updated"]
+        )

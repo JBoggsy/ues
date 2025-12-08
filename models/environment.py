@@ -284,3 +284,26 @@ class Environment(BaseModel):
             raise KeyError(f"Modality '{modality_name}' not found in environment")
 
         return self.modality_states.pop(modality_name)
+
+    def clear_all_states(self, new_last_updated: Any) -> int:
+        """Clear all modality states to their empty defaults.
+
+        Calls clear() on each modality state, resetting them to freshly
+        created conditions. This is used by the simulation clear functionality.
+
+        Args:
+            new_last_updated: The timestamp to set as last_updated on all states.
+
+        Returns:
+            The number of modality states that were cleared.
+
+        Example:
+            >>> from datetime import datetime, timezone
+            >>> cleared_count = environment.clear_all_states(datetime.now(timezone.utc))
+            >>> print(f"Cleared {cleared_count} modality states")
+        """
+        for state in self.modality_states.values():
+            state.clear()
+            state.last_updated = new_last_updated
+
+        return len(self.modality_states)

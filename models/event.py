@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 if TYPE_CHECKING:
     from models.base_input import ModalityInput
     from models.environment import Environment
+    from models.undo import UndoEntry
 
 
 class EventStatus(str, Enum):
@@ -82,29 +83,41 @@ class SimulatorEvent(BaseModel):
         arbitrary_types_allowed = True
         use_enum_values = False
 
-    def execute(self, environment: "Environment") -> None:
+    def execute(
+        self, environment: "Environment", capture_undo: bool = True
+    ) -> Optional["UndoEntry"]:
         """Execute this event by applying its input to the appropriate state.
 
         This is the core execution method that:
         1. Validates the input
         2. Looks up the correct state from environment
-        3. Applies the input to the state
-        4. Updates event status and timing
-        5. Handles errors gracefully
+        3. Optionally captures undo data before applying
+        4. Applies the input to the state
+        5. Updates event status and timing
+        6. Returns undo entry if capture_undo is True
+        7. Handles errors gracefully
 
         Args:
             environment: The environment containing modality states.
+            capture_undo: Whether to capture undo data (default True).
+
+        Returns:
+            UndoEntry if capture_undo is True and execution succeeded, None otherwise.
 
         Raises:
             ValueError: If modality doesn't exist or input is invalid.
             RuntimeError: If event is already executed or in wrong state.
         """
+        # Import here to avoid circular import
+        from models.undo import UndoEntry
+
         if self.status != EventStatus.PENDING:
             raise RuntimeError(
                 f"Cannot execute event {self.event_id} with status {self.status}"
             )
 
         self.status = EventStatus.EXECUTING
+        undo_entry: Optional[UndoEntry] = None
 
         try:
             # Validate input
@@ -113,6 +126,11 @@ class SimulatorEvent(BaseModel):
             # Get state
             state = environment.get_state(self.modality)
 
+            # Capture undo data BEFORE applying input
+            undo_data: Optional[dict[str, Any]] = None
+            if capture_undo:
+                undo_data = state.create_undo_data(self.data)
+
             # Apply input
             state.apply_input(self.data)
 
@@ -120,11 +138,22 @@ class SimulatorEvent(BaseModel):
             self.status = EventStatus.EXECUTED
             self.executed_at = environment.time_state.current_time
 
+            # Create undo entry if we captured undo data
+            if undo_data is not None:
+                undo_entry = UndoEntry(
+                    event_id=self.event_id,
+                    modality=self.modality,
+                    undo_data=undo_data,
+                    executed_at=self.executed_at,
+                )
+
         except Exception as e:
             # Failure - don't re-raise, simulation continues
             self.status = EventStatus.FAILED
             self.error_message = f"{type(e).__name__}: {str(e)}"
             self.executed_at = environment.time_state.current_time
+
+        return undo_entry
 
     def can_execute(self, current_time: datetime) -> bool:
         """Check if this event is eligible for execution.

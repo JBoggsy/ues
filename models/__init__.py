@@ -12,6 +12,7 @@ from models.time import SimulatorTime, TimeMode
 from models.queue import EventQueue
 from models.environment import Environment
 from models.simulation import SimulationEngine, SimulationLoop
+from models.undo import UndoEntry, UndoStack
 
 __all__ = [
     "ModalityInput",
@@ -24,4 +25,6 @@ __all__ = [
     "Environment",
     "SimulationEngine",
     "SimulationLoop",
+    "UndoEntry",
+    "UndoStack",
 ]

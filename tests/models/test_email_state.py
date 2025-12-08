@@ -868,3 +868,1390 @@ class TestEmailStateIntegration:
         assert len(email.attachments) == 2
         assert email.attachments[0].filename == "report.pdf"
         assert email.attachments[1].filename == "chart.png"
+
+
+# =============================================================================
+# UNDO FUNCTIONALITY TESTS
+# =============================================================================
+
+
+class TestEmailStateCreateUndoData:
+    """Test EmailState.create_undo_data() method.
+
+    GENERAL PATTERN: create_undo_data() captures minimal data needed to undo.
+    """
+
+    def test_create_undo_data_raises_for_invalid_input_type(self):
+        """Verify create_undo_data raises ValueError for non-EmailInput."""
+        state = EmailState(last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc))
+
+        from models.modalities.chat_input import ChatInput
+
+        invalid_input = ChatInput(
+            timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+            operation="send_message",
+            conversation_id="conv-1",
+            role="user",
+            content="Hello",
+        )
+
+        with pytest.raises(ValueError, match="EmailState can only create undo data"):
+            state.create_undo_data(invalid_input)
+
+    def test_create_undo_data_does_not_modify_state(self):
+        """Verify create_undo_data is read-only."""
+        state = EmailState(last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc))
+
+        email_input = EmailInput(
+            timestamp=datetime(2025, 1, 1, 12, 30, tzinfo=timezone.utc),
+            operation="receive",
+            from_address="sender@example.com",
+            to_addresses=["you@example.com"],
+            subject="Test",
+            body_text="Test body",
+        )
+
+        original_update_count = state.update_count
+        original_last_updated = state.last_updated
+        original_email_count = len(state.emails)
+
+        state.create_undo_data(email_input)
+
+        assert state.update_count == original_update_count
+        assert state.last_updated == original_last_updated
+        assert len(state.emails) == original_email_count
+
+    def test_create_undo_data_captures_state_metadata(self):
+        """Verify undo data includes state-level metadata."""
+        state = EmailState(last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc))
+
+        email_input = EmailInput(
+            timestamp=datetime(2025, 1, 1, 12, 30, tzinfo=timezone.utc),
+            operation="receive",
+            from_address="sender@example.com",
+            to_addresses=["you@example.com"],
+            subject="Test",
+            body_text="Test body",
+        )
+
+        undo_data = state.create_undo_data(email_input)
+
+        assert "state_previous_update_count" in undo_data
+        assert "state_previous_last_updated" in undo_data
+        assert undo_data["state_previous_update_count"] == 0
+
+    def test_create_undo_data_receive_returns_remove_email_and_thread(self):
+        """Verify receive operation returns action to remove email and thread."""
+        state = EmailState(last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc))
+
+        email_input = EmailInput(
+            timestamp=datetime(2025, 1, 1, 12, 30, tzinfo=timezone.utc),
+            operation="receive",
+            from_address="sender@example.com",
+            to_addresses=["you@example.com"],
+            subject="Test",
+            body_text="Test body",
+            message_id="msg-123",
+        )
+
+        undo_data = state.create_undo_data(email_input)
+
+        assert undo_data["action"] == "remove_email_and_thread"
+        assert undo_data["message_id"] == "msg-123"
+        assert "thread_id" in undo_data
+
+    def test_create_undo_data_send_returns_remove_email_and_thread(self):
+        """Verify send operation returns action to remove email and thread."""
+        state = EmailState(last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc))
+
+        email_input = EmailInput(
+            timestamp=datetime(2025, 1, 1, 12, 30, tzinfo=timezone.utc),
+            operation="send",
+            from_address="you@example.com",
+            to_addresses=["recipient@example.com"],
+            subject="Test",
+            body_text="Test body",
+            message_id="msg-456",
+        )
+
+        undo_data = state.create_undo_data(email_input)
+
+        assert undo_data["action"] == "remove_email_and_thread"
+        assert undo_data["message_id"] == "msg-456"
+
+    def test_create_undo_data_reply_returns_remove_email_restore_thread(self):
+        """Verify reply operation captures previous thread state."""
+        state = EmailState(last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc))
+
+        # First, receive an email
+        original = EmailInput(
+            timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+            operation="receive",
+            from_address="sender@example.com",
+            to_addresses=["you@example.com"],
+            subject="Original",
+            body_text="Original message",
+            message_id="msg-original",
+            thread_id="thread-1",
+        )
+        state.apply_input(original)
+
+        # Now prepare reply
+        reply_input = EmailInput(
+            timestamp=datetime(2025, 1, 1, 12, 30, tzinfo=timezone.utc),
+            operation="reply",
+            from_address="you@example.com",
+            to_addresses=["sender@example.com"],
+            subject="Re: Original",
+            body_text="My reply",
+            in_reply_to="msg-original",
+            message_id="msg-reply",
+        )
+
+        undo_data = state.create_undo_data(reply_input)
+
+        assert undo_data["action"] == "remove_email_restore_thread"
+        assert undo_data["message_id"] == "msg-reply"
+        assert undo_data["thread_id"] == "thread-1"
+        assert "previous_thread" in undo_data
+        # Previous thread should have 1 message
+        assert undo_data["previous_thread"]["message_count"] == 1
+
+    def test_create_undo_data_save_draft_returns_remove_draft(self):
+        """Verify save_draft operation returns action to remove draft."""
+        state = EmailState(last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc))
+
+        draft_input = EmailInput(
+            timestamp=datetime(2025, 1, 1, 12, 30, tzinfo=timezone.utc),
+            operation="save_draft",
+            from_address="you@example.com",
+            to_addresses=["recipient@example.com"],
+            subject="Draft Email",
+            body_text="Draft content",
+            message_id="draft-123",
+        )
+
+        undo_data = state.create_undo_data(draft_input)
+
+        assert undo_data["action"] == "remove_draft"
+        assert undo_data["message_id"] == "draft-123"
+
+    def test_create_undo_data_send_draft_returns_restore_draft(self):
+        """Verify send_draft operation captures draft state."""
+        state = EmailState(last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc))
+
+        # First save a draft
+        draft_input = EmailInput(
+            timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+            operation="save_draft",
+            from_address="you@example.com",
+            to_addresses=["recipient@example.com"],
+            subject="Draft Email",
+            body_text="Draft content",
+            message_id="draft-123",
+        )
+        state.apply_input(draft_input)
+
+        # Now prepare to send it
+        send_draft_input = EmailInput(
+            timestamp=datetime(2025, 1, 1, 12, 30, tzinfo=timezone.utc),
+            operation="send_draft",
+            message_id="draft-123",
+            from_address="you@example.com",
+            to_addresses=["recipient@example.com"],
+            subject="Draft Email",
+            body_text="Draft content",
+        )
+
+        undo_data = state.create_undo_data(send_draft_input)
+
+        assert undo_data["action"] == "restore_draft"
+        assert undo_data["message_id"] == "draft-123"
+        assert undo_data["previous_folder"] == "drafts"
+
+    def test_create_undo_data_mark_read_captures_previous_states(self):
+        """Verify mark_read captures previous read state for all emails."""
+        state = EmailState(last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc))
+
+        # Add emails
+        for i in range(3):
+            email = EmailInput(
+                timestamp=datetime(2025, 1, 1, 12 + i, 0, tzinfo=timezone.utc),
+                operation="receive",
+                from_address=f"sender{i}@example.com",
+                to_addresses=["you@example.com"],
+                subject=f"Email {i}",
+                body_text=f"Message {i}",
+                message_id=f"msg-{i}",
+            )
+            state.apply_input(email)
+
+        mark_read_input = EmailInput(
+            timestamp=datetime(2025, 1, 1, 15, 0, tzinfo=timezone.utc),
+            operation="mark_read",
+            message_ids=["msg-0", "msg-1", "msg-2"],
+            from_address="you@example.com",
+            to_addresses=["you@example.com"],
+            subject="",
+            body_text="",
+        )
+
+        undo_data = state.create_undo_data(mark_read_input)
+
+        assert undo_data["action"] == "restore_read_states"
+        assert len(undo_data["previous_states"]) == 3
+        # All emails should have been unread
+        for msg_id in ["msg-0", "msg-1", "msg-2"]:
+            assert undo_data["previous_states"][msg_id]["was_read"] is False
+
+    def test_create_undo_data_star_captures_previous_states(self):
+        """Verify star captures previous starred state."""
+        state = EmailState(last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc))
+
+        email = EmailInput(
+            timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+            operation="receive",
+            from_address="sender@example.com",
+            to_addresses=["you@example.com"],
+            subject="Test",
+            body_text="Test",
+            message_id="msg-1",
+        )
+        state.apply_input(email)
+
+        star_input = EmailInput(
+            timestamp=datetime(2025, 1, 1, 13, 0, tzinfo=timezone.utc),
+            operation="star",
+            message_ids=["msg-1"],
+            from_address="you@example.com",
+            to_addresses=["you@example.com"],
+            subject="",
+            body_text="",
+        )
+
+        undo_data = state.create_undo_data(star_input)
+
+        assert undo_data["action"] == "restore_starred_states"
+        assert undo_data["previous_states"]["msg-1"] is False
+
+    def test_create_undo_data_move_captures_previous_folders(self):
+        """Verify move captures previous folder for each email."""
+        state = EmailState(last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc))
+
+        email = EmailInput(
+            timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+            operation="receive",
+            from_address="sender@example.com",
+            to_addresses=["you@example.com"],
+            subject="Test",
+            body_text="Test",
+            message_id="msg-1",
+        )
+        state.apply_input(email)
+
+        move_input = EmailInput(
+            timestamp=datetime(2025, 1, 1, 13, 0, tzinfo=timezone.utc),
+            operation="move",
+            message_ids=["msg-1"],
+            folder="archive",
+            from_address="you@example.com",
+            to_addresses=["you@example.com"],
+            subject="",
+            body_text="",
+        )
+
+        undo_data = state.create_undo_data(move_input)
+
+        assert undo_data["action"] == "restore_folders"
+        assert undo_data["previous_folders"]["msg-1"] == "inbox"
+
+    def test_create_undo_data_add_label_captures_previous_labels(self):
+        """Verify add_label captures previous label state."""
+        state = EmailState(last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc))
+
+        email = EmailInput(
+            timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+            operation="receive",
+            from_address="sender@example.com",
+            to_addresses=["you@example.com"],
+            subject="Test",
+            body_text="Test",
+            message_id="msg-1",
+        )
+        state.apply_input(email)
+
+        add_label_input = EmailInput(
+            timestamp=datetime(2025, 1, 1, 13, 0, tzinfo=timezone.utc),
+            operation="add_label",
+            message_ids=["msg-1"],
+            labels=["work", "urgent"],
+            from_address="you@example.com",
+            to_addresses=["you@example.com"],
+            subject="",
+            body_text="",
+        )
+
+        undo_data = state.create_undo_data(add_label_input)
+
+        assert undo_data["action"] == "restore_labels_after_add"
+        assert undo_data["previous_label_states"]["msg-1"] == []
+        assert set(undo_data["labels_added"]) == {"work", "urgent"}
+        assert undo_data["labels_existed_before"] == []
+
+    def test_create_undo_data_remove_label_captures_previous_labels(self):
+        """Verify remove_label captures previous label state."""
+        state = EmailState(last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc))
+
+        # Add email with labels
+        email = EmailInput(
+            timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+            operation="receive",
+            from_address="sender@example.com",
+            to_addresses=["you@example.com"],
+            subject="Test",
+            body_text="Test",
+            message_id="msg-1",
+        )
+        state.apply_input(email)
+
+        add_label = EmailInput(
+            timestamp=datetime(2025, 1, 1, 12, 30, tzinfo=timezone.utc),
+            operation="add_label",
+            message_ids=["msg-1"],
+            labels=["work", "urgent"],
+            from_address="you@example.com",
+            to_addresses=["you@example.com"],
+            subject="",
+            body_text="",
+        )
+        state.apply_input(add_label)
+
+        remove_label_input = EmailInput(
+            timestamp=datetime(2025, 1, 1, 13, 0, tzinfo=timezone.utc),
+            operation="remove_label",
+            message_ids=["msg-1"],
+            labels=["work"],
+            from_address="you@example.com",
+            to_addresses=["you@example.com"],
+            subject="",
+            body_text="",
+        )
+
+        undo_data = state.create_undo_data(remove_label_input)
+
+        assert undo_data["action"] == "restore_labels_after_remove"
+        assert set(undo_data["previous_label_states"]["msg-1"]) == {"work", "urgent"}
+        assert undo_data["labels_removed"] == ["work"]
+
+    def test_create_undo_data_noop_for_nonexistent_message(self):
+        """Verify operations on non-existent messages return noop."""
+        state = EmailState(last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc))
+
+        mark_read_input = EmailInput(
+            timestamp=datetime(2025, 1, 1, 13, 0, tzinfo=timezone.utc),
+            operation="mark_read",
+            message_ids=["nonexistent-msg"],
+            from_address="you@example.com",
+            to_addresses=["you@example.com"],
+            subject="",
+            body_text="",
+        )
+
+        undo_data = state.create_undo_data(mark_read_input)
+
+        assert undo_data["action"] == "noop"
+
+
+class TestEmailStateApplyUndo:
+    """Test EmailState.apply_undo() method.
+
+    GENERAL PATTERN: apply_undo() reverses the effect of apply_input().
+    """
+
+    def test_apply_undo_raises_for_missing_action(self):
+        """Verify apply_undo raises ValueError for missing action."""
+        state = EmailState(last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc))
+
+        with pytest.raises(ValueError, match="missing 'action' field"):
+            state.apply_undo({})
+
+    def test_apply_undo_raises_for_unknown_action(self):
+        """Verify apply_undo raises ValueError for unknown action."""
+        state = EmailState(last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc))
+
+        with pytest.raises(ValueError, match="Unknown undo action"):
+            state.apply_undo({
+                "action": "unknown_action",
+                "state_previous_update_count": 0,
+                "state_previous_last_updated": "2025-01-01T12:00:00+00:00",
+            })
+
+    def test_apply_undo_noop_restores_metadata_only(self):
+        """Verify noop action restores state metadata only."""
+        state = EmailState(last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc))
+
+        # Manually update state
+        state.update_count = 5
+        state.last_updated = datetime(2025, 1, 1, 15, 0, tzinfo=timezone.utc)
+
+        state.apply_undo({
+            "action": "noop",
+            "state_previous_update_count": 3,
+            "state_previous_last_updated": "2025-01-01T13:00:00+00:00",
+        })
+
+        assert state.update_count == 3
+        assert state.last_updated == datetime(2025, 1, 1, 13, 0, tzinfo=timezone.utc)
+
+    def test_apply_undo_receive_removes_email_and_thread(self):
+        """Verify undo of receive removes email and thread."""
+        state = EmailState(last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc))
+
+        email_input = EmailInput(
+            timestamp=datetime(2025, 1, 1, 12, 30, tzinfo=timezone.utc),
+            operation="receive",
+            from_address="sender@example.com",
+            to_addresses=["you@example.com"],
+            subject="Test",
+            body_text="Test body",
+            message_id="msg-123",
+            thread_id="thread-123",
+        )
+
+        undo_data = state.create_undo_data(email_input)
+        state.apply_input(email_input)
+
+        assert len(state.emails) == 1
+        assert len(state.threads) == 1
+
+        state.apply_undo(undo_data)
+
+        assert len(state.emails) == 0
+        assert len(state.threads) == 0
+        assert state.update_count == 0
+
+    def test_apply_undo_send_removes_email_and_thread(self):
+        """Verify undo of send removes email and thread."""
+        state = EmailState(last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc))
+
+        email_input = EmailInput(
+            timestamp=datetime(2025, 1, 1, 12, 30, tzinfo=timezone.utc),
+            operation="send",
+            from_address="you@example.com",
+            to_addresses=["recipient@example.com"],
+            subject="Test",
+            body_text="Test body",
+            message_id="msg-456",
+            thread_id="thread-456",
+        )
+
+        undo_data = state.create_undo_data(email_input)
+        state.apply_input(email_input)
+
+        assert len(state.emails) == 1
+        assert "msg-456" in state.folders["sent"]
+
+        state.apply_undo(undo_data)
+
+        assert len(state.emails) == 0
+        assert "msg-456" not in state.folders["sent"]
+
+    def test_apply_undo_reply_restores_thread(self):
+        """Verify undo of reply restores thread to previous state."""
+        state = EmailState(last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc))
+
+        # Receive original email
+        original = EmailInput(
+            timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+            operation="receive",
+            from_address="sender@example.com",
+            to_addresses=["you@example.com"],
+            subject="Original",
+            body_text="Original message",
+            message_id="msg-original",
+            thread_id="thread-1",
+        )
+        state.apply_input(original)
+
+        original_thread_dict = state.threads["thread-1"].model_dump()
+
+        # Prepare reply
+        reply_input = EmailInput(
+            timestamp=datetime(2025, 1, 1, 12, 30, tzinfo=timezone.utc),
+            operation="reply",
+            from_address="you@example.com",
+            to_addresses=["sender@example.com"],
+            subject="Re: Original",
+            body_text="My reply",
+            in_reply_to="msg-original",
+            message_id="msg-reply",
+        )
+
+        undo_data = state.create_undo_data(reply_input)
+        state.apply_input(reply_input)
+
+        assert len(state.emails) == 2
+        assert state.threads["thread-1"].message_count == 2
+
+        state.apply_undo(undo_data)
+
+        assert len(state.emails) == 1
+        assert "msg-reply" not in state.emails
+        assert state.threads["thread-1"].message_count == 1
+        assert state.threads["thread-1"].model_dump() == original_thread_dict
+
+    def test_apply_undo_save_draft_removes_draft(self):
+        """Verify undo of save_draft removes draft."""
+        state = EmailState(last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc))
+
+        draft_input = EmailInput(
+            timestamp=datetime(2025, 1, 1, 12, 30, tzinfo=timezone.utc),
+            operation="save_draft",
+            from_address="you@example.com",
+            to_addresses=["recipient@example.com"],
+            subject="Draft Email",
+            body_text="Draft content",
+            message_id="draft-123",
+        )
+
+        undo_data = state.create_undo_data(draft_input)
+        state.apply_input(draft_input)
+
+        assert len(state.drafts) == 1
+        assert "draft-123" in state.folders["drafts"]
+
+        state.apply_undo(undo_data)
+
+        assert len(state.drafts) == 0
+        assert "draft-123" not in state.folders["drafts"]
+        assert "draft-123" not in state.emails
+
+    def test_apply_undo_send_draft_restores_draft(self):
+        """Verify undo of send_draft restores draft state."""
+        state = EmailState(last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc))
+
+        # Save draft
+        draft_input = EmailInput(
+            timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+            operation="save_draft",
+            from_address="you@example.com",
+            to_addresses=["recipient@example.com"],
+            subject="Draft Email",
+            body_text="Draft content",
+            message_id="draft-123",
+        )
+        state.apply_input(draft_input)
+
+        # Prepare to send draft
+        send_draft_input = EmailInput(
+            timestamp=datetime(2025, 1, 1, 12, 30, tzinfo=timezone.utc),
+            operation="send_draft",
+            message_id="draft-123",
+            from_address="you@example.com",
+            to_addresses=["recipient@example.com"],
+            subject="Draft Email",
+            body_text="Draft content",
+        )
+
+        undo_data = state.create_undo_data(send_draft_input)
+        state.apply_input(send_draft_input)
+
+        assert "draft-123" not in state.drafts
+        assert "draft-123" in state.folders["sent"]
+        assert "draft-123" not in state.folders["drafts"]
+
+        state.apply_undo(undo_data)
+
+        assert "draft-123" in state.drafts
+        assert "draft-123" in state.folders["drafts"]
+        assert "draft-123" not in state.folders["sent"]
+        assert state.emails["draft-123"].folder == "drafts"
+
+    def test_apply_undo_mark_read_restores_unread_state(self):
+        """Verify undo of mark_read restores unread state."""
+        state = EmailState(last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc))
+
+        # Add email
+        email = EmailInput(
+            timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+            operation="receive",
+            from_address="sender@example.com",
+            to_addresses=["you@example.com"],
+            subject="Test",
+            body_text="Test",
+            message_id="msg-1",
+            thread_id="thread-1",
+        )
+        state.apply_input(email)
+
+        assert state.emails["msg-1"].is_read is False
+        assert state.threads["thread-1"].unread_count == 1
+
+        # Mark as read
+        mark_read = EmailInput(
+            timestamp=datetime(2025, 1, 1, 13, 0, tzinfo=timezone.utc),
+            operation="mark_read",
+            message_ids=["msg-1"],
+            from_address="you@example.com",
+            to_addresses=["you@example.com"],
+            subject="",
+            body_text="",
+        )
+
+        undo_data = state.create_undo_data(mark_read)
+        state.apply_input(mark_read)
+
+        assert state.emails["msg-1"].is_read is True
+        assert state.threads["thread-1"].unread_count == 0
+
+        state.apply_undo(undo_data)
+
+        assert state.emails["msg-1"].is_read is False
+        assert state.threads["thread-1"].unread_count == 1
+
+    def test_apply_undo_mark_unread_restores_read_state(self):
+        """Verify undo of mark_unread restores read state."""
+        state = EmailState(last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc))
+
+        # Add email and mark it read
+        email = EmailInput(
+            timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+            operation="receive",
+            from_address="sender@example.com",
+            to_addresses=["you@example.com"],
+            subject="Test",
+            body_text="Test",
+            message_id="msg-1",
+            thread_id="thread-1",
+        )
+        state.apply_input(email)
+
+        mark_read = EmailInput(
+            timestamp=datetime(2025, 1, 1, 12, 30, tzinfo=timezone.utc),
+            operation="mark_read",
+            message_ids=["msg-1"],
+            from_address="you@example.com",
+            to_addresses=["you@example.com"],
+            subject="",
+            body_text="",
+        )
+        state.apply_input(mark_read)
+
+        assert state.emails["msg-1"].is_read is True
+        assert state.threads["thread-1"].unread_count == 0
+
+        # Mark unread
+        mark_unread = EmailInput(
+            timestamp=datetime(2025, 1, 1, 13, 0, tzinfo=timezone.utc),
+            operation="mark_unread",
+            message_ids=["msg-1"],
+            from_address="you@example.com",
+            to_addresses=["you@example.com"],
+            subject="",
+            body_text="",
+        )
+
+        undo_data = state.create_undo_data(mark_unread)
+        state.apply_input(mark_unread)
+
+        assert state.emails["msg-1"].is_read is False
+        assert state.threads["thread-1"].unread_count == 1
+
+        state.apply_undo(undo_data)
+
+        assert state.emails["msg-1"].is_read is True
+        assert state.threads["thread-1"].unread_count == 0
+
+    def test_apply_undo_star_restores_unstarred_state(self):
+        """Verify undo of star restores unstarred state."""
+        state = EmailState(last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc))
+
+        email = EmailInput(
+            timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+            operation="receive",
+            from_address="sender@example.com",
+            to_addresses=["you@example.com"],
+            subject="Test",
+            body_text="Test",
+            message_id="msg-1",
+        )
+        state.apply_input(email)
+
+        star_input = EmailInput(
+            timestamp=datetime(2025, 1, 1, 13, 0, tzinfo=timezone.utc),
+            operation="star",
+            message_ids=["msg-1"],
+            from_address="you@example.com",
+            to_addresses=["you@example.com"],
+            subject="",
+            body_text="",
+        )
+
+        undo_data = state.create_undo_data(star_input)
+        state.apply_input(star_input)
+
+        assert state.emails["msg-1"].is_starred is True
+
+        state.apply_undo(undo_data)
+
+        assert state.emails["msg-1"].is_starred is False
+
+    def test_apply_undo_unstar_restores_starred_state(self):
+        """Verify undo of unstar restores starred state."""
+        state = EmailState(last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc))
+
+        email = EmailInput(
+            timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+            operation="receive",
+            from_address="sender@example.com",
+            to_addresses=["you@example.com"],
+            subject="Test",
+            body_text="Test",
+            message_id="msg-1",
+        )
+        state.apply_input(email)
+
+        # Star it first
+        star = EmailInput(
+            timestamp=datetime(2025, 1, 1, 12, 30, tzinfo=timezone.utc),
+            operation="star",
+            message_ids=["msg-1"],
+            from_address="you@example.com",
+            to_addresses=["you@example.com"],
+            subject="",
+            body_text="",
+        )
+        state.apply_input(star)
+
+        # Now unstar
+        unstar_input = EmailInput(
+            timestamp=datetime(2025, 1, 1, 13, 0, tzinfo=timezone.utc),
+            operation="unstar",
+            message_ids=["msg-1"],
+            from_address="you@example.com",
+            to_addresses=["you@example.com"],
+            subject="",
+            body_text="",
+        )
+
+        undo_data = state.create_undo_data(unstar_input)
+        state.apply_input(unstar_input)
+
+        assert state.emails["msg-1"].is_starred is False
+
+        state.apply_undo(undo_data)
+
+        assert state.emails["msg-1"].is_starred is True
+
+    def test_apply_undo_move_restores_original_folder(self):
+        """Verify undo of move restores original folder."""
+        state = EmailState(last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc))
+
+        email = EmailInput(
+            timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+            operation="receive",
+            from_address="sender@example.com",
+            to_addresses=["you@example.com"],
+            subject="Test",
+            body_text="Test",
+            message_id="msg-1",
+        )
+        state.apply_input(email)
+
+        assert state.emails["msg-1"].folder == "inbox"
+        assert "msg-1" in state.folders["inbox"]
+
+        move_input = EmailInput(
+            timestamp=datetime(2025, 1, 1, 13, 0, tzinfo=timezone.utc),
+            operation="move",
+            message_ids=["msg-1"],
+            folder="archive",
+            from_address="you@example.com",
+            to_addresses=["you@example.com"],
+            subject="",
+            body_text="",
+        )
+
+        undo_data = state.create_undo_data(move_input)
+        state.apply_input(move_input)
+
+        assert state.emails["msg-1"].folder == "archive"
+        assert "msg-1" in state.folders["archive"]
+        assert "msg-1" not in state.folders["inbox"]
+
+        state.apply_undo(undo_data)
+
+        assert state.emails["msg-1"].folder == "inbox"
+        assert "msg-1" in state.folders["inbox"]
+        assert "msg-1" not in state.folders["archive"]
+
+    def test_apply_undo_delete_restores_original_folder(self):
+        """Verify undo of delete restores original folder."""
+        state = EmailState(last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc))
+
+        email = EmailInput(
+            timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+            operation="receive",
+            from_address="sender@example.com",
+            to_addresses=["you@example.com"],
+            subject="Test",
+            body_text="Test",
+            message_id="msg-1",
+        )
+        state.apply_input(email)
+
+        delete_input = EmailInput(
+            timestamp=datetime(2025, 1, 1, 13, 0, tzinfo=timezone.utc),
+            operation="delete",
+            message_ids=["msg-1"],
+            from_address="you@example.com",
+            to_addresses=["you@example.com"],
+            subject="",
+            body_text="",
+        )
+
+        undo_data = state.create_undo_data(delete_input)
+        state.apply_input(delete_input)
+
+        assert state.emails["msg-1"].folder == "trash"
+
+        state.apply_undo(undo_data)
+
+        assert state.emails["msg-1"].folder == "inbox"
+
+    def test_apply_undo_archive_restores_original_folder(self):
+        """Verify undo of archive restores original folder."""
+        state = EmailState(last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc))
+
+        email = EmailInput(
+            timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+            operation="receive",
+            from_address="sender@example.com",
+            to_addresses=["you@example.com"],
+            subject="Test",
+            body_text="Test",
+            message_id="msg-1",
+        )
+        state.apply_input(email)
+
+        archive_input = EmailInput(
+            timestamp=datetime(2025, 1, 1, 13, 0, tzinfo=timezone.utc),
+            operation="archive",
+            message_ids=["msg-1"],
+            from_address="you@example.com",
+            to_addresses=["you@example.com"],
+            subject="",
+            body_text="",
+        )
+
+        undo_data = state.create_undo_data(archive_input)
+        state.apply_input(archive_input)
+
+        assert state.emails["msg-1"].folder == "archive"
+
+        state.apply_undo(undo_data)
+
+        assert state.emails["msg-1"].folder == "inbox"
+
+    def test_apply_undo_mark_spam_restores_original_folder(self):
+        """Verify undo of mark_spam restores original folder."""
+        state = EmailState(last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc))
+
+        email = EmailInput(
+            timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+            operation="receive",
+            from_address="sender@example.com",
+            to_addresses=["you@example.com"],
+            subject="Test",
+            body_text="Test",
+            message_id="msg-1",
+        )
+        state.apply_input(email)
+
+        spam_input = EmailInput(
+            timestamp=datetime(2025, 1, 1, 13, 0, tzinfo=timezone.utc),
+            operation="mark_spam",
+            message_ids=["msg-1"],
+            from_address="you@example.com",
+            to_addresses=["you@example.com"],
+            subject="",
+            body_text="",
+        )
+
+        undo_data = state.create_undo_data(spam_input)
+        state.apply_input(spam_input)
+
+        assert state.emails["msg-1"].folder == "spam"
+
+        state.apply_undo(undo_data)
+
+        assert state.emails["msg-1"].folder == "inbox"
+
+    def test_apply_undo_mark_not_spam_restores_spam_folder(self):
+        """Verify undo of mark_not_spam restores spam folder."""
+        state = EmailState(last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc))
+
+        # Create email directly in spam
+        email = EmailInput(
+            timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+            operation="receive",
+            from_address="spammer@example.com",
+            to_addresses=["you@example.com"],
+            subject="Spam",
+            body_text="Spam content",
+            message_id="msg-1",
+        )
+        state.apply_input(email)
+
+        # Move to spam first
+        spam_input = EmailInput(
+            timestamp=datetime(2025, 1, 1, 12, 30, tzinfo=timezone.utc),
+            operation="mark_spam",
+            message_ids=["msg-1"],
+            from_address="you@example.com",
+            to_addresses=["you@example.com"],
+            subject="",
+            body_text="",
+        )
+        state.apply_input(spam_input)
+
+        # Now mark as not spam
+        not_spam_input = EmailInput(
+            timestamp=datetime(2025, 1, 1, 13, 0, tzinfo=timezone.utc),
+            operation="mark_not_spam",
+            message_ids=["msg-1"],
+            from_address="you@example.com",
+            to_addresses=["you@example.com"],
+            subject="",
+            body_text="",
+        )
+
+        undo_data = state.create_undo_data(not_spam_input)
+        state.apply_input(not_spam_input)
+
+        assert state.emails["msg-1"].folder == "inbox"
+
+        state.apply_undo(undo_data)
+
+        assert state.emails["msg-1"].folder == "spam"
+
+    def test_apply_undo_add_label_removes_labels(self):
+        """Verify undo of add_label removes added labels."""
+        state = EmailState(last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc))
+
+        email = EmailInput(
+            timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+            operation="receive",
+            from_address="sender@example.com",
+            to_addresses=["you@example.com"],
+            subject="Test",
+            body_text="Test",
+            message_id="msg-1",
+        )
+        state.apply_input(email)
+
+        add_label = EmailInput(
+            timestamp=datetime(2025, 1, 1, 13, 0, tzinfo=timezone.utc),
+            operation="add_label",
+            message_ids=["msg-1"],
+            labels=["work", "urgent"],
+            from_address="you@example.com",
+            to_addresses=["you@example.com"],
+            subject="",
+            body_text="",
+        )
+
+        undo_data = state.create_undo_data(add_label)
+        state.apply_input(add_label)
+
+        assert "work" in state.emails["msg-1"].labels
+        assert "urgent" in state.emails["msg-1"].labels
+        assert "work" in state.labels
+        assert "urgent" in state.labels
+
+        state.apply_undo(undo_data)
+
+        assert "work" not in state.emails["msg-1"].labels
+        assert "urgent" not in state.emails["msg-1"].labels
+        # Labels that were created by add_label should be removed if empty
+        assert "work" not in state.labels
+        assert "urgent" not in state.labels
+
+    def test_apply_undo_remove_label_restores_labels(self):
+        """Verify undo of remove_label restores removed labels."""
+        state = EmailState(last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc))
+
+        email = EmailInput(
+            timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+            operation="receive",
+            from_address="sender@example.com",
+            to_addresses=["you@example.com"],
+            subject="Test",
+            body_text="Test",
+            message_id="msg-1",
+        )
+        state.apply_input(email)
+
+        # Add labels first
+        add_label = EmailInput(
+            timestamp=datetime(2025, 1, 1, 12, 30, tzinfo=timezone.utc),
+            operation="add_label",
+            message_ids=["msg-1"],
+            labels=["work", "urgent"],
+            from_address="you@example.com",
+            to_addresses=["you@example.com"],
+            subject="",
+            body_text="",
+        )
+        state.apply_input(add_label)
+
+        # Remove one label
+        remove_label = EmailInput(
+            timestamp=datetime(2025, 1, 1, 13, 0, tzinfo=timezone.utc),
+            operation="remove_label",
+            message_ids=["msg-1"],
+            labels=["work"],
+            from_address="you@example.com",
+            to_addresses=["you@example.com"],
+            subject="",
+            body_text="",
+        )
+
+        undo_data = state.create_undo_data(remove_label)
+        state.apply_input(remove_label)
+
+        assert "work" not in state.emails["msg-1"].labels
+        assert "urgent" in state.emails["msg-1"].labels
+
+        state.apply_undo(undo_data)
+
+        assert "work" in state.emails["msg-1"].labels
+        assert "urgent" in state.emails["msg-1"].labels
+        assert "msg-1" in state.labels["work"]
+
+
+class TestEmailStateUndoFullCycle:
+    """Test full create_undo_data → apply_input → apply_undo cycles.
+
+    GENERAL PATTERN: After undo, state should match pre-apply state.
+    """
+
+    def test_full_cycle_receive(self):
+        """Verify receive → undo returns to original state."""
+        state = EmailState(last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc))
+
+        original_snapshot = state.get_snapshot()
+
+        email_input = EmailInput(
+            timestamp=datetime(2025, 1, 1, 12, 30, tzinfo=timezone.utc),
+            operation="receive",
+            from_address="sender@example.com",
+            to_addresses=["you@example.com"],
+            subject="Test",
+            body_text="Test body",
+            message_id="msg-123",
+        )
+
+        undo_data = state.create_undo_data(email_input)
+        state.apply_input(email_input)
+        state.apply_undo(undo_data)
+
+        assert state.get_snapshot() == original_snapshot
+
+    def test_full_cycle_reply(self):
+        """Verify reply → undo restores thread state."""
+        state = EmailState(last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc))
+
+        # Setup: receive original email
+        original = EmailInput(
+            timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+            operation="receive",
+            from_address="sender@example.com",
+            to_addresses=["you@example.com"],
+            subject="Original",
+            body_text="Original message",
+            message_id="msg-original",
+            thread_id="thread-1",
+        )
+        state.apply_input(original)
+
+        # Capture state after original email
+        emails_before = dict(state.emails)
+        thread_before = state.threads["thread-1"].model_dump()
+        update_count_before = state.update_count
+        last_updated_before = state.last_updated
+
+        # Reply
+        reply = EmailInput(
+            timestamp=datetime(2025, 1, 1, 12, 30, tzinfo=timezone.utc),
+            operation="reply",
+            from_address="you@example.com",
+            to_addresses=["sender@example.com"],
+            subject="Re: Original",
+            body_text="My reply",
+            in_reply_to="msg-original",
+            message_id="msg-reply",
+        )
+
+        undo_data = state.create_undo_data(reply)
+        state.apply_input(reply)
+        state.apply_undo(undo_data)
+
+        assert len(state.emails) == len(emails_before)
+        assert state.threads["thread-1"].model_dump() == thread_before
+        assert state.update_count == update_count_before
+        assert state.last_updated == last_updated_before
+
+    def test_full_cycle_multiple_operations(self):
+        """Verify multiple operations can be undone in reverse order."""
+        state = EmailState(last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc))
+
+        # Operation 1: Receive email
+        receive = EmailInput(
+            timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+            operation="receive",
+            from_address="sender@example.com",
+            to_addresses=["you@example.com"],
+            subject="Test",
+            body_text="Test",
+            message_id="msg-1",
+        )
+        undo1 = state.create_undo_data(receive)
+        state.apply_input(receive)
+
+        # Operation 2: Star email
+        star = EmailInput(
+            timestamp=datetime(2025, 1, 1, 12, 30, tzinfo=timezone.utc),
+            operation="star",
+            message_ids=["msg-1"],
+            from_address="you@example.com",
+            to_addresses=["you@example.com"],
+            subject="",
+            body_text="",
+        )
+        undo2 = state.create_undo_data(star)
+        state.apply_input(star)
+
+        # Operation 3: Mark as read
+        mark_read = EmailInput(
+            timestamp=datetime(2025, 1, 1, 13, 0, tzinfo=timezone.utc),
+            operation="mark_read",
+            message_ids=["msg-1"],
+            from_address="you@example.com",
+            to_addresses=["you@example.com"],
+            subject="",
+            body_text="",
+        )
+        undo3 = state.create_undo_data(mark_read)
+        state.apply_input(mark_read)
+
+        # Verify current state
+        assert state.emails["msg-1"].is_starred is True
+        assert state.emails["msg-1"].is_read is True
+        assert state.update_count == 3
+
+        # Undo operation 3 (mark_read)
+        state.apply_undo(undo3)
+        assert state.emails["msg-1"].is_read is False
+        assert state.update_count == 2
+
+        # Undo operation 2 (star)
+        state.apply_undo(undo2)
+        assert state.emails["msg-1"].is_starred is False
+        assert state.update_count == 1
+
+        # Undo operation 1 (receive)
+        state.apply_undo(undo1)
+        assert len(state.emails) == 0
+        assert state.update_count == 0
+
+    def test_full_cycle_bulk_operations(self):
+        """Verify bulk operations can be undone correctly."""
+        state = EmailState(last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc))
+
+        # Add multiple emails
+        message_ids = []
+        for i in range(3):
+            email = EmailInput(
+                timestamp=datetime(2025, 1, 1, 12 + i, 0, tzinfo=timezone.utc),
+                operation="receive",
+                from_address=f"sender{i}@example.com",
+                to_addresses=["you@example.com"],
+                subject=f"Email {i}",
+                body_text=f"Message {i}",
+                message_id=f"msg-{i}",
+            )
+            state.apply_input(email)
+            message_ids.append(f"msg-{i}")
+
+        # Bulk mark read
+        mark_read = EmailInput(
+            timestamp=datetime(2025, 1, 1, 15, 0, tzinfo=timezone.utc),
+            operation="mark_read",
+            message_ids=message_ids,
+            from_address="you@example.com",
+            to_addresses=["you@example.com"],
+            subject="",
+            body_text="",
+        )
+
+        undo_data = state.create_undo_data(mark_read)
+        state.apply_input(mark_read)
+
+        # All should be read
+        for msg_id in message_ids:
+            assert state.emails[msg_id].is_read is True
+
+        # Undo
+        state.apply_undo(undo_data)
+
+        # All should be unread again
+        for msg_id in message_ids:
+            assert state.emails[msg_id].is_read is False
+
+    def test_full_cycle_forward(self):
+        """Verify forward → undo removes forwarded email and new thread."""
+        state = EmailState(last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc))
+
+        # Receive original
+        original = EmailInput(
+            timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+            operation="receive",
+            from_address="sender@example.com",
+            to_addresses=["you@example.com"],
+            subject="Original",
+            body_text="Original content",
+            message_id="msg-original",
+        )
+        state.apply_input(original)
+
+        emails_before = len(state.emails)
+        threads_before = len(state.threads)
+        update_count_before = state.update_count
+        last_updated_before = state.last_updated
+
+        # Forward
+        forward = EmailInput(
+            timestamp=datetime(2025, 1, 1, 12, 30, tzinfo=timezone.utc),
+            operation="forward",
+            from_address="you@example.com",
+            to_addresses=["other@example.com"],
+            subject="Fwd: Original",
+            body_text="Forwarded content",
+            in_reply_to="msg-original",
+            message_id="msg-forward",
+        )
+
+        undo_data = state.create_undo_data(forward)
+        state.apply_input(forward)
+
+        assert len(state.emails) == emails_before + 1
+        assert len(state.threads) == threads_before + 1
+
+        state.apply_undo(undo_data)
+
+        assert len(state.emails) == emails_before
+        assert len(state.threads) == threads_before
+        assert state.update_count == update_count_before
+        assert state.last_updated == last_updated_before
+
+    def test_full_cycle_reply_all(self):
+        """Verify reply_all → undo works same as reply."""
+        state = EmailState(last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc))
+
+        # Receive original with multiple recipients
+        original = EmailInput(
+            timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+            operation="receive",
+            from_address="sender@example.com",
+            to_addresses=["you@example.com", "other@example.com"],
+            cc_addresses=["cc@example.com"],
+            subject="Group Thread",
+            body_text="Group message",
+            message_id="msg-original",
+            thread_id="thread-1",
+        )
+        state.apply_input(original)
+
+        thread_before = state.threads["thread-1"].model_dump()
+        update_count_before = state.update_count
+        last_updated_before = state.last_updated
+
+        # Reply all
+        reply_all = EmailInput(
+            timestamp=datetime(2025, 1, 1, 12, 30, tzinfo=timezone.utc),
+            operation="reply_all",
+            from_address="you@example.com",
+            to_addresses=["sender@example.com", "other@example.com"],
+            cc_addresses=["cc@example.com"],
+            subject="Re: Group Thread",
+            body_text="My reply to all",
+            in_reply_to="msg-original",
+            message_id="msg-reply-all",
+        )
+
+        undo_data = state.create_undo_data(reply_all)
+        state.apply_input(reply_all)
+        state.apply_undo(undo_data)
+
+        assert len(state.emails) == 1
+        assert state.threads["thread-1"].model_dump() == thread_before
+        assert state.update_count == update_count_before
+        assert state.last_updated == last_updated_before
+
+    def test_full_cycle_add_and_remove_labels(self):
+        """Verify add_label → remove_label → undo each restores correctly."""
+        state = EmailState(last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc))
+
+        email = EmailInput(
+            timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+            operation="receive",
+            from_address="sender@example.com",
+            to_addresses=["you@example.com"],
+            subject="Test",
+            body_text="Test",
+            message_id="msg-1",
+        )
+        state.apply_input(email)
+
+        # Add labels
+        add_label = EmailInput(
+            timestamp=datetime(2025, 1, 1, 12, 30, tzinfo=timezone.utc),
+            operation="add_label",
+            message_ids=["msg-1"],
+            labels=["work", "urgent"],
+            from_address="you@example.com",
+            to_addresses=["you@example.com"],
+            subject="",
+            body_text="",
+        )
+        undo_add = state.create_undo_data(add_label)
+        state.apply_input(add_label)
+
+        # Remove one label
+        remove_label = EmailInput(
+            timestamp=datetime(2025, 1, 1, 13, 0, tzinfo=timezone.utc),
+            operation="remove_label",
+            message_ids=["msg-1"],
+            labels=["work"],
+            from_address="you@example.com",
+            to_addresses=["you@example.com"],
+            subject="",
+            body_text="",
+        )
+        undo_remove = state.create_undo_data(remove_label)
+        state.apply_input(remove_label)
+
+        # Verify state
+        assert "work" not in state.emails["msg-1"].labels
+        assert "urgent" in state.emails["msg-1"].labels
+
+        # Undo remove_label
+        state.apply_undo(undo_remove)
+        assert "work" in state.emails["msg-1"].labels
+        assert "urgent" in state.emails["msg-1"].labels
+
+        # Undo add_label
+        state.apply_undo(undo_add)
+        assert "work" not in state.emails["msg-1"].labels
+        assert "urgent" not in state.emails["msg-1"].labels

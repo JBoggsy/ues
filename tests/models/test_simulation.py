@@ -1030,3 +1030,472 @@ class TestSimulationEngineEdgeCases:
         time.sleep(0.05)
 
         engine.stop()
+
+
+class TestSimulationEngineUndoStack:
+    """SIMULATION_ENGINE-SPECIFIC: Test undo stack initialization and properties."""
+
+    def test_undo_stack_initialized_empty(self):
+        """Verify undo stack starts empty."""
+        engine = create_simulation_engine()
+
+        assert engine.undo_stack.undo_count == 0
+        assert engine.undo_stack.redo_count == 0
+        assert not engine.undo_stack.can_undo
+        assert not engine.undo_stack.can_redo
+
+    def test_undo_stack_with_custom_max_size(self):
+        """Verify undo stack can be initialized with custom max_size."""
+        from models.undo import UndoStack
+
+        custom_stack = UndoStack(max_size=50)
+        engine = SimulationEngine(
+            environment=create_environment(),
+            event_queue=create_event_queue(),
+            undo_stack=custom_stack,
+        )
+
+        assert engine.undo_stack.max_size == 50
+
+    def test_snapshot_includes_undo_redo_status(self):
+        """Verify get_snapshot includes undo/redo information."""
+        engine = create_simulation_engine()
+
+        snapshot = engine.get_snapshot()
+
+        assert "undo_redo" in snapshot
+        assert "can_undo" in snapshot["undo_redo"]
+        assert "can_redo" in snapshot["undo_redo"]
+        assert "undo_count" in snapshot["undo_redo"]
+        assert "redo_count" in snapshot["undo_redo"]
+
+
+class TestSimulationEngineUndoCapture:
+    """SIMULATION_ENGINE-SPECIFIC: Test undo data capture during event execution."""
+
+    def test_execute_due_events_pushes_to_undo_stack(self):
+        """Verify executed events are pushed to undo stack."""
+        engine = create_simulation_engine()
+        current_time = engine.environment.time_state.current_time
+        event_time = current_time + timedelta(hours=1)
+
+        event = create_simulator_event(
+            scheduled_time=event_time,
+            modality="location",
+            data=location.create_location_input(),
+        )
+        engine.add_event(event)
+        engine.start(auto_advance=False)
+
+        assert engine.undo_stack.undo_count == 0
+
+        engine.advance_time(timedelta(hours=2))
+
+        assert engine.undo_stack.undo_count == 1
+        assert engine.undo_stack.can_undo
+
+    def test_multiple_events_push_multiple_entries(self):
+        """Verify multiple executed events create multiple undo entries."""
+        engine = create_simulation_engine()
+        current_time = engine.environment.time_state.current_time
+
+        # Add 3 events at different times
+        for i in range(3):
+            event = create_simulator_event(
+                scheduled_time=current_time + timedelta(hours=i + 1),
+                modality="location",
+                data=location.create_location_input(latitude=40.0 + i),
+            )
+            engine.add_event(event)
+
+        engine.start(auto_advance=False)
+        engine.advance_time(timedelta(hours=5))
+
+        assert engine.undo_stack.undo_count == 3
+
+    def test_failed_event_does_not_push_to_undo_stack(self):
+        """Verify failed events don't get undo entries."""
+        engine = create_simulation_engine()
+        current_time = engine.environment.time_state.current_time
+
+        # Create a valid event
+        event = create_simulator_event(
+            scheduled_time=current_time + timedelta(hours=1),
+            modality="location",
+            data=location.create_location_input(),
+        )
+        engine.add_event(event)
+        
+        # Start simulation before corrupting the data
+        engine.start(auto_advance=False)
+        
+        # Now corrupt the data to cause execution failure
+        event.data = None  # This will cause execute to fail
+
+        engine.advance_time(timedelta(hours=2))
+
+        # Event should have failed
+        assert event.status == EventStatus.FAILED
+        # No undo entry should have been created
+        assert engine.undo_stack.undo_count == 0
+
+    def test_set_time_with_execute_skipped_pushes_to_undo_stack(self):
+        """Verify set_time with execute_skipped=True captures undo data."""
+        engine = create_simulation_engine()
+        current_time = engine.environment.time_state.current_time
+
+        event = create_simulator_event(
+            scheduled_time=current_time + timedelta(hours=1),
+            modality="location",
+            data=location.create_location_input(),
+        )
+        engine.add_event(event)
+        engine.start(auto_advance=False)
+
+        # Jump past the event, executing skipped events
+        engine.set_time(current_time + timedelta(hours=2), execute_skipped=True)
+
+        assert engine.undo_stack.undo_count == 1
+
+    def test_set_time_without_execute_skipped_no_undo_entries(self):
+        """Verify set_time with execute_skipped=False doesn't capture undo data."""
+        engine = create_simulation_engine()
+        current_time = engine.environment.time_state.current_time
+
+        event = create_simulator_event(
+            scheduled_time=current_time + timedelta(hours=1),
+            modality="location",
+            data=location.create_location_input(),
+        )
+        engine.add_event(event)
+        engine.start(auto_advance=False)
+
+        # Jump past the event, skipping it
+        engine.set_time(current_time + timedelta(hours=2), execute_skipped=False)
+
+        assert engine.undo_stack.undo_count == 0
+        assert event.status == EventStatus.SKIPPED
+
+
+class TestSimulationEngineUndo:
+    """SIMULATION_ENGINE-SPECIFIC: Test undo operation."""
+
+    def test_undo_basic(self):
+        """Verify basic undo reverses state change."""
+        engine = create_simulation_engine()
+        current_time = engine.environment.time_state.current_time
+        
+        # Get initial location state
+        location_state = engine.environment.get_state("location")
+        initial_snapshot = location_state.get_snapshot()
+
+        # Add and execute a location update
+        event = create_simulator_event(
+            scheduled_time=current_time + timedelta(hours=1),
+            modality="location",
+            data=location.create_location_input(latitude=42.0, longitude=-71.0),
+        )
+        engine.add_event(event)
+        engine.start(auto_advance=False)
+        engine.advance_time(timedelta(hours=2))
+
+        # Verify state changed
+        after_snapshot = location_state.get_snapshot()
+        assert after_snapshot != initial_snapshot
+
+        # Undo the change
+        result = engine.undo(count=1)
+
+        assert result["undone_count"] == 1
+        assert len(result["undone_events"]) == 1
+        assert result["undone_events"][0]["event_id"] == event.event_id
+        assert result["can_redo"] is True
+
+        # Verify state restored
+        restored_snapshot = location_state.get_snapshot()
+        assert restored_snapshot == initial_snapshot
+
+    def test_undo_multiple_events(self):
+        """Verify undo can reverse multiple events."""
+        engine = create_simulation_engine()
+        current_time = engine.environment.time_state.current_time
+
+        # Add and execute 3 location updates
+        for i in range(3):
+            event = create_simulator_event(
+                scheduled_time=current_time + timedelta(hours=i + 1),
+                modality="location",
+                data=location.create_location_input(latitude=40.0 + i),
+            )
+            engine.add_event(event)
+
+        engine.start(auto_advance=False)
+        engine.advance_time(timedelta(hours=5))
+
+        assert engine.undo_stack.undo_count == 3
+
+        # Undo 2 events
+        result = engine.undo(count=2)
+
+        assert result["undone_count"] == 2
+        assert engine.undo_stack.undo_count == 1
+        assert engine.undo_stack.redo_count == 2
+
+    def test_undo_nothing_to_undo(self):
+        """Verify undo with empty stack returns appropriate response."""
+        engine = create_simulation_engine()
+
+        result = engine.undo(count=1)
+
+        assert result["undone_count"] == 0
+        assert result["message"] == "Nothing to undo"
+        assert result["can_undo"] is False
+
+    def test_undo_zero_count_raises(self):
+        """Verify undo with count=0 raises ValueError."""
+        engine = create_simulation_engine()
+
+        with pytest.raises(ValueError, match="count must be positive"):
+            engine.undo(count=0)
+
+    def test_undo_negative_count_raises(self):
+        """Verify undo with negative count raises ValueError."""
+        engine = create_simulation_engine()
+
+        with pytest.raises(ValueError, match="count must be positive"):
+            engine.undo(count=-1)
+
+    def test_undo_more_than_available(self):
+        """Verify undo with count > available undoes all available."""
+        engine = create_simulation_engine()
+        current_time = engine.environment.time_state.current_time
+
+        # Add and execute 2 events
+        for i in range(2):
+            event = create_simulator_event(
+                scheduled_time=current_time + timedelta(hours=i + 1),
+                modality="location",
+                data=location.create_location_input(latitude=40.0 + i),
+            )
+            engine.add_event(event)
+
+        engine.start(auto_advance=False)
+        engine.advance_time(timedelta(hours=5))
+
+        # Try to undo 5 (only 2 available)
+        result = engine.undo(count=5)
+
+        assert result["undone_count"] == 2
+        assert engine.undo_stack.undo_count == 0
+
+
+class TestSimulationEngineRedo:
+    """SIMULATION_ENGINE-SPECIFIC: Test redo operation."""
+
+    def test_redo_basic(self):
+        """Verify basic redo re-applies undone change."""
+        engine = create_simulation_engine()
+        current_time = engine.environment.time_state.current_time
+
+        # Add and execute a location update
+        event = create_simulator_event(
+            scheduled_time=current_time + timedelta(hours=1),
+            modality="location",
+            data=location.create_location_input(latitude=42.0, longitude=-71.0),
+        )
+        engine.add_event(event)
+        engine.start(auto_advance=False)
+        engine.advance_time(timedelta(hours=2))
+
+        # Get state after execution
+        location_state = engine.environment.get_state("location")
+        after_execute_snapshot = location_state.get_snapshot()
+
+        # Undo
+        engine.undo(count=1)
+        
+        # Redo
+        result = engine.redo(count=1)
+
+        assert result["redone_count"] == 1
+        assert len(result["redone_events"]) == 1
+        assert result["redone_events"][0]["event_id"] == event.event_id
+        assert result["can_undo"] is True
+        assert result["can_redo"] is False
+
+        # Verify state restored to post-execution
+        after_redo_snapshot = location_state.get_snapshot()
+        assert after_redo_snapshot == after_execute_snapshot
+
+    def test_redo_nothing_to_redo(self):
+        """Verify redo with empty stack returns appropriate response."""
+        engine = create_simulation_engine()
+
+        result = engine.redo(count=1)
+
+        assert result["redone_count"] == 0
+        assert result["message"] == "Nothing to redo"
+        assert result["can_redo"] is False
+
+    def test_redo_zero_count_raises(self):
+        """Verify redo with count=0 raises ValueError."""
+        engine = create_simulation_engine()
+
+        with pytest.raises(ValueError, match="count must be positive"):
+            engine.redo(count=0)
+
+    def test_redo_clears_after_new_execution(self):
+        """Verify redo stack is cleared when new event is executed."""
+        engine = create_simulation_engine()
+        current_time = engine.environment.time_state.current_time
+
+        # Execute an event
+        event1 = create_simulator_event(
+            scheduled_time=current_time + timedelta(hours=1),
+            modality="location",
+            data=location.create_location_input(latitude=40.0),
+        )
+        engine.add_event(event1)
+        engine.start(auto_advance=False)
+        engine.advance_time(timedelta(hours=2))
+
+        # Undo it
+        engine.undo(count=1)
+        assert engine.undo_stack.can_redo
+
+        # Execute a new event
+        event2 = create_simulator_event(
+            scheduled_time=current_time + timedelta(hours=3),
+            modality="location",
+            data=location.create_location_input(latitude=41.0),
+        )
+        engine.add_event(event2)
+        engine.advance_time(timedelta(hours=2))
+
+        # Redo stack should be cleared
+        assert not engine.undo_stack.can_redo
+
+
+class TestSimulationEngineUndoRedoWorkflow:
+    """SIMULATION_ENGINE-SPECIFIC: Test complete undo/redo workflows."""
+
+    def test_undo_redo_cycle(self):
+        """Verify full undo-redo cycle preserves state."""
+        engine = create_simulation_engine()
+        current_time = engine.environment.time_state.current_time
+        location_state = engine.environment.get_state("location")
+
+        # Initial state
+        initial_snapshot = location_state.get_snapshot()
+
+        # Execute event
+        event = create_simulator_event(
+            scheduled_time=current_time + timedelta(hours=1),
+            modality="location",
+            data=location.create_location_input(latitude=42.0),
+        )
+        engine.add_event(event)
+        engine.start(auto_advance=False)
+        engine.advance_time(timedelta(hours=2))
+
+        # State after execution
+        after_execute = location_state.get_snapshot()
+
+        # Undo
+        engine.undo(count=1)
+        after_undo = location_state.get_snapshot()
+        assert after_undo == initial_snapshot
+
+        # Redo
+        engine.redo(count=1)
+        after_redo = location_state.get_snapshot()
+        assert after_redo == after_execute
+
+    def test_multiple_undo_redo_operations(self):
+        """Verify multiple sequential undo/redo operations work correctly."""
+        engine = create_simulation_engine()
+        current_time = engine.environment.time_state.current_time
+
+        # Execute 5 events
+        for i in range(5):
+            event = create_simulator_event(
+                scheduled_time=current_time + timedelta(hours=i + 1),
+                modality="location",
+                data=location.create_location_input(latitude=40.0 + i),
+            )
+            engine.add_event(event)
+
+        engine.start(auto_advance=False)
+        engine.advance_time(timedelta(hours=10))
+
+        assert engine.undo_stack.undo_count == 5
+
+        # Undo 3: undo=[0,1], redo=[4,3,2] (ordered by when they were undone)
+        engine.undo(count=3)
+        assert engine.undo_stack.undo_count == 2
+        assert engine.undo_stack.redo_count == 3
+
+        # Redo 2: takes most recent from redo (events 2,3), adds to undo
+        # undo=[0,1,2,3], redo=[4]
+        engine.redo(count=2)
+        assert engine.undo_stack.undo_count == 4
+        assert engine.undo_stack.redo_count == 1
+
+        # Undo 1: undo=[0,1,2], redo=[4,3]
+        engine.undo(count=1)
+        assert engine.undo_stack.undo_count == 3
+        assert engine.undo_stack.redo_count == 2
+
+
+class TestSimulationEngineUndoClearReset:
+    """SIMULATION_ENGINE-SPECIFIC: Test undo stack behavior with clear/reset."""
+
+    def test_reset_clears_undo_stack(self):
+        """Verify reset clears undo and redo stacks."""
+        engine = create_simulation_engine()
+        current_time = engine.environment.time_state.current_time
+
+        # Execute an event
+        event = create_simulator_event(
+            scheduled_time=current_time + timedelta(hours=1),
+            modality="location",
+            data=location.create_location_input(),
+        )
+        engine.add_event(event)
+        engine.start(auto_advance=False)
+        engine.advance_time(timedelta(hours=2))
+
+        assert engine.undo_stack.undo_count == 1
+
+        # Reset
+        engine.reset()
+
+        assert engine.undo_stack.undo_count == 0
+        assert engine.undo_stack.redo_count == 0
+
+    def test_clear_clears_undo_stack(self):
+        """Verify clear clears undo and redo stacks."""
+        engine = create_simulation_engine()
+        current_time = engine.environment.time_state.current_time
+
+        # Execute an event
+        event = create_simulator_event(
+            scheduled_time=current_time + timedelta(hours=1),
+            modality="location",
+            data=location.create_location_input(),
+        )
+        engine.add_event(event)
+        engine.start(auto_advance=False)
+        engine.advance_time(timedelta(hours=2))
+
+        # Undo to create redo entry
+        engine.undo(count=1)
+        assert engine.undo_stack.redo_count == 1
+
+        # Clear
+        engine.stop()
+        engine.clear()
+
+        assert engine.undo_stack.undo_count == 0
+        assert engine.undo_stack.redo_count == 0
+

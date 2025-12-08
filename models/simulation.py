@@ -11,13 +11,14 @@ import threading
 import time
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from pydantic import BaseModel, Field
 
 from models.environment import Environment
 from models.event import EventStatus, SimulatorEvent
 from models.queue import EventQueue
+from models.undo import UndoEntry, UndoStack
 
 if TYPE_CHECKING:
     pass
@@ -37,6 +38,7 @@ class SimulationEngine(BaseModel):
     - State access and validation
     - Lifecycle management (start, stop, reset)
     - Mode coordination (manual, event-driven, auto-advance)
+    - Undo/redo support for reversing event executions
     - Error handling and logging
     - API request handling
     
@@ -47,12 +49,14 @@ class SimulationEngine(BaseModel):
         event_queue: Collection of all scheduled events.
         simulation_id: Unique identifier for this simulation instance.
         is_running: Whether simulation is currently active.
+        undo_stack: Stack of undo entries for reversing event executions.
     """
 
     environment: Environment
     event_queue: EventQueue
     simulation_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     is_running: bool = False
+    undo_stack: UndoStack = Field(default_factory=UndoStack)
 
     class Config:
         arbitrary_types_allowed = True
@@ -169,35 +173,137 @@ class SimulationEngine(BaseModel):
             "events_failed": failed_events,
         }
 
-    def reset(self) -> int:
-        """Reset simulation to initial state.
-        
-        Stops simulation if running.
-        Resets all events to pending status (preserves events for replay).
-        
-        Note: Time and environment states are NOT reset by this method.
-        Events are preserved but their execution state is cleared, allowing
-        the same simulation scenario to be replayed.
-        
+    def reset(self) -> dict[str, Any]:
+        """Reset simulation by undoing all executed events.
+
+        This method performs a complete rollback of the simulation:
+        1. Undoes ALL events in the undo stack (reversing state changes)
+        2. Resets all events to PENDING status
+        3. Clears the undo/redo stacks
+        4. Stops the simulation if running
+
+        Time is NOT automatically reset - use set_time() or clear() separately
+        if you need to reset time.
+
         Returns:
-            Number of events that were reset.
-        """        
+            Dict with:
+                - events_undone: Number of events that were undone (state reversed).
+                - events_reset: Number of events reset to PENDING status.
+                - undo_errors: List of any errors encountered during undo.
+                - was_running: Whether simulation was running before reset.
+
+        Note:
+            Unlike undo(), reset() does not stop on errors - it attempts to
+            undo as many events as possible and continues to reset event
+            statuses even if some undos fail.
+        """
+        was_running = self.is_running
+
         # Stop if running
         if self.is_running:
             self.stop()
 
-        # Count events for return value
-        event_count = len(self.event_queue.events)
-        
+        # Undo all events in the undo stack
+        events_undone = 0
+        undo_errors = []
+
+        while self.undo_stack.can_undo:
+            entries = self.undo_stack.pop_for_undo(count=1)
+            for entry in entries:
+                try:
+                    # Get the modality state
+                    state = self.environment.get_state(entry.modality)
+                    # Apply undo
+                    state.apply_undo(entry.undo_data)
+                    events_undone += 1
+                    logger.debug(
+                        f"Reset: undid event {entry.event_id} ({entry.modality})"
+                    )
+                except Exception as e:
+                    error_msg = f"Failed to undo event {entry.event_id}: {e}"
+                    undo_errors.append(error_msg)
+                    logger.warning(error_msg)
+                    # Continue with remaining undos
+
         # Reset all events to pending status
+        events_reset = len(self.event_queue.events)
         for event in self.event_queue.events:
             event.status = EventStatus.PENDING
             event.executed_at = None
             event.error_message = None
 
-        logger.info(f"Simulation {self.simulation_id} reset, reset {event_count} events to pending")
-        
-        return event_count
+        # Clear both stacks (undo stack should already be empty, but clear redo too)
+        self.undo_stack.clear()
+
+        logger.info(
+            f"Simulation {self.simulation_id} reset: "
+            f"undid {events_undone} events, reset {events_reset} events to pending"
+        )
+
+        return {
+            "events_undone": events_undone,
+            "events_reset": events_reset,
+            "undo_errors": undo_errors,
+            "was_running": was_running,
+        }
+
+    def clear(self, reset_time_to: Optional[datetime] = None) -> dict:
+        """Clear simulation completely, removing all state and events.
+
+        Stops simulation if running, removes all events from the queue,
+        clears all modality states to their empty defaults, and optionally
+        resets time.
+
+        This is a destructive operation - all simulation data is lost.
+        Use this to start completely fresh.
+
+        Args:
+            reset_time_to: If provided, reset simulator time to this value.
+                          If None, the current time is preserved.
+
+        Returns:
+            Summary dict with:
+                - events_removed: Number of events removed from queue.
+                - modalities_cleared: Number of modality states cleared.
+                - time_reset: Whether time was reset (and to what value if so).
+        """
+        # Stop if running
+        if self.is_running:
+            self.stop()
+
+        # Clear undo/redo stacks since all state is being cleared
+        self.undo_stack.clear()
+
+        # Count and remove all events
+        events_removed = len(self.event_queue.events)
+        self.event_queue.events.clear()
+
+        # Determine the timestamp to use for cleared states
+        if reset_time_to is not None:
+            # Directly set current_time to allow backwards time travel during clear
+            # (unlike set_time(), which doesn't allow backwards jumps)
+            self.environment.time_state.current_time = reset_time_to
+            self.environment.time_state.last_wall_time_update = datetime.now(timezone.utc)
+            new_timestamp = reset_time_to
+        else:
+            new_timestamp = self.environment.time_state.current_time
+
+        # Clear all modality states
+        modalities_cleared = self.environment.clear_all_states(new_timestamp)
+
+        logger.info(
+            f"Simulation {self.simulation_id} cleared: "
+            f"{events_removed} events removed, {modalities_cleared} modalities cleared"
+        )
+
+        result = {
+            "events_removed": events_removed,
+            "modalities_cleared": modalities_cleared,
+            "time_reset": reset_time_to.isoformat() if reset_time_to else None,
+            "current_time": self.environment.time_state.current_time.isoformat(),
+        }
+
+        return result
 
     # ===== Time Control Methods =====
 
@@ -290,10 +396,12 @@ class SimulationEngine(BaseModel):
             ]
 
             if execute_skipped:
-                # Execute all skipped events instantly
+                # Execute all skipped events instantly with undo capture
                 for event in skipped_events:
                     try:
-                        event.execute(self.environment)
+                        undo_entry = event.execute(self.environment, capture_undo=True)
+                        if undo_entry is not None:
+                            self.undo_stack.push(undo_entry)
                         logger.debug(f"Executed skipped event {event.event_id}")
                     except Exception as e:
                         logger.error(
@@ -425,6 +533,9 @@ class SimulationEngine(BaseModel):
         - skip_to_next_event() after jumping
         - tick() during auto-advance loop
         
+        Captures undo data for each successfully executed event and pushes
+        it to the undo stack.
+        
         Returns:
             List of executed events (both successful and failed).
         """
@@ -434,8 +545,13 @@ class SimulationEngine(BaseModel):
         executed = []
         for event in due_events:
             try:
-                event.execute(self.environment)
+                undo_entry = event.execute(self.environment, capture_undo=True)
                 executed.append(event)
+                
+                # Push undo entry to stack if execution succeeded
+                if undo_entry is not None:
+                    self.undo_stack.push(undo_entry)
+                
                 logger.debug(
                     f"Executed event {event.event_id} ({event.modality}) "
                     f"status={event.status.value}"
@@ -486,6 +602,205 @@ class SimulationEngine(BaseModel):
 
         return results
 
+    # ===== Undo/Redo Methods =====
+
+    def undo(self, count: int = 1) -> dict[str, Any]:
+        """Undo the most recent event executions.
+
+        Reverses state changes from the most recently executed events
+        by applying their undo data. Events are NOT reset to pending
+        status - they remain executed but their effects are reversed.
+
+        For each undone event:
+        1. Pop entry from undo stack
+        2. Get the modality state
+        3. Apply undo data to reverse the change
+        4. Push entry to redo stack
+
+        Args:
+            count: Number of events to undo (default: 1).
+
+        Returns:
+            Dict with:
+                - undone_count: Number of events actually undone.
+                - undone_events: List of event details that were undone.
+                - can_undo: Whether more undos are available.
+                - can_redo: Whether redos are now available.
+
+        Raises:
+            ValueError: If count is not positive.
+            RuntimeError: If undo fails due to state inconsistency.
+        """
+        if count <= 0:
+            raise ValueError("count must be positive")
+
+        if not self.undo_stack.can_undo:
+            return {
+                "undone_count": 0,
+                "undone_events": [],
+                "can_undo": False,
+                "can_redo": self.undo_stack.can_redo,
+                "message": "Nothing to undo",
+            }
+
+        with self._operation_lock:
+            # Pop entries from undo stack
+            entries = self.undo_stack.pop_for_undo(count)
+            undone_events = []
+
+            for entry in entries:
+                try:
+                    # Get the modality state
+                    state = self.environment.get_state(entry.modality)
+
+                    # Apply undo
+                    state.apply_undo(entry.undo_data)
+
+                    # Push to redo stack
+                    self.undo_stack.push_to_redo(entry)
+
+                    undone_events.append({
+                        "event_id": entry.event_id,
+                        "modality": entry.modality,
+                        "action": entry.undo_data.get("action"),
+                    })
+
+                    logger.info(
+                        f"Undid event {entry.event_id} ({entry.modality}): "
+                        f"action={entry.undo_data.get('action')}"
+                    )
+
+                except Exception as e:
+                    # Log error but continue with remaining undos
+                    logger.error(
+                        f"Failed to undo event {entry.event_id}: {e}",
+                        exc_info=True,
+                    )
+                    # Re-raise to signal failure to caller
+                    raise RuntimeError(
+                        f"Undo failed for event {entry.event_id}: {e}"
+                    ) from e
+
+            return {
+                "undone_count": len(undone_events),
+                "undone_events": undone_events,
+                "can_undo": self.undo_stack.can_undo,
+                "can_redo": self.undo_stack.can_redo,
+            }
+
+    def redo(self, count: int = 1) -> dict[str, Any]:
+        """Redo previously undone event executions.
+
+        Re-applies state changes from events that were previously undone.
+        This works by re-executing the original input on the modality state.
+
+        For each redone event:
+        1. Pop entry from redo stack
+        2. Find the original event in the queue
+        3. Get the modality state and capture new undo data
+        4. Re-apply the original input
+        5. Push new undo entry to undo stack
+
+        Args:
+            count: Number of events to redo (default: 1).
+
+        Returns:
+            Dict with:
+                - redone_count: Number of events actually redone.
+                - redone_events: List of event details that were redone.
+                - can_undo: Whether undos are now available.
+                - can_redo: Whether more redos are available.
+
+        Raises:
+            ValueError: If count is not positive.
+            RuntimeError: If redo fails due to missing event or state inconsistency.
+        """
+        if count <= 0:
+            raise ValueError("count must be positive")
+
+        if not self.undo_stack.can_redo:
+            return {
+                "redone_count": 0,
+                "redone_events": [],
+                "can_undo": self.undo_stack.can_undo,
+                "can_redo": False,
+                "message": "Nothing to redo",
+            }
+
+        with self._operation_lock:
+            # Pop entries from redo stack
+            entries = self.undo_stack.pop_for_redo(count)
+            redone_events = []
+
+            for entry in entries:
+                try:
+                    # Find the original event
+                    original_event = None
+                    for event in self.event_queue.events:
+                        if event.event_id == entry.event_id:
+                            original_event = event
+                            break
+
+                    if original_event is None:
+                        raise RuntimeError(
+                            f"Cannot redo: event {entry.event_id} not found in queue"
+                        )
+
+                    # Get the modality state
+                    state = self.environment.get_state(entry.modality)
+
+                    # Capture new undo data before re-applying
+                    new_undo_data = state.create_undo_data(original_event.data)
+
+                    # Re-apply the original input
+                    state.apply_input(original_event.data)
+
+                    # Create new undo entry and add to undo stack
+                    # Note: We append directly instead of using push() to preserve
+                    # the redo stack - redo is part of the same timeline, not a divergence
+                    new_undo_entry = UndoEntry(
+                        event_id=entry.event_id,
+                        modality=entry.modality,
+                        undo_data=new_undo_data,
+                        executed_at=self.environment.time_state.current_time,
+                    )
+                    self.undo_stack.undo_entries.append(new_undo_entry)
+                    
+                    # Trim if over max_size
+                    if (
+                        self.undo_stack.max_size is not None
+                        and len(self.undo_stack.undo_entries) > self.undo_stack.max_size
+                    ):
+                        self.undo_stack.undo_entries.pop(0)
+
+                    redone_events.append({
+                        "event_id": entry.event_id,
+                        "modality": entry.modality,
+                        "action": new_undo_data.get("action"),
+                    })
+
+                    logger.info(
+                        f"Redid event {entry.event_id} ({entry.modality})"
+                    )
+
+                except Exception as e:
+                    # Log error but continue with remaining redos
+                    logger.error(
+                        f"Failed to redo event {entry.event_id}: {e}",
+                        exc_info=True,
+                    )
+                    # Re-raise to signal failure to caller
+                    raise RuntimeError(
+                        f"Redo failed for event {entry.event_id}: {e}"
+                    ) from e
+
+            return {
+                "redone_count": len(redone_events),
+                "redone_events": redone_events,
+                "can_undo": self.undo_stack.can_undo,
+                "can_redo": self.undo_stack.can_redo,
+            }
+
     # ===== State Access Methods =====
 
     def get_state(self) -> Environment:
@@ -507,6 +822,7 @@ class SimulationEngine(BaseModel):
         - All modality states
         - Simulation metadata (id, is_running, etc.)
         - Event queue summary
+        - Undo/redo status
         
         Returns:
             Serializable dict snapshot.
@@ -539,6 +855,12 @@ class SimulationEngine(BaseModel):
                     if self.event_queue.peek_next()
                     else None
                 ),
+            },
+            "undo_redo": {
+                "can_undo": self.undo_stack.can_undo,
+                "can_redo": self.undo_stack.can_redo,
+                "undo_count": self.undo_stack.undo_count,
+                "redo_count": self.undo_stack.redo_count,
             },
         }
 

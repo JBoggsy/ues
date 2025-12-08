@@ -346,3 +346,108 @@ class TimeState(ModalityState):
         time_str = self.format_time(localized_time)
 
         return f"{date_str} {time_str}"
+
+    def clear(self) -> None:
+        """Reset time preferences to defaults.
+
+        Resets timezone, format preferences, and clears settings history.
+        """
+        self.timezone = "UTC"
+        self.format_preference = "12h"
+        self.date_format = None
+        self.locale = None
+        self.week_start = None
+        self.settings_history.clear()
+        self.update_count = 0
+
+    def create_undo_data(self, input_data: "ModalityInput") -> dict[str, Any]:
+        """Capture minimal data needed to undo applying a TimeInput.
+
+        For time preference updates:
+        - Store current preferences (they will be moved to history)
+        - Store oldest history entry if it will be trimmed due to capacity
+
+        Args:
+            input_data: The TimeInput that will be applied.
+
+        Returns:
+            Dictionary containing minimal data needed to undo the operation.
+        """
+        from models.modalities.time_input import TimeInput
+
+        if not isinstance(input_data, TimeInput):
+            raise ValueError(
+                f"TimeState can only create undo data for TimeInput, "
+                f"got {type(input_data)}"
+            )
+
+        undo_data: dict[str, Any] = {
+            "state_previous_update_count": self.update_count,
+            "state_previous_last_updated": self.last_updated.isoformat(),
+            "action": "restore_previous",
+            "previous_timezone": self.timezone,
+            "previous_format_preference": self.format_preference,
+            "previous_date_format": self.date_format,
+            "previous_locale": self.locale,
+            "previous_week_start": self.week_start,
+        }
+
+        # Check if we're at capacity - oldest entry will be trimmed
+        if len(self.settings_history) >= self.max_history_size:
+            oldest = self.settings_history[0]
+            undo_data["removed_history_entry"] = {
+                "timestamp": oldest.timestamp.isoformat(),
+                "timezone": oldest.timezone,
+                "format_preference": oldest.format_preference,
+                "date_format": oldest.date_format,
+                "locale": oldest.locale,
+                "week_start": oldest.week_start,
+            }
+
+        return undo_data
+
+    def apply_undo(self, undo_data: dict[str, Any]) -> None:
+        """Apply undo data to reverse a previous time input application.
+
+        Args:
+            undo_data: Dictionary returned by create_undo_data().
+
+        Raises:
+            ValueError: If undo_data is missing required fields or has unknown action.
+        """
+        action = undo_data.get("action")
+        if not action:
+            raise ValueError("Undo data missing 'action' field")
+
+        if action != "restore_previous":
+            raise ValueError(f"Unknown undo action: {action}")
+
+        # Remove the history entry that was added (it's at the end)
+        if self.settings_history:
+            self.settings_history.pop()
+
+        # Restore the oldest history entry if it was trimmed due to capacity
+        if "removed_history_entry" in undo_data:
+            entry_data = undo_data["removed_history_entry"]
+            restored_entry = TimeSettingsHistoryEntry(
+                timestamp=datetime.fromisoformat(entry_data["timestamp"]),
+                timezone=entry_data["timezone"],
+                format_preference=entry_data["format_preference"],
+                date_format=entry_data.get("date_format"),
+                locale=entry_data.get("locale"),
+                week_start=entry_data.get("week_start"),
+            )
+            self.settings_history.insert(0, restored_entry)
+
+        # Restore previous preferences
+        self.timezone = undo_data["previous_timezone"]
+        self.format_preference = undo_data["previous_format_preference"]
+        self.date_format = undo_data.get("previous_date_format")
+        self.locale = undo_data.get("previous_locale")
+        self.week_start = undo_data.get("previous_week_start")
+
+        # Restore state-level metadata
+        self.update_count = undo_data["state_previous_update_count"]
+        self.last_updated = datetime.fromisoformat(
+            undo_data["state_previous_last_updated"]
+        )

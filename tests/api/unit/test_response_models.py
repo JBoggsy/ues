@@ -365,11 +365,13 @@ class TestTimeStateResponse:
             time_scale=1.0,
             is_paused=False,
             auto_advance=True,
+            mode="manual",
         )
         assert response.current_time == now
         assert response.time_scale == 1.0
         assert response.is_paused is False
         assert response.auto_advance is True
+        assert response.mode == "manual"
 
     def test_all_fields_required(self):
         """Test that all fields are required."""
@@ -378,6 +380,7 @@ class TestTimeStateResponse:
         errors = str(exc_info.value)
         assert "time_scale" in errors
         assert "is_paused" in errors
+        assert "mode" in errors
         assert "auto_advance" in errors
 
 
@@ -405,21 +408,26 @@ class TestSkipToNextResponse:
 
     def test_valid_response_with_next_event(self):
         """Test response when there's a next event."""
+        previous = datetime(2024, 6, 15, 11, 0, 0, tzinfo=timezone.utc)
         current = datetime(2024, 6, 15, 12, 0, 0, tzinfo=timezone.utc)
         next_time = datetime(2024, 6, 15, 13, 0, 0, tzinfo=timezone.utc)
         response = SkipToNextResponse(
+            previous_time=previous,
             current_time=current,
             events_executed=3,
             next_event_time=next_time,
         )
+        assert response.previous_time == previous
         assert response.current_time == current
         assert response.events_executed == 3
         assert response.next_event_time == next_time
 
     def test_response_without_next_event(self):
         """Test response when no more events pending."""
+        previous = datetime(2024, 6, 15, 11, 0, 0, tzinfo=timezone.utc)
         current = datetime(2024, 6, 15, 12, 0, 0, tzinfo=timezone.utc)
         response = SkipToNextResponse(
+            previous_time=previous,
             current_time=current,
             events_executed=1,
         )

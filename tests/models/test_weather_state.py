@@ -817,3 +817,483 @@ class TestWeatherStateIntegration:
         
         assert location.update_count == 3
         assert len(location.report_history) == 2
+
+
+class TestWeatherStateCreateUndoData:
+    """Test WeatherState.create_undo_data() method.
+    
+    GENERAL PATTERN: All ModalityState subclasses must implement create_undo_data()
+    to capture minimal data needed to reverse an apply_input() operation.
+    
+    WEATHER-SPECIFIC: For new locations, stores only the location key.
+    For existing locations, stores the previous report and metadata.
+    """
+
+    def test_create_undo_data_for_new_location(self):
+        """Test create_undo_data when adding a new location.
+        
+        WEATHER-SPECIFIC: Only needs location key to remove on undo.
+        """
+        state = create_weather_state()
+        weather = CLEAR_WEATHER
+        
+        undo_data = state.create_undo_data(weather)
+        
+        assert undo_data["action"] == "remove_location"
+        assert "location_key" in undo_data
+        expected_key = state._get_location_key(weather.latitude, weather.longitude)
+        assert undo_data["location_key"] == expected_key
+
+    def test_create_undo_data_for_existing_location(self):
+        """Test create_undo_data when updating an existing location.
+        
+        WEATHER-SPECIFIC: Stores previous report and metadata for restoration.
+        """
+        state = create_weather_state()
+        
+        # Add first weather update
+        first_weather = CLEAR_WEATHER
+        state.apply_input(first_weather)
+        
+        # Create undo data for second update
+        second_weather = create_weather_input(
+            latitude=first_weather.latitude,
+            longitude=first_weather.longitude,
+        )
+        undo_data = state.create_undo_data(second_weather)
+        
+        assert undo_data["action"] == "restore_previous"
+        assert "location_key" in undo_data
+        assert "previous_report" in undo_data
+        assert "previous_last_updated" in undo_data
+        assert "previous_update_count" in undo_data
+        assert undo_data["previous_update_count"] == 1
+
+    def test_create_undo_data_captures_state_metadata(self):
+        """Test that create_undo_data captures state-level metadata.
+        
+        GENERAL PATTERN: Undo data should include state-level update_count and last_updated.
+        """
+        state = create_weather_state()
+        
+        # Apply first update
+        state.apply_input(CLEAR_WEATHER)
+        
+        # Create undo data for second update (same location)
+        second = create_weather_input(
+            latitude=CLEAR_WEATHER.latitude,
+            longitude=CLEAR_WEATHER.longitude,
+        )
+        undo_data = state.create_undo_data(second)
+        
+        assert "state_previous_update_count" in undo_data
+        assert "state_previous_last_updated" in undo_data
+        assert undo_data["state_previous_update_count"] == 1
+
+    def test_create_undo_data_captures_removed_history_entry(self):
+        """Test that create_undo_data captures removed history when at max capacity.
+        
+        WEATHER-SPECIFIC: When history is at max_history_per_location, 
+        the oldest entry is captured for restoration.
+        """
+        # Create state with tiny history limit
+        state = create_weather_state(max_history_per_location=2)
+        
+        lat, lon = 40.0, -74.0
+        
+        # Fill history to max (2 entries)
+        for _ in range(3):  # 1st becomes current, 2nd and 3rd fill history
+            state.apply_input(create_weather_input(latitude=lat, longitude=lon))
+        
+        location_key = state._get_location_key(lat, lon)
+        location = state.locations[location_key]
+        assert len(location.report_history) == 2  # At max
+        
+        oldest_entry = location.report_history[0]
+        
+        # Create undo data for next update (will remove oldest)
+        next_weather = create_weather_input(latitude=lat, longitude=lon)
+        undo_data = state.create_undo_data(next_weather)
+        
+        assert undo_data["action"] == "restore_previous"
+        assert "removed_history_entry" in undo_data
+        assert undo_data["removed_history_entry"]["timestamp"] == oldest_entry.timestamp.isoformat()
+
+    def test_create_undo_data_no_removed_entry_when_not_at_max(self):
+        """Test that create_undo_data doesn't capture removed entry when not at max.
+        
+        WEATHER-SPECIFIC: Only capture removed_history_entry when actually at max capacity.
+        """
+        state = create_weather_state(max_history_per_location=100)
+        
+        lat, lon = 40.0, -74.0
+        
+        # Add a few updates (well under max)
+        for _ in range(3):
+            state.apply_input(create_weather_input(latitude=lat, longitude=lon))
+        
+        location_key = state._get_location_key(lat, lon)
+        location = state.locations[location_key]
+        assert len(location.report_history) == 2  # Well under max of 100
+        
+        # Create undo data for next update
+        next_weather = create_weather_input(latitude=lat, longitude=lon)
+        undo_data = state.create_undo_data(next_weather)
+        
+        assert "removed_history_entry" not in undo_data
+
+    def test_create_undo_data_raises_for_invalid_input_type(self):
+        """Test that create_undo_data raises for non-WeatherInput.
+        
+        GENERAL PATTERN: All modalities should validate input type.
+        """
+        from models.modalities.location_input import LocationInput
+        
+        state = create_weather_state()
+        invalid_input = LocationInput(
+            latitude=40.0,
+            longitude=-74.0,
+            timestamp=datetime.now(timezone.utc),
+        )
+        
+        with pytest.raises(ValueError, match="WeatherInput"):
+            state.create_undo_data(invalid_input)
+
+    def test_create_undo_data_does_not_modify_state(self):
+        """Test that create_undo_data does not modify state.
+        
+        GENERAL PATTERN: create_undo_data should be read-only.
+        """
+        state = create_weather_state()
+        state.apply_input(CLEAR_WEATHER)
+        
+        original_update_count = state.update_count
+        original_location_count = len(state.locations)
+        
+        # Call create_undo_data (should not modify state)
+        weather = create_weather_input(
+            latitude=CLEAR_WEATHER.latitude,
+            longitude=CLEAR_WEATHER.longitude,
+        )
+        state.create_undo_data(weather)
+        
+        assert state.update_count == original_update_count
+        assert len(state.locations) == original_location_count
+
+
+class TestWeatherStateApplyUndo:
+    """Test WeatherState.apply_undo() method.
+    
+    GENERAL PATTERN: All ModalityState subclasses must implement apply_undo()
+    to reverse a previous apply_input() operation using undo data.
+    
+    WEATHER-SPECIFIC: Handles removing added locations and restoring previous reports.
+    """
+
+    def test_apply_undo_removes_added_location(self):
+        """Test that apply_undo removes a location that was added.
+        
+        WEATHER-SPECIFIC: remove_location action deletes the location from state.
+        """
+        state = create_weather_state()
+        weather = CLEAR_WEATHER
+        
+        # Capture undo data before applying
+        undo_data = state.create_undo_data(weather)
+        
+        # Apply the weather update
+        state.apply_input(weather)
+        assert len(state.locations) == 1
+        
+        # Apply undo - should remove the location
+        state.apply_undo(undo_data)
+        assert len(state.locations) == 0
+
+    def test_apply_undo_restores_previous_report(self):
+        """Test that apply_undo restores the previous report.
+        
+        WEATHER-SPECIFIC: restore_previous action restores prior report as current.
+        """
+        state = create_weather_state()
+        
+        # Apply first weather update
+        first_weather = CLEAR_WEATHER
+        state.apply_input(first_weather)
+        
+        location_key = state._get_location_key(first_weather.latitude, first_weather.longitude)
+        # Store a copy of the report data, not the object reference
+        original_report_dict = state.locations[location_key].current_report.model_dump()
+        
+        # Create second update with DIFFERENT weather and capture undo
+        # Use RAINY_WEATHER but at the same coordinates
+        second_weather = create_weather_input(
+            latitude=first_weather.latitude,
+            longitude=first_weather.longitude,
+            report=RAINY_WEATHER.report,
+        )
+        undo_data = state.create_undo_data(second_weather)
+        state.apply_input(second_weather)
+        
+        # Current report should have changed (different report data)
+        assert state.locations[location_key].current_report.model_dump() != original_report_dict
+        
+        # Apply undo - should restore original report
+        state.apply_undo(undo_data)
+        assert state.locations[location_key].current_report.model_dump() == original_report_dict
+
+    def test_apply_undo_restores_location_metadata(self):
+        """Test that apply_undo restores location-level metadata.
+        
+        WEATHER-SPECIFIC: update_count and last_updated are restored.
+        """
+        state = create_weather_state()
+        
+        # Apply first update
+        first_weather = CLEAR_WEATHER
+        state.apply_input(first_weather)
+        
+        location_key = state._get_location_key(first_weather.latitude, first_weather.longitude)
+        location = state.locations[location_key]
+        original_update_count = location.update_count
+        original_last_updated = location.last_updated
+        
+        # Create second update and apply
+        second_weather = create_weather_input(
+            latitude=first_weather.latitude,
+            longitude=first_weather.longitude,
+        )
+        undo_data = state.create_undo_data(second_weather)
+        state.apply_input(second_weather)
+        
+        # Apply undo
+        state.apply_undo(undo_data)
+        
+        location = state.locations[location_key]
+        assert location.update_count == original_update_count
+        assert location.last_updated == original_last_updated
+
+    def test_apply_undo_restores_state_metadata(self):
+        """Test that apply_undo restores state-level metadata.
+        
+        GENERAL PATTERN: State-level update_count and last_updated are restored.
+        """
+        state = create_weather_state()
+        
+        # Apply first update
+        state.apply_input(CLEAR_WEATHER)
+        
+        original_update_count = state.update_count
+        original_last_updated = state.last_updated
+        
+        # Create second update and apply
+        second_weather = create_weather_input(
+            latitude=CLEAR_WEATHER.latitude,
+            longitude=CLEAR_WEATHER.longitude,
+        )
+        undo_data = state.create_undo_data(second_weather)
+        state.apply_input(second_weather)
+        
+        # Apply undo
+        state.apply_undo(undo_data)
+        
+        assert state.update_count == original_update_count
+        assert state.last_updated == original_last_updated
+
+    def test_apply_undo_removes_history_entry(self):
+        """Test that apply_undo removes the added history entry.
+        
+        WEATHER-SPECIFIC: When restoring previous report, the history entry is removed.
+        """
+        state = create_weather_state()
+        
+        # Apply first update
+        first_weather = CLEAR_WEATHER
+        state.apply_input(first_weather)
+        
+        location_key = state._get_location_key(first_weather.latitude, first_weather.longitude)
+        
+        # Apply second update (first becomes history)
+        second_weather = create_weather_input(
+            latitude=first_weather.latitude,
+            longitude=first_weather.longitude,
+        )
+        undo_data = state.create_undo_data(second_weather)
+        state.apply_input(second_weather)
+        
+        # Now we have 1 history entry
+        assert len(state.locations[location_key].report_history) == 1
+        
+        # Apply undo - should remove the history entry
+        state.apply_undo(undo_data)
+        assert len(state.locations[location_key].report_history) == 0
+
+    def test_apply_undo_restores_removed_history_entry(self):
+        """Test that apply_undo restores a removed history entry.
+        
+        WEATHER-SPECIFIC: When history was at max and oldest was removed, it's restored.
+        """
+        # Create state with tiny history limit
+        state = create_weather_state(max_history_per_location=2)
+        
+        lat, lon = 40.0, -74.0
+        
+        # Fill history to max
+        for _ in range(3):
+            state.apply_input(create_weather_input(latitude=lat, longitude=lon))
+        
+        location_key = state._get_location_key(lat, lon)
+        
+        # History is at max (2 entries)
+        assert len(state.locations[location_key].report_history) == 2
+        oldest_before = state.locations[location_key].report_history[0]
+        
+        # Create and apply next update (removes oldest)
+        next_weather = create_weather_input(latitude=lat, longitude=lon)
+        undo_data = state.create_undo_data(next_weather)
+        state.apply_input(next_weather)
+        
+        # Oldest entry should have changed
+        new_oldest = state.locations[location_key].report_history[0]
+        assert new_oldest != oldest_before
+        
+        # Apply undo - should restore the removed oldest entry
+        state.apply_undo(undo_data)
+        
+        restored_oldest = state.locations[location_key].report_history[0]
+        assert restored_oldest.timestamp == oldest_before.timestamp
+
+    def test_apply_undo_raises_for_missing_action(self):
+        """Test that apply_undo raises for undo_data without action.
+        
+        GENERAL PATTERN: Undo data must have an action field.
+        """
+        state = create_weather_state()
+        
+        with pytest.raises(ValueError, match="action"):
+            state.apply_undo({"location_key": "40.00,-74.00"})
+
+    def test_apply_undo_raises_for_missing_location_key(self):
+        """Test that apply_undo raises for undo_data without location_key.
+        
+        GENERAL PATTERN: All weather undo operations need location_key.
+        """
+        state = create_weather_state()
+        
+        with pytest.raises(ValueError, match="location_key"):
+            state.apply_undo({"action": "remove_location"})
+
+    def test_apply_undo_raises_for_unknown_action(self):
+        """Test that apply_undo raises for unknown action.
+        
+        GENERAL PATTERN: Only valid actions should be accepted.
+        """
+        state = create_weather_state()
+        state.apply_input(CLEAR_WEATHER)
+        
+        location_key = state._get_location_key(CLEAR_WEATHER.latitude, CLEAR_WEATHER.longitude)
+        
+        with pytest.raises(ValueError, match="Unknown undo action"):
+            state.apply_undo({
+                "action": "invalid_action",
+                "location_key": location_key,
+                "state_previous_update_count": 0,
+                "state_previous_last_updated": datetime.now(timezone.utc).isoformat(),
+            })
+
+    def test_apply_undo_raises_for_missing_location(self):
+        """Test that apply_undo raises when location doesn't exist.
+        
+        GENERAL PATTERN: Cannot undo if state is inconsistent.
+        """
+        state = create_weather_state()
+        
+        with pytest.raises(RuntimeError, match="not found"):
+            state.apply_undo({
+                "action": "remove_location",
+                "location_key": "40.00,-74.00",
+                "state_previous_update_count": 0,
+                "state_previous_last_updated": datetime.now(timezone.utc).isoformat(),
+            })
+
+    def test_undo_full_cycle_new_location(self):
+        """Test complete undo cycle for adding a new location.
+        
+        INTEGRATION: create_undo_data -> apply_input -> apply_undo should be idempotent.
+        """
+        state = create_weather_state()
+        original_snapshot = state.get_snapshot()
+        
+        weather = CLEAR_WEATHER
+        
+        # Capture undo data -> apply input -> apply undo
+        undo_data = state.create_undo_data(weather)
+        state.apply_input(weather)
+        state.apply_undo(undo_data)
+        
+        # State should be restored to original
+        restored_snapshot = state.get_snapshot()
+        assert restored_snapshot["location_count"] == original_snapshot["location_count"]
+        assert restored_snapshot["update_count"] == original_snapshot["update_count"]
+
+    def test_undo_full_cycle_existing_location(self):
+        """Test complete undo cycle for updating an existing location.
+        
+        INTEGRATION: create_undo_data -> apply_input -> apply_undo should be idempotent.
+        """
+        state = create_weather_state()
+        
+        # Add initial location
+        first_weather = CLEAR_WEATHER
+        state.apply_input(first_weather)
+        
+        original_snapshot = state.get_snapshot()
+        location_key = state._get_location_key(first_weather.latitude, first_weather.longitude)
+        original_report = state.locations[location_key].current_report.model_dump()
+        
+        # Second update with undo cycle
+        second_weather = create_weather_input(
+            latitude=first_weather.latitude,
+            longitude=first_weather.longitude,
+        )
+        
+        undo_data = state.create_undo_data(second_weather)
+        state.apply_input(second_weather)
+        state.apply_undo(undo_data)
+        
+        # State should be restored
+        restored_snapshot = state.get_snapshot()
+        assert restored_snapshot["update_count"] == original_snapshot["update_count"]
+        restored_report = state.locations[location_key].current_report.model_dump()
+        assert restored_report == original_report
+
+    def test_multiple_undo_operations(self):
+        """Test multiple sequential undo operations.
+        
+        INTEGRATION: Multiple undos should work correctly in sequence.
+        """
+        state = create_weather_state()
+        
+        lat, lon = 40.0, -74.0
+        location_key = state._get_location_key(lat, lon)
+        
+        # Build up history and undo data
+        undo_stack = []
+        
+        for i in range(5):
+            weather = create_weather_input(latitude=lat, longitude=lon)
+            undo_data = state.create_undo_data(weather)
+            undo_stack.append(undo_data)
+            state.apply_input(weather)
+        
+        # State should have 5 updates
+        assert state.update_count == 5
+        assert state.locations[location_key].update_count == 5
+        assert len(state.locations[location_key].report_history) == 4
+        
+        # Undo all operations in reverse
+        for undo_data in reversed(undo_stack):
+            state.apply_undo(undo_data)
+        
+        # State should be empty
+        assert state.update_count == 0
+        assert len(state.locations) == 0

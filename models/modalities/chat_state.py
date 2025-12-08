@@ -456,3 +456,298 @@ class ChatState(ModalityState):
             if message.message_id == message_id:
                 return message.to_dict()
         return None
+
+    def clear(self) -> None:
+        """Reset chat state to empty defaults.
+
+        Clears all messages and conversations, returning the state to
+        a freshly created condition.
+        """
+        self.messages.clear()
+        self.conversations.clear()
+        self.update_count = 0
+
+    def create_undo_data(self, input_data: ModalityInput) -> dict[str, Any]:
+        """Capture minimal data needed to undo applying a ChatInput.
+
+        For chat operations:
+        - send_message: Store message_id to remove, plus conversation creation/capacity info
+        - delete_message: Store the full message being deleted
+        - clear_conversation: Store all messages and metadata being cleared
+
+        Args:
+            input_data: The ChatInput that will be applied.
+
+        Returns:
+            Dictionary containing minimal data needed to undo the operation.
+        """
+        from models.modalities.chat_input import ChatInput
+
+        if not isinstance(input_data, ChatInput):
+            raise ValueError(
+                f"ChatState can only create undo data for ChatInput, got {type(input_data)}"
+            )
+
+        # Ensure input is validated (auto-generates message_id for send_message)
+        input_data.validate_input()
+
+        base_undo: dict[str, Any] = {
+            "state_previous_update_count": self.update_count,
+            "state_previous_last_updated": self.last_updated.isoformat(),
+        }
+
+        if input_data.operation == "send_message":
+            conversation_id = input_data.conversation_id
+            is_new_conversation = conversation_id not in self.conversations
+
+            undo_data = {
+                **base_undo,
+                "action": "remove_message",
+                "message_id": input_data.message_id,
+                "conversation_id": conversation_id,
+                "was_new_conversation": is_new_conversation,
+            }
+
+            if not is_new_conversation:
+                # Capture current conversation metadata for restoration
+                conv = self.conversations[conversation_id]
+                undo_data["previous_conv_metadata"] = {
+                    "last_message_at": conv.last_message_at.isoformat(),
+                    "message_count": conv.message_count,
+                    "participant_roles": list(conv.participant_roles),
+                }
+
+                # Check if we'll exceed capacity and lose messages
+                conv_messages = [m for m in self.messages if m.conversation_id == conversation_id]
+                if len(conv_messages) >= self.max_history_size:
+                    # The oldest message will be removed - capture it
+                    conv_messages.sort(key=lambda m: (m.timestamp, m.message_id))
+                    oldest = conv_messages[0]
+                    undo_data["removed_message"] = {
+                        "message_id": oldest.message_id,
+                        "conversation_id": oldest.conversation_id,
+                        "role": oldest.role,
+                        "content": oldest.content,
+                        "timestamp": oldest.timestamp.isoformat(),
+                        "metadata": oldest.metadata,
+                    }
+
+            return undo_data
+
+        elif input_data.operation == "delete_message":
+            # Find the message that will be deleted
+            message_id = input_data.message_id
+            target_message = None
+            for msg in self.messages:
+                if msg.message_id == message_id:
+                    target_message = msg
+                    break
+
+            if target_message is None:
+                # Message doesn't exist - delete is a no-op, undo is also no-op
+                return {
+                    **base_undo,
+                    "action": "noop",
+                }
+
+            return {
+                **base_undo,
+                "action": "restore_message",
+                "message": {
+                    "message_id": target_message.message_id,
+                    "conversation_id": target_message.conversation_id,
+                    "role": target_message.role,
+                    "content": target_message.content,
+                    "timestamp": target_message.timestamp.isoformat(),
+                    "metadata": target_message.metadata,
+                },
+                "conversation_existed": target_message.conversation_id in self.conversations,
+            }
+
+        elif input_data.operation == "clear_conversation":
+            conversation_id = input_data.conversation_id
+
+            # Capture all messages that will be cleared
+            conv_messages = [m for m in self.messages if m.conversation_id == conversation_id]
+            cleared_messages = [
+                {
+                    "message_id": m.message_id,
+                    "conversation_id": m.conversation_id,
+                    "role": m.role,
+                    "content": m.content,
+                    "timestamp": m.timestamp.isoformat(),
+                    "metadata": m.metadata,
+                }
+                for m in conv_messages
+            ]
+
+            # Capture conversation metadata if it exists
+            conv_metadata = None
+            if conversation_id in self.conversations:
+                conv = self.conversations[conversation_id]
+                conv_metadata = {
+                    "conversation_id": conv.conversation_id,
+                    "created_at": conv.created_at.isoformat(),
+                    "last_message_at": conv.last_message_at.isoformat(),
+                    "message_count": conv.message_count,
+                    "participant_roles": list(conv.participant_roles),
+                }
+
+            return {
+                **base_undo,
+                "action": "restore_conversation",
+                "conversation_id": conversation_id,
+                "cleared_messages": cleared_messages,
+                "conv_metadata": conv_metadata,
+            }
+
+        else:
+            raise ValueError(f"Unknown operation: {input_data.operation}")
+
+    def apply_undo(self, undo_data: dict[str, Any]) -> None:
+        """Apply undo data to reverse a previous chat input application.
+
+        Handles:
+        - remove_message: Removes a message that was added by send_message
+        - restore_message: Restores a message that was deleted
+        - restore_conversation: Restores a cleared conversation
+        - noop: Does nothing (for operations that had no effect)
+
+        Args:
+            undo_data: Dictionary returned by create_undo_data().
+
+        Raises:
+            ValueError: If undo_data is invalid or action is unknown.
+            RuntimeError: If state has been modified in a way that prevents undo.
+        """
+        action = undo_data.get("action")
+        if not action:
+            raise ValueError("Undo data missing 'action' field")
+
+        if action == "noop":
+            # Restore state-level metadata only
+            self.update_count = undo_data["state_previous_update_count"]
+            self.last_updated = datetime.fromisoformat(
+                undo_data["state_previous_last_updated"]
+            )
+            return
+
+        if action == "remove_message":
+            message_id = undo_data.get("message_id")
+            if not message_id:
+                raise ValueError("Undo data missing 'message_id' field")
+
+            conversation_id = undo_data.get("conversation_id")
+            if not conversation_id:
+                raise ValueError("Undo data missing 'conversation_id' field")
+
+            # Remove the message that was added
+            message_found = False
+            for i, msg in enumerate(self.messages):
+                if msg.message_id == message_id:
+                    self.messages.pop(i)
+                    message_found = True
+                    break
+
+            if not message_found:
+                raise RuntimeError(
+                    f"Cannot undo: message '{message_id}' not found in state"
+                )
+
+            # Handle conversation cleanup/restoration
+            if undo_data.get("was_new_conversation"):
+                # Remove the conversation that was created
+                if conversation_id in self.conversations:
+                    del self.conversations[conversation_id]
+            else:
+                # Restore previous conversation metadata
+                if conversation_id in self.conversations:
+                    prev_meta = undo_data.get("previous_conv_metadata", {})
+                    conv = self.conversations[conversation_id]
+                    conv.last_message_at = datetime.fromisoformat(
+                        prev_meta["last_message_at"]
+                    )
+                    conv.message_count = prev_meta["message_count"]
+                    conv.participant_roles = set(prev_meta["participant_roles"])
+
+            # Restore any message that was removed due to capacity limit
+            if "removed_message" in undo_data:
+                removed = undo_data["removed_message"]
+                restored_message = ChatMessage(
+                    message_id=removed["message_id"],
+                    conversation_id=removed["conversation_id"],
+                    role=removed["role"],
+                    content=removed["content"],
+                    timestamp=datetime.fromisoformat(removed["timestamp"]),
+                    metadata=removed["metadata"],
+                )
+                self.messages.append(restored_message)
+                self.messages.sort(key=lambda m: (m.timestamp, m.message_id))
+
+        elif action == "restore_message":
+            # Restore a message that was deleted
+            message_data = undo_data.get("message")
+            if not message_data:
+                raise ValueError("Undo data missing 'message' field")
+
+            restored_message = ChatMessage(
+                message_id=message_data["message_id"],
+                conversation_id=message_data["conversation_id"],
+                role=message_data["role"],
+                content=message_data["content"],
+                timestamp=datetime.fromisoformat(message_data["timestamp"]),
+                metadata=message_data["metadata"],
+            )
+            self.messages.append(restored_message)
+            self.messages.sort(key=lambda m: (m.timestamp, m.message_id))
+
+            # Update conversation metadata
+            conv_id = message_data["conversation_id"]
+            if conv_id in self.conversations:
+                conv = self.conversations[conv_id]
+                conv.message_count += 1
+                # Update last_message_at if this was the most recent
+                msg_time = datetime.fromisoformat(message_data["timestamp"])
+                if msg_time > conv.last_message_at:
+                    conv.last_message_at = msg_time
+
+        elif action == "restore_conversation":
+            # Restore a cleared conversation
+            conversation_id = undo_data.get("conversation_id")
+            if not conversation_id:
+                raise ValueError("Undo data missing 'conversation_id' field")
+
+            # Restore all cleared messages
+            cleared_messages = undo_data.get("cleared_messages", [])
+            for msg_data in cleared_messages:
+                restored_message = ChatMessage(
+                    message_id=msg_data["message_id"],
+                    conversation_id=msg_data["conversation_id"],
+                    role=msg_data["role"],
+                    content=msg_data["content"],
+                    timestamp=datetime.fromisoformat(msg_data["timestamp"]),
+                    metadata=msg_data["metadata"],
+                )
+                self.messages.append(restored_message)
+
+            self.messages.sort(key=lambda m: (m.timestamp, m.message_id))
+
+            # Restore conversation metadata
+            conv_metadata = undo_data.get("conv_metadata")
+            if conv_metadata:
+                self.conversations[conversation_id] = ConversationMetadata(
+                    conversation_id=conv_metadata["conversation_id"],
+                    created_at=datetime.fromisoformat(conv_metadata["created_at"]),
+                    last_message_at=datetime.fromisoformat(conv_metadata["last_message_at"]),
+                    message_count=conv_metadata["message_count"],
+                    participant_roles=set(conv_metadata["participant_roles"]),
+                )
+
+        else:
+            raise ValueError(f"Unknown undo action: {action}")
+
+        # Restore state-level metadata
+        self.update_count = undo_data["state_previous_update_count"]
+        self.last_updated = datetime.fromisoformat(
+            undo_data["state_previous_last_updated"]
+        )

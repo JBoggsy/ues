@@ -1,10 +1,10 @@
 """Simulation lifecycle control endpoints.
 
 These endpoints manage the overall simulation lifecycle: starting, stopping,
-checking status, and resetting.
+checking status, resetting, undo/redo operations, and clearing.
 """
 
-from typing import Optional
+from typing import Any, Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
@@ -100,16 +100,20 @@ class SimulationStatusResponse(BaseModel):
 
 class ResetSimulationResponse(BaseModel):
     """Response model for simulation reset.
-    
+
     Attributes:
-        status: Confirmation status.
+        status: Confirmation status ("reset").
         message: Description of what was reset.
-        cleared_events: Number of event records cleared.
+        cleared_events: Number of events reset to PENDING status.
+        events_undone: Number of events whose state changes were reversed.
+        undo_errors: List of any errors encountered during undo.
     """
 
     status: str
     message: str
     cleared_events: int
+    events_undone: int = 0
+    undo_errors: list[str] = []
 
 
 # Route Handlers
@@ -233,35 +237,337 @@ async def get_simulation_status(engine: SimulationEngineDep):
     )
 
 
-@router.post("/reset")
+@router.post("/reset", response_model=ResetSimulationResponse)
 async def reset_simulation(engine: SimulationEngineDep):
-    """Reset simulation to initial state (NOT YET IMPLEMENTED).
+    """Reset simulation by undoing all executed events.
+
+    This endpoint performs a complete rollback of the simulation:
+    1. Undoes ALL events in the undo stack (reversing state changes)
+    2. Resets all events to PENDING status (preserving them for replay)
+    3. Clears the undo/redo stacks
+    4. Stops the simulation if running
+
+    Time is NOT automatically reset - use POST /simulator/time/set or
+    POST /simulation/clear separately if you need to reset time.
+
+    Use this endpoint when you want to "replay" a simulation scenario
+    from the beginning, with all state changes reversed.
+
+    For a complete wipe (removing all events and clearing all state),
+    use POST /simulation/clear instead.
+
+    Args:
+        engine: The SimulationEngine instance (injected by FastAPI).
+
+    Returns:
+        ResetSimulationResponse with:
+        - status: "reset"
+        - message: Description of what was reset
+        - cleared_events: Number of events reset to PENDING
+        - events_undone: Number of events whose state changes were reversed
+        - undo_errors: List of any errors encountered during undo
+    """
+    result = engine.reset()
+
+    # Build descriptive message
+    if result["events_undone"] > 0:
+        message = (
+            f"Reset complete: reversed {result['events_undone']} state changes, "
+            f"reset {result['events_reset']} events to pending status."
+        )
+    else:
+        message = f"Reset complete: {result['events_reset']} events reset to pending status."
+
+    if result["undo_errors"]:
+        message += f" Warning: {len(result['undo_errors'])} undo errors occurred."
+
+    return ResetSimulationResponse(
+        status="reset",
+        message=message,
+        cleared_events=result["events_reset"],
+        events_undone=result["events_undone"],
+        undo_errors=result["undo_errors"],
+    )
+
+
+class ClearSimulationRequest(BaseModel):
+    """Request model for clearing simulation.
     
-    This endpoint will reset the simulation to a defined "initial state",
-    which includes:
-    - Resetting time to the initial simulation time
-    - Resetting all events to pending status (preserving initial events)
-    - Resetting all modality states to their initial values
+    Attributes:
+        reset_time_to: Optional ISO-format datetime to reset time to.
+                      If not provided, current time is preserved.
+    """
+
+    reset_time_to: Optional[str] = Field(
+        default=None,
+        description="ISO-format datetime to reset time to (optional)",
+    )
+
+
+class ClearSimulationResponse(BaseModel):
+    """Response model for simulation clear.
     
-    The "initial state" concept requires additional infrastructure:
-    - Tracking/snapshotting the initial state when simulation starts
-    - Or loading initial state from a simulation script/scenario file
+    Attributes:
+        status: Confirmation status.
+        events_removed: Number of events removed from queue.
+        modalities_cleared: Number of modality states cleared.
+        time_reset: The time that was set (if reset_time_to was provided).
+        current_time: Current simulator time after clearing.
+    """
+
+    status: str
+    events_removed: int
+    modalities_cleared: int
+    time_reset: Optional[str] = None
+    current_time: str
+
+
+class UndoRedoEventDetail(BaseModel):
+    """Details of a single undone or redone event.
     
-    For now, use `/simulation/clear` to completely empty the simulation,
-    or manually reconfigure as needed.
+    Attributes:
+        event_id: ID of the event that was undone/redone.
+        modality: The modality type of the event.
+        action: The action that was undone/redone (e.g., "receive", "send").
+    """
+
+    event_id: str
+    modality: str
+    action: Optional[str] = None
+
+
+class UndoRequest(BaseModel):
+    """Request model for undo operation.
+    
+    Attributes:
+        count: Number of events to undo (default: 1).
+    """
+
+    count: int = Field(default=1, ge=1, le=100)
+
+
+class UndoResponse(BaseModel):
+    """Response model for undo operation.
+    
+    Attributes:
+        undone_count: Number of events actually undone.
+        undone_events: Details of each undone event.
+        can_undo: Whether more undos are available.
+        can_redo: Whether redos are now available.
+        message: Optional message (e.g., when nothing to undo).
+    """
+
+    undone_count: int
+    undone_events: list[UndoRedoEventDetail]
+    can_undo: bool
+    can_redo: bool
+    message: Optional[str] = None
+
+
+class RedoRequest(BaseModel):
+    """Request model for redo operation.
+    
+    Attributes:
+        count: Number of events to redo (default: 1).
+    """
+
+    count: int = Field(default=1, ge=1, le=100)
+
+
+class RedoResponse(BaseModel):
+    """Response model for redo operation.
+    
+    Attributes:
+        redone_count: Number of events actually redone.
+        redone_events: Details of each redone event.
+        can_undo: Whether undos are now available.
+        can_redo: Whether more redos are available.
+        message: Optional message (e.g., when nothing to redo).
+    """
+
+    redone_count: int
+    redone_events: list[UndoRedoEventDetail]
+    can_undo: bool
+    can_redo: bool
+    message: Optional[str] = None
+
+
+@router.post("/clear", response_model=ClearSimulationResponse)
+async def clear_simulation(
+    engine: SimulationEngineDep,
+    request: Optional[ClearSimulationRequest] = None,
+):
+    """Clear simulation completely.
+    
+    Removes all events from the queue, clears all modality states to their
+    empty defaults, and optionally resets time. This is a destructive operation
+    that removes all simulation data.
+    
+    Use this to start completely fresh without any prior state.
     
     Args:
         engine: The SimulationEngine instance (injected by FastAPI).
+        request: Optional request body with reset_time_to parameter.
     
     Returns:
-        501 Not Implemented error.
+        Summary of what was cleared.
     """
-    raise HTTPException(
-        status_code=501,
-        detail=(
-            "Reset functionality is not yet implemented. "
-            "Resetting to an 'initial state' requires tracking what the initial "
-            "time, events, and modality states were when the simulation started. "
-            "Use POST /simulation/clear to completely empty the simulation instead."
-        ),
-    )
+    from datetime import datetime
+
+    reset_time_to = None
+    if request and request.reset_time_to:
+        try:
+            reset_time_to = datetime.fromisoformat(request.reset_time_to)
+        except ValueError as e:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid datetime format for reset_time_to: {e}",
+            )
+
+    try:
+        result = engine.clear(reset_time_to=reset_time_to)
+        
+        return ClearSimulationResponse(
+            status="cleared",
+            events_removed=result["events_removed"],
+            modalities_cleared=result["modalities_cleared"],
+            time_reset=result["time_reset"],
+            current_time=result["current_time"],
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to clear simulation: {str(e)}",
+        )
+
+
+@router.post("/undo", response_model=UndoResponse)
+async def undo_simulation(
+    engine: SimulationEngineDep,
+    request: Optional[UndoRequest] = None,
+):
+    """Undo previously executed events.
+    
+    Reverses the effects of the most recently executed events. Each undo
+    restores the modality state to what it was before the event was applied.
+    Undone events are moved to the redo stack.
+    
+    Args:
+        engine: The SimulationEngine instance (injected by FastAPI).
+        request: Optional request body with count parameter (default: 1).
+    
+    Returns:
+        Details of what was undone and current undo/redo availability.
+    
+    Raises:
+        HTTPException: If simulation is not running or undo fails.
+    """
+    if not engine.is_running:
+        raise HTTPException(
+            status_code=409,
+            detail="Simulation is not running. Start simulation first.",
+        )
+
+    count = request.count if request else 1
+
+    try:
+        result = engine.undo(count=count)
+        
+        # Convert event details to response model
+        undone_events = [
+            UndoRedoEventDetail(
+                event_id=e["event_id"],
+                modality=e["modality"],
+                action=e.get("action"),
+            )
+            for e in result.get("undone_events", [])
+        ]
+        
+        return UndoResponse(
+            undone_count=result["undone_count"],
+            undone_events=undone_events,
+            can_undo=result["can_undo"],
+            can_redo=result["can_redo"],
+            message=result.get("message"),
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=str(e),
+        )
+    except RuntimeError as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Undo failed: {str(e)}",
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Unexpected error during undo: {str(e)}",
+        )
+
+
+@router.post("/redo", response_model=RedoResponse)
+async def redo_simulation(
+    engine: SimulationEngineDep,
+    request: Optional[RedoRequest] = None,
+):
+    """Redo previously undone events.
+    
+    Re-applies the effects of events that were previously undone. Each redo
+    re-executes the original input on the modality state and moves the
+    entry back to the undo stack.
+    
+    Args:
+        engine: The SimulationEngine instance (injected by FastAPI).
+        request: Optional request body with count parameter (default: 1).
+    
+    Returns:
+        Details of what was redone and current undo/redo availability.
+    
+    Raises:
+        HTTPException: If simulation is not running or redo fails.
+    """
+    if not engine.is_running:
+        raise HTTPException(
+            status_code=409,
+            detail="Simulation is not running. Start simulation first.",
+        )
+
+    count = request.count if request else 1
+
+    try:
+        result = engine.redo(count=count)
+        
+        # Convert event details to response model
+        redone_events = [
+            UndoRedoEventDetail(
+                event_id=e["event_id"],
+                modality=e["modality"],
+                action=e.get("action"),
+            )
+            for e in result.get("redone_events", [])
+        ]
+        
+        return RedoResponse(
+            redone_count=result["redone_count"],
+            redone_events=redone_events,
+            can_undo=result["can_undo"],
+            can_redo=result["can_redo"],
+            message=result.get("message"),
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=str(e),
+        )
+    except RuntimeError as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Redo failed: {str(e)}",
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Unexpected error during redo: {str(e)}",
+        )

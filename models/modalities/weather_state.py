@@ -509,3 +509,132 @@ class WeatherState(ModalityState):
             reports = reports[:limit]
 
         return {"reports": reports, "count": len(reports), "total_count": total_count}
+
+    def clear(self) -> None:
+        """Reset weather state to empty defaults.
+
+        Clears all location weather data, returning the state to
+        a freshly created condition. Preserves the API key configuration.
+        """
+        self.locations.clear()
+        self.update_count = 0
+
+    def create_undo_data(self, input_data: ModalityInput) -> dict[str, Any]:
+        """Capture minimal data needed to undo applying a WeatherInput.
+
+        For weather updates:
+        - If updating existing location: Stores previous report, timestamps, counts,
+          and any removed history entry (if at max capacity)
+        - If adding new location: Stores just the location key for removal
+
+        Args:
+            input_data: The WeatherInput that will be applied.
+
+        Returns:
+            Dictionary containing minimal data needed to undo the operation.
+        """
+        if not isinstance(input_data, WeatherInput):
+            raise ValueError(
+                f"WeatherState can only create undo data for WeatherInput, got {type(input_data)}"
+            )
+
+        location_key = self._get_location_key(input_data.latitude, input_data.longitude)
+
+        if location_key in self.locations:
+            # Updating existing location - need to capture what we're replacing
+            location = self.locations[location_key]
+            undo_data: dict[str, Any] = {
+                "action": "restore_previous",
+                "location_key": location_key,
+                "previous_report": location.current_report.model_dump(),
+                "previous_last_updated": location.last_updated.isoformat(),
+                "previous_update_count": location.update_count,
+                "state_previous_update_count": self.update_count,
+                "state_previous_last_updated": self.last_updated.isoformat(),
+            }
+
+            # If history is at max, we'll lose the oldest entry
+            if len(location.report_history) >= self.max_history_per_location:
+                oldest = location.report_history[0]
+                undo_data["removed_history_entry"] = {
+                    "timestamp": oldest.timestamp.isoformat(),
+                    "report": oldest.report.model_dump(),
+                }
+
+            return undo_data
+        else:
+            # Adding new location - just need the key to remove it
+            return {
+                "action": "remove_location",
+                "location_key": location_key,
+                "state_previous_update_count": self.update_count,
+                "state_previous_last_updated": self.last_updated.isoformat(),
+            }
+
+    def apply_undo(self, undo_data: dict[str, Any]) -> None:
+        """Apply undo data to reverse a previous weather input application.
+
+        Handles two cases:
+        - restore_previous: Restores the previous report for an existing location
+        - remove_location: Removes a location that was added
+
+        Args:
+            undo_data: Dictionary returned by create_undo_data().
+
+        Raises:
+            ValueError: If undo_data is invalid or action is unknown.
+            RuntimeError: If location state has been modified unexpectedly.
+        """
+        action = undo_data.get("action")
+        if not action:
+            raise ValueError("Undo data missing 'action' field")
+
+        location_key = undo_data.get("location_key")
+        if not location_key:
+            raise ValueError("Undo data missing 'location_key' field")
+
+        if action == "remove_location":
+            # Simply remove the location that was added
+            if location_key not in self.locations:
+                raise RuntimeError(
+                    f"Cannot undo: location '{location_key}' not found in state"
+                )
+            del self.locations[location_key]
+
+        elif action == "restore_previous":
+            # Restore the previous state of an existing location
+            if location_key not in self.locations:
+                raise RuntimeError(
+                    f"Cannot undo: location '{location_key}' not found in state"
+                )
+
+            location = self.locations[location_key]
+
+            # Remove the history entry we added (the last one is the previous current)
+            if location.report_history:
+                location.report_history.pop()
+
+            # If we removed an old history entry due to max capacity, restore it
+            if "removed_history_entry" in undo_data:
+                removed = undo_data["removed_history_entry"]
+                restored_entry = WeatherReportHistoryEntry(
+                    timestamp=datetime.fromisoformat(removed["timestamp"]),
+                    report=WeatherReport(**removed["report"]),
+                )
+                location.report_history.insert(0, restored_entry)
+
+            # Restore the previous current report
+            location.current_report = WeatherReport(**undo_data["previous_report"])
+            location.last_updated = datetime.fromisoformat(
+                undo_data["previous_last_updated"]
+            )
+            location.update_count = undo_data["previous_update_count"]
+
+        else:
+            raise ValueError(f"Unknown undo action: {action}")
+
+        # Restore state-level metadata
+        self.update_count = undo_data["state_previous_update_count"]
+        self.last_updated = datetime.fromisoformat(
+            undo_data["state_previous_last_updated"]
+        )

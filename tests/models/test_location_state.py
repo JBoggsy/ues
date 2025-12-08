@@ -697,3 +697,520 @@ class TestLocationStateSerialization:
         for i in range(len(state.location_history)):
             assert restored.location_history[i].latitude == state.location_history[i].latitude
             assert restored.location_history[i].longitude == state.location_history[i].longitude
+
+
+class TestLocationStateCreateUndoData:
+    """Test LocationState.create_undo_data() method.
+    
+    GENERAL PATTERN: All ModalityState subclasses must implement create_undo_data()
+    to capture minimal data needed to reverse an apply_input() operation.
+    """
+
+    def test_create_undo_data_for_first_location_update(self):
+        """Test create_undo_data when no current location exists.
+        
+        LOCATION-SPECIFIC: First update should capture 'clear_current' action.
+        """
+        state = LocationState(
+            last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+        )
+        
+        location_input = create_location_input(
+            latitude=40.7128,
+            longitude=-74.0060,
+            address="New York, NY",
+        )
+        
+        undo_data = state.create_undo_data(location_input)
+        
+        assert undo_data["action"] == "clear_current"
+        assert "state_previous_update_count" in undo_data
+        assert "state_previous_last_updated" in undo_data
+
+    def test_create_undo_data_for_location_update(self):
+        """Test create_undo_data captures previous location state."""
+        state = create_location_state(
+            current_latitude=37.7749,
+            current_longitude=-122.4194,
+            current_address="San Francisco, CA",
+        )
+        state.current_named_location = "Home"
+        
+        new_location = create_location_input(
+            latitude=40.7128,
+            longitude=-74.0060,
+            address="New York, NY",
+        )
+        
+        undo_data = state.create_undo_data(new_location)
+        
+        assert undo_data["action"] == "restore_previous"
+        assert undo_data["previous_latitude"] == 37.7749
+        assert undo_data["previous_longitude"] == -122.4194
+        assert undo_data["previous_address"] == "San Francisco, CA"
+        assert undo_data["previous_named_location"] == "Home"
+
+    def test_create_undo_data_captures_all_optional_fields(self):
+        """Test create_undo_data captures all optional location fields."""
+        state = create_location_state()
+        state.current_altitude = 100.0
+        state.current_accuracy = 10.0
+        state.current_speed = 5.0
+        state.current_bearing = 90.0
+        
+        new_location = create_location_input(
+            latitude=40.7128,
+            longitude=-74.0060,
+        )
+        
+        undo_data = state.create_undo_data(new_location)
+        
+        assert undo_data["previous_altitude"] == 100.0
+        assert undo_data["previous_accuracy"] == 10.0
+        assert undo_data["previous_speed"] == 5.0
+        assert undo_data["previous_bearing"] == 90.0
+
+    def test_create_undo_data_at_capacity(self):
+        """Test create_undo_data captures removed history entry at capacity.
+        
+        GENERAL PATTERN: When capacity limits cause entries to be removed,
+        capture them for potential restoration.
+        """
+        now = datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc)
+        state = LocationState(
+            last_updated=now,
+            max_history_size=3,
+        )
+        
+        # Fill to capacity: 3 history entries + 1 current
+        for i in range(4):
+            state.apply_input(create_location_input(
+                latitude=40.0 + i * 0.1,
+                longitude=-74.0 + i * 0.1,
+                timestamp=now + timedelta(hours=i),
+            ))
+        
+        assert len(state.location_history) == 3
+        oldest_lat = state.location_history[0].latitude
+        
+        # Next update will trim oldest
+        new_location = create_location_input(
+            latitude=45.0,
+            longitude=-75.0,
+            timestamp=now + timedelta(hours=5),
+        )
+        
+        undo_data = state.create_undo_data(new_location)
+        
+        assert "removed_history_entry" in undo_data
+        assert undo_data["removed_history_entry"]["latitude"] == oldest_lat
+
+    def test_create_undo_data_captures_state_metadata(self):
+        """Test create_undo_data captures state-level metadata.
+        
+        GENERAL PATTERN: All undo data must include update_count and last_updated.
+        """
+        now = datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc)
+        state = LocationState(
+            last_updated=now,
+            update_count=5,
+        )
+        
+        location_input = create_location_input()
+        
+        undo_data = state.create_undo_data(location_input)
+        
+        assert undo_data["state_previous_update_count"] == 5
+        assert undo_data["state_previous_last_updated"] == now.isoformat()
+
+    def test_create_undo_data_raises_for_invalid_input_type(self):
+        """Test create_undo_data raises for non-LocationInput.
+        
+        GENERAL PATTERN: Validate input type and fail fast.
+        """
+        from models.modalities.chat_input import ChatInput
+        
+        state = create_location_state()
+        chat_input = ChatInput(
+            timestamp=datetime.now(timezone.utc),
+            operation="send_message",
+            conversation_id="test",
+            role="user",
+            content="Hello",
+        )
+        
+        with pytest.raises(ValueError, match="LocationInput"):
+            state.create_undo_data(chat_input)
+
+    def test_create_undo_data_does_not_modify_state(self):
+        """Test create_undo_data is read-only.
+        
+        GENERAL PATTERN: create_undo_data should not modify state.
+        """
+        state = create_location_state()
+        original_lat = state.current_latitude
+        original_lon = state.current_longitude
+        original_count = state.update_count
+        
+        location_input = create_location_input(latitude=40.0, longitude=-74.0)
+        state.create_undo_data(location_input)
+        
+        assert state.current_latitude == original_lat
+        assert state.current_longitude == original_lon
+        assert state.update_count == original_count
+
+
+class TestLocationStateApplyUndo:
+    """Test LocationState.apply_undo() method.
+    
+    GENERAL PATTERN: All ModalityState subclasses must implement apply_undo()
+    to reverse apply_input() operations using data from create_undo_data().
+    """
+
+    def test_apply_undo_clears_first_location(self):
+        """Test apply_undo clears current location for first update."""
+        state = LocationState(
+            last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+        )
+        
+        location_input = create_location_input(
+            latitude=40.7128,
+            longitude=-74.0060,
+        )
+        
+        undo_data = state.create_undo_data(location_input)
+        state.apply_input(location_input)
+        
+        assert state.current_latitude == 40.7128
+        
+        state.apply_undo(undo_data)
+        
+        assert state.current_latitude is None
+        assert state.current_longitude is None
+        assert state.current_address is None
+
+    def test_apply_undo_restores_previous_location(self):
+        """Test apply_undo restores previous location state."""
+        now = datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc)
+        state = create_location_state(
+            current_latitude=37.7749,
+            current_longitude=-122.4194,
+            current_address="San Francisco, CA",
+            last_updated=now,
+        )
+        
+        new_location = create_location_input(
+            latitude=40.7128,
+            longitude=-74.0060,
+            address="New York, NY",
+            timestamp=now + timedelta(hours=1),
+        )
+        
+        undo_data = state.create_undo_data(new_location)
+        state.apply_input(new_location)
+        
+        assert state.current_latitude == 40.7128
+        assert len(state.location_history) == 1
+        
+        state.apply_undo(undo_data)
+        
+        assert state.current_latitude == 37.7749
+        assert state.current_longitude == -122.4194
+        assert state.current_address == "San Francisco, CA"
+        assert len(state.location_history) == 0
+
+    def test_apply_undo_restores_all_optional_fields(self):
+        """Test apply_undo restores all optional location fields."""
+        state = create_location_state()
+        state.current_altitude = 100.0
+        state.current_accuracy = 10.0
+        state.current_speed = 5.0
+        state.current_bearing = 90.0
+        state.current_named_location = "Home"
+        
+        new_location = create_location_input(
+            latitude=40.7128,
+            longitude=-74.0060,
+            altitude=50.0,
+            accuracy=5.0,
+        )
+        
+        undo_data = state.create_undo_data(new_location)
+        state.apply_input(new_location)
+        
+        state.apply_undo(undo_data)
+        
+        assert state.current_altitude == 100.0
+        assert state.current_accuracy == 10.0
+        assert state.current_speed == 5.0
+        assert state.current_bearing == 90.0
+        assert state.current_named_location == "Home"
+
+    def test_apply_undo_restores_trimmed_history_entry(self):
+        """Test apply_undo restores history entry trimmed at capacity.
+        
+        GENERAL PATTERN: When capacity limits cause entries to be removed,
+        restore them on undo.
+        """
+        now = datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc)
+        state = LocationState(
+            last_updated=now,
+            max_history_size=3,
+        )
+        
+        # Fill to capacity
+        for i in range(4):
+            state.apply_input(create_location_input(
+                latitude=40.0 + i * 0.1,
+                longitude=-74.0 + i * 0.1,
+                address=f"Location {i}",
+                timestamp=now + timedelta(hours=i),
+            ))
+        
+        assert len(state.location_history) == 3
+        oldest_before = state.location_history[0].latitude
+        
+        # Another update will trim
+        new_location = create_location_input(
+            latitude=45.0,
+            longitude=-75.0,
+            timestamp=now + timedelta(hours=5),
+        )
+        
+        undo_data = state.create_undo_data(new_location)
+        state.apply_input(new_location)
+        
+        # Oldest entry was trimmed
+        assert state.location_history[0].latitude != oldest_before
+        
+        state.apply_undo(undo_data)
+        
+        # Oldest entry should be restored
+        assert len(state.location_history) == 3
+        assert state.location_history[0].latitude == oldest_before
+
+    def test_apply_undo_restores_state_metadata(self):
+        """Test apply_undo restores state-level metadata.
+        
+        GENERAL PATTERN: Always restore update_count and last_updated.
+        """
+        now = datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc)
+        state = LocationState(
+            last_updated=now,
+            update_count=5,
+        )
+        
+        location_input = create_location_input(
+            timestamp=now + timedelta(hours=1),
+        )
+        
+        undo_data = state.create_undo_data(location_input)
+        state.apply_input(location_input)
+        
+        assert state.update_count == 6
+        assert state.last_updated != now
+        
+        state.apply_undo(undo_data)
+        
+        assert state.update_count == 5
+        assert state.last_updated == now
+
+    def test_apply_undo_raises_for_missing_action(self):
+        """Test apply_undo raises for missing action field.
+        
+        GENERAL PATTERN: Validate required fields.
+        """
+        state = create_location_state()
+        
+        with pytest.raises(ValueError, match="action"):
+            state.apply_undo({})
+
+    def test_apply_undo_raises_for_unknown_action(self):
+        """Test apply_undo raises for unknown action.
+        
+        GENERAL PATTERN: Handle unknown actions gracefully with clear error.
+        """
+        state = create_location_state()
+        
+        with pytest.raises(ValueError, match="Unknown undo action"):
+            state.apply_undo({"action": "invalid_action"})
+
+    def test_undo_full_cycle_first_update(self):
+        """Test complete undo cycle for first location update.
+        
+        GENERAL PATTERN: create_undo → apply → undo = original state
+        """
+        now = datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc)
+        state = LocationState(last_updated=now)
+        
+        original_snapshot = state.get_snapshot()
+        
+        location_input = create_location_input(
+            latitude=40.7128,
+            longitude=-74.0060,
+            timestamp=now + timedelta(hours=1),
+        )
+        
+        undo_data = state.create_undo_data(location_input)
+        state.apply_input(location_input)
+        state.apply_undo(undo_data)
+        
+        restored_snapshot = state.get_snapshot()
+        
+        assert restored_snapshot["current"] == original_snapshot["current"]
+        assert restored_snapshot["update_count"] == original_snapshot["update_count"]
+
+    def test_undo_full_cycle_with_history(self):
+        """Test complete undo cycle with existing history."""
+        now = datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc)
+        state = create_location_state(last_updated=now)
+        
+        # Build some history
+        state.apply_input(create_location_input(
+            latitude=40.0,
+            longitude=-74.0,
+            timestamp=now + timedelta(hours=1),
+        ))
+        
+        original_history_len = len(state.location_history)
+        original_lat = state.current_latitude
+        
+        # New update to undo
+        new_location = create_location_input(
+            latitude=45.0,
+            longitude=-75.0,
+            timestamp=now + timedelta(hours=2),
+        )
+        
+        undo_data = state.create_undo_data(new_location)
+        state.apply_input(new_location)
+        state.apply_undo(undo_data)
+        
+        assert len(state.location_history) == original_history_len
+        assert state.current_latitude == original_lat
+
+    def test_undo_full_cycle_at_capacity(self):
+        """Test complete undo cycle when at capacity.
+        
+        GENERAL PATTERN: Verify capacity edge case is handled correctly.
+        """
+        now = datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc)
+        state = LocationState(
+            last_updated=now,
+            max_history_size=3,
+        )
+        
+        # Fill to capacity
+        for i in range(4):
+            state.apply_input(create_location_input(
+                latitude=40.0 + i * 0.1,
+                longitude=-74.0 + i * 0.1,
+                timestamp=now + timedelta(hours=i),
+            ))
+        
+        # Capture state at capacity
+        original_history = [
+            (e.latitude, e.longitude) for e in state.location_history
+        ]
+        original_current = (state.current_latitude, state.current_longitude)
+        
+        # Another update
+        new_location = create_location_input(
+            latitude=50.0,
+            longitude=-80.0,
+            timestamp=now + timedelta(hours=5),
+        )
+        
+        undo_data = state.create_undo_data(new_location)
+        state.apply_input(new_location)
+        state.apply_undo(undo_data)
+        
+        restored_history = [
+            (e.latitude, e.longitude) for e in state.location_history
+        ]
+        restored_current = (state.current_latitude, state.current_longitude)
+        
+        assert restored_history == original_history
+        assert restored_current == original_current
+
+    def test_multiple_sequential_undos(self):
+        """Test multiple sequential undo operations.
+        
+        GENERAL PATTERN: Each undo should be independent and work correctly.
+        """
+        now = datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc)
+        state = LocationState(last_updated=now)
+        
+        undo_data_list = []
+        
+        # Apply 3 locations, capturing undo data each time
+        for i in range(3):
+            location = create_location_input(
+                latitude=40.0 + i,
+                longitude=-74.0 + i,
+                address=f"Location {i}",
+                timestamp=now + timedelta(hours=i + 1),
+            )
+            undo_data_list.append(state.create_undo_data(location))
+            state.apply_input(location)
+        
+        assert state.current_latitude == 42.0
+        assert len(state.location_history) == 2
+        
+        # Undo in reverse order
+        state.apply_undo(undo_data_list[2])
+        assert state.current_latitude == 41.0
+        assert len(state.location_history) == 1
+        
+        state.apply_undo(undo_data_list[1])
+        assert state.current_latitude == 40.0
+        assert len(state.location_history) == 0
+        
+        state.apply_undo(undo_data_list[0])
+        assert state.current_latitude is None
+        assert len(state.location_history) == 0
+
+    def test_undo_preserves_history_entry_details(self):
+        """Test that undo preserves all history entry details."""
+        now = datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc)
+        state = LocationState(
+            last_updated=now,
+            max_history_size=2,
+        )
+        
+        # Add locations with full details
+        for i in range(3):
+            state.apply_input(create_location_input(
+                latitude=40.0 + i,
+                longitude=-74.0 + i,
+                address=f"Address {i}",
+                named_location=f"Location {i}",
+                altitude=100.0 + i * 10,
+                accuracy=5.0 + i,
+                speed=10.0 + i,
+                bearing=90.0 + i * 10,
+                timestamp=now + timedelta(hours=i),
+            ))
+        
+        # Capture first entry before it gets trimmed
+        first_entry = state.location_history[0]
+        
+        # New update will trim first entry
+        new_location = create_location_input(
+            latitude=50.0,
+            longitude=-80.0,
+            timestamp=now + timedelta(hours=4),
+        )
+        
+        undo_data = state.create_undo_data(new_location)
+        state.apply_input(new_location)
+        state.apply_undo(undo_data)
+        
+        # Verify first entry is restored with all details
+        restored_first = state.location_history[0]
+        assert restored_first.latitude == first_entry.latitude
+        assert restored_first.altitude == first_entry.altitude
+        assert restored_first.accuracy == first_entry.accuracy
+        assert restored_first.speed == first_entry.speed
+        assert restored_first.bearing == first_entry.bearing
+        assert restored_first.named_location == first_entry.named_location

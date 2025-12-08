@@ -123,6 +123,74 @@ class ModalityState(BaseModel):
         """
         pass
 
+    @abstractmethod
+    def clear(self) -> None:
+        """Reset this state to its empty default.
+
+        Clears all data from this modality state, returning it to the same
+        condition as a freshly created instance. This is used by the simulation
+        clear functionality to completely empty the environment.
+
+        The implementation should:
+        1. Clear all stored data (messages, events, history, etc.)
+        2. Reset any counters or metadata to initial values
+        3. Keep modality_type unchanged (it's frozen)
+        4. Update last_updated to current time
+        5. Reset update_count to 0
+
+        Examples:
+            - EmailState.clear(): Empty inbox, sent, drafts; clear all threads
+            - LocationState.clear(): Reset current location to None, clear history
+            - ChatState.clear(): Clear all conversations and messages
+
+        After calling clear(), the state should pass validate_state() with no errors.
+        """
+        pass
+
+    @abstractmethod
+    def create_undo_data(self, input_data: "ModalityInput") -> dict[str, Any]:
+        """Capture minimal data needed to undo applying the given input.
+
+        Called BEFORE apply_input() to capture current state that will be lost.
+        The returned data should be as space-efficient as possible:
+        - For additive operations: Store only IDs/keys to remove
+        - For destructive operations: Store full objects being replaced/deleted
+
+        This method should NOT modify state - it only captures undo information.
+
+        Examples:
+            - EmailState receiving new email: Return {"action": "remove", "email_id": "..."}
+            - EmailState deleting email: Return {"action": "restore", "email": {...full email...}}
+            - WeatherState updating location: Return previous report if updating, or location key if new
+
+        Args:
+            input_data: The ModalityInput that will be applied.
+
+        Returns:
+            Dictionary containing minimal data needed to undo the operation.
+            Must include an "action" key describing the undo operation type.
+        """
+        pass
+
+    @abstractmethod
+    def apply_undo(self, undo_data: dict[str, Any]) -> None:
+        """Apply undo data to reverse a previous input application.
+
+        Restores the state to what it was before the corresponding apply_input() call.
+        The undo_data comes from a previous create_undo_data() call.
+
+        This method modifies state in-place. After applying undo, the state should
+        be identical to what it was before the original input was applied.
+
+        Args:
+            undo_data: Dictionary returned by create_undo_data() for the operation to undo.
+
+        Raises:
+            ValueError: If undo_data is invalid or corrupted.
+            RuntimeError: If state has been modified in a way that prevents undo.
+        """
+        pass
+
     def get_diff(self, other: "ModalityState") -> dict[str, Any]:
         """Calculate difference between this state and another state.
 

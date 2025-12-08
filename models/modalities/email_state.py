@@ -1047,3 +1047,401 @@ class EmailState(ModalityState):
             "returned_count": len(results),
             "query": query_params,
         }
+
+    def clear(self) -> None:
+        """Reset email state to empty defaults.
+
+        Clears all emails, threads, folders, labels, and drafts,
+        returning the state to a freshly created condition.
+        Standard folders are recreated as empty.
+        """
+        self.emails.clear()
+        self.threads.clear()
+        self.drafts.clear()
+        self.labels.clear()
+        # Recreate standard folders as empty
+        self.folders = {
+            "inbox": [],
+            "sent": [],
+            "drafts": [],
+            "trash": [],
+            "spam": [],
+            "archive": [],
+        }
+        self.update_count = 0
+
+    def create_undo_data(self, input_data: "ModalityInput") -> dict[str, Any]:
+        """Capture minimal data needed to undo applying an EmailInput.
+
+        Args:
+            input_data: The EmailInput that will be applied.
+
+        Returns:
+            Dictionary containing minimal data needed to undo the operation.
+        """
+        from models.modalities.email_input import EmailInput
+
+        if not isinstance(input_data, EmailInput):
+            raise ValueError(
+                f"EmailState can only create undo data for EmailInput, got {type(input_data)}"
+            )
+
+        # Ensure input is validated (auto-generates message_id for add operations)
+        input_data.validate_input()
+
+        # Common state-level metadata
+        base_undo = {
+            "state_previous_update_count": self.update_count,
+            "state_previous_last_updated": self.last_updated.isoformat(),
+        }
+
+        operation = input_data.operation
+
+        # Additive operations - create new email
+        if operation in ("receive", "send", "reply", "reply_all", "forward"):
+            # Generate message_id if not present and SET it on input_data
+            # so that apply_input uses the same ID
+            if not input_data.message_id:
+                input_data.message_id = str(uuid4())
+            message_id = input_data.message_id
+            
+            # For reply/reply_all, thread already exists. For others, new thread created.
+            if operation in ("reply", "reply_all"):
+                # Thread already exists, capture previous thread state
+                if input_data.in_reply_to and input_data.in_reply_to in self.emails:
+                    original = self.emails[input_data.in_reply_to]
+                    thread_id = original.thread_id
+                    if thread_id in self.threads:
+                        thread = self.threads[thread_id]
+                        return {
+                            **base_undo,
+                            "action": "remove_email_restore_thread",
+                            "message_id": message_id,
+                            "thread_id": thread_id,
+                            "previous_thread": thread.model_dump(mode="json"),
+                        }
+                # Fallback if original not found (operation will fail anyway)
+                return {**base_undo, "action": "noop"}
+            else:
+                # New thread will be created - generate and set thread_id too
+                if not input_data.thread_id:
+                    input_data.thread_id = f"thread-{message_id}"
+                thread_id = input_data.thread_id
+                return {
+                    **base_undo,
+                    "action": "remove_email_and_thread",
+                    "message_id": message_id,
+                    "thread_id": thread_id,
+                }
+
+        elif operation == "save_draft":
+            # Generate message_id if not present and SET it on input_data
+            if not input_data.message_id:
+                input_data.message_id = str(uuid4())
+            message_id = input_data.message_id
+            return {
+                **base_undo,
+                "action": "remove_draft",
+                "message_id": message_id,
+            }
+
+        elif operation == "send_draft":
+            # Draft moves from drafts folder to sent folder
+            if input_data.message_id and input_data.message_id in self.drafts:
+                draft = self.drafts[input_data.message_id]
+                return {
+                    **base_undo,
+                    "action": "restore_draft",
+                    "message_id": input_data.message_id,
+                    "previous_folder": draft.folder,
+                    "previous_sent_at": draft.sent_at.isoformat() if draft.sent_at else None,
+                }
+            return {**base_undo, "action": "noop"}
+
+        elif operation in ("mark_read", "mark_unread"):
+            # Capture previous read state for all affected emails
+            message_ids = self._get_message_ids_from_input(input_data)
+            previous_states: dict[str, dict[str, Any]] = {}
+            for msg_id in message_ids:
+                if msg_id in self.emails:
+                    email = self.emails[msg_id]
+                    previous_states[msg_id] = {
+                        "was_read": email.is_read,
+                        "thread_id": email.thread_id,
+                    }
+            if not previous_states:
+                return {**base_undo, "action": "noop"}
+            return {
+                **base_undo,
+                "action": "restore_read_states",
+                "previous_states": previous_states,
+            }
+
+        elif operation in ("star", "unstar"):
+            # Capture previous starred state for all affected emails
+            message_ids = self._get_message_ids_from_input(input_data)
+            previous_states: dict[str, bool] = {}
+            for msg_id in message_ids:
+                if msg_id in self.emails:
+                    previous_states[msg_id] = self.emails[msg_id].is_starred
+            if not previous_states:
+                return {**base_undo, "action": "noop"}
+            return {
+                **base_undo,
+                "action": "restore_starred_states",
+                "previous_states": previous_states,
+            }
+
+        elif operation in ("move", "delete", "archive", "mark_spam", "mark_not_spam"):
+            # Capture previous folder for all affected emails
+            message_ids = self._get_message_ids_from_input(input_data)
+            previous_folders: dict[str, str] = {}
+            for msg_id in message_ids:
+                if msg_id in self.emails:
+                    previous_folders[msg_id] = self.emails[msg_id].folder
+            if not previous_folders:
+                return {**base_undo, "action": "noop"}
+            return {
+                **base_undo,
+                "action": "restore_folders",
+                "previous_folders": previous_folders,
+            }
+
+        elif operation == "add_label":
+            # Capture which emails didn't have each label before
+            message_ids = self._get_message_ids_from_input(input_data)
+            labels_to_add = input_data.labels or []
+            # Track previous label state for each email
+            previous_label_states: dict[str, list[str]] = {}
+            for msg_id in message_ids:
+                if msg_id in self.emails:
+                    previous_label_states[msg_id] = list(self.emails[msg_id].labels)
+            # Track which labels existed before (for cleanup of empty labels)
+            existing_labels = [lbl for lbl in labels_to_add if lbl in self.labels]
+            if not previous_label_states:
+                return {**base_undo, "action": "noop"}
+            return {
+                **base_undo,
+                "action": "restore_labels_after_add",
+                "previous_label_states": previous_label_states,
+                "labels_added": labels_to_add,
+                "labels_existed_before": existing_labels,
+            }
+
+        elif operation == "remove_label":
+            # Capture which labels each email had before
+            message_ids = self._get_message_ids_from_input(input_data)
+            labels_to_remove = input_data.labels or []
+            previous_label_states: dict[str, list[str]] = {}
+            for msg_id in message_ids:
+                if msg_id in self.emails:
+                    previous_label_states[msg_id] = list(self.emails[msg_id].labels)
+            if not previous_label_states:
+                return {**base_undo, "action": "noop"}
+            return {
+                **base_undo,
+                "action": "restore_labels_after_remove",
+                "previous_label_states": previous_label_states,
+                "labels_removed": labels_to_remove,
+            }
+
+        # Unknown operation - should not happen
+        return {**base_undo, "action": "noop"}
+
+    def apply_undo(self, undo_data: dict[str, Any]) -> None:
+        """Apply undo data to reverse a previous email input application.
+
+        Args:
+            undo_data: Dictionary returned by create_undo_data().
+        """
+        action = undo_data.get("action")
+        if not action:
+            raise ValueError("Undo data missing 'action' field")
+
+        # Handle noop first
+        if action == "noop":
+            self.update_count = undo_data["state_previous_update_count"]
+            self.last_updated = datetime.fromisoformat(
+                undo_data["state_previous_last_updated"]
+            )
+            return
+
+        # Remove email and its thread (for receive, send, forward)
+        if action == "remove_email_and_thread":
+            message_id = undo_data.get("message_id")
+            thread_id = undo_data.get("thread_id")
+            if not message_id or not thread_id:
+                raise ValueError("Undo data missing 'message_id' or 'thread_id'")
+
+            if message_id in self.emails:
+                email = self.emails[message_id]
+                # Remove from folder
+                if email.folder in self.folders:
+                    if message_id in self.folders[email.folder]:
+                        self.folders[email.folder].remove(message_id)
+                # Remove from labels
+                for label in list(email.labels):
+                    if label in self.labels and message_id in self.labels[label]:
+                        self.labels[label].remove(message_id)
+                # Remove email
+                del self.emails[message_id]
+
+            # Remove thread if it exists
+            if thread_id in self.threads:
+                del self.threads[thread_id]
+
+        # Remove email and restore thread to previous state (for reply, reply_all)
+        elif action == "remove_email_restore_thread":
+            message_id = undo_data.get("message_id")
+            thread_id = undo_data.get("thread_id")
+            previous_thread = undo_data.get("previous_thread")
+            if not message_id or not thread_id or not previous_thread:
+                raise ValueError(
+                    "Undo data missing 'message_id', 'thread_id', or 'previous_thread'"
+                )
+
+            if message_id in self.emails:
+                email = self.emails[message_id]
+                # Remove from folder
+                if email.folder in self.folders:
+                    if message_id in self.folders[email.folder]:
+                        self.folders[email.folder].remove(message_id)
+                # Remove from labels
+                for label in list(email.labels):
+                    if label in self.labels and message_id in self.labels[label]:
+                        self.labels[label].remove(message_id)
+                # Remove email
+                del self.emails[message_id]
+
+            # Restore thread to previous state
+            previous_thread["participant_addresses"] = set(
+                previous_thread.get("participant_addresses", [])
+            )
+            self.threads[thread_id] = EmailThread.model_validate(previous_thread)
+
+        # Remove draft (for save_draft)
+        elif action == "remove_draft":
+            message_id = undo_data.get("message_id")
+            if not message_id:
+                raise ValueError("Undo data missing 'message_id'")
+
+            if message_id in self.emails:
+                # Remove from drafts folder
+                if message_id in self.folders["drafts"]:
+                    self.folders["drafts"].remove(message_id)
+                # Remove from drafts dict
+                if message_id in self.drafts:
+                    del self.drafts[message_id]
+                # Remove email
+                del self.emails[message_id]
+
+        # Restore draft (for send_draft)
+        elif action == "restore_draft":
+            message_id = undo_data.get("message_id")
+            previous_folder = undo_data.get("previous_folder")
+            previous_sent_at = undo_data.get("previous_sent_at")
+            if not message_id:
+                raise ValueError("Undo data missing 'message_id'")
+
+            if message_id in self.emails:
+                email = self.emails[message_id]
+                # Move back to drafts folder
+                if email.folder in self.folders:
+                    if message_id in self.folders[email.folder]:
+                        self.folders[email.folder].remove(message_id)
+                email.folder = previous_folder or "drafts"
+                if email.folder not in self.folders:
+                    self.folders[email.folder] = []
+                self.folders[email.folder].append(message_id)
+                # Restore sent_at
+                if previous_sent_at:
+                    email.sent_at = datetime.fromisoformat(previous_sent_at)
+                # Re-add to drafts dict
+                self.drafts[message_id] = email
+
+        # Restore read states (for mark_read, mark_unread)
+        elif action == "restore_read_states":
+            previous_states = undo_data.get("previous_states", {})
+            for msg_id, state_info in previous_states.items():
+                if msg_id in self.emails:
+                    email = self.emails[msg_id]
+                    old_is_read = email.is_read
+                    new_is_read = state_info["was_read"]
+                    email.is_read = new_is_read
+                    # Update thread unread count
+                    thread_id = state_info.get("thread_id")
+                    if thread_id and thread_id in self.threads:
+                        if old_is_read and not new_is_read:
+                            # Was read, now unread - increment
+                            self.threads[thread_id].update_unread_count(1)
+                        elif not old_is_read and new_is_read:
+                            # Was unread, now read - decrement
+                            self.threads[thread_id].update_unread_count(-1)
+
+        # Restore starred states (for star, unstar)
+        elif action == "restore_starred_states":
+            previous_states = undo_data.get("previous_states", {})
+            for msg_id, was_starred in previous_states.items():
+                if msg_id in self.emails:
+                    self.emails[msg_id].is_starred = was_starred
+
+        # Restore folders (for move, delete, archive, mark_spam, mark_not_spam)
+        elif action == "restore_folders":
+            previous_folders = undo_data.get("previous_folders", {})
+            for msg_id, old_folder in previous_folders.items():
+                if msg_id in self.emails:
+                    email = self.emails[msg_id]
+                    current_folder = email.folder
+                    if current_folder != old_folder:
+                        self._move_email(msg_id, current_folder, old_folder)
+
+        # Restore labels after add_label
+        elif action == "restore_labels_after_add":
+            previous_label_states = undo_data.get("previous_label_states", {})
+            labels_added = undo_data.get("labels_added", [])
+            labels_existed_before = undo_data.get("labels_existed_before", [])
+
+            # Restore each email's labels to previous state
+            for msg_id, old_labels in previous_label_states.items():
+                if msg_id in self.emails:
+                    email = self.emails[msg_id]
+                    # Remove labels that were added
+                    for label in labels_added:
+                        if label not in old_labels and label in email.labels:
+                            email.remove_label(label)
+                            if label in self.labels and msg_id in self.labels[label]:
+                                self.labels[label].remove(msg_id)
+
+            # Remove labels that didn't exist before (were created by add_label)
+            for label in labels_added:
+                if label not in labels_existed_before:
+                    # Label was created by this operation, remove if now empty
+                    if label in self.labels and len(self.labels[label]) == 0:
+                        del self.labels[label]
+
+        # Restore labels after remove_label
+        elif action == "restore_labels_after_remove":
+            previous_label_states = undo_data.get("previous_label_states", {})
+            labels_removed = undo_data.get("labels_removed", [])
+
+            # Restore each email's labels to previous state
+            for msg_id, old_labels in previous_label_states.items():
+                if msg_id in self.emails:
+                    email = self.emails[msg_id]
+                    # Re-add labels that were removed
+                    for label in labels_removed:
+                        if label in old_labels and label not in email.labels:
+                            email.add_label(label)
+                            if label not in self.labels:
+                                self.labels[label] = []
+                            if msg_id not in self.labels[label]:
+                                self.labels[label].append(msg_id)
+
+        else:
+            raise ValueError(f"Unknown undo action: {action}")
+
+        # Restore state-level metadata
+        self.update_count = undo_data["state_previous_update_count"]
+        self.last_updated = datetime.fromisoformat(
+            undo_data["state_previous_last_updated"]
+        )
