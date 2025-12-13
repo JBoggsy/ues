@@ -106,7 +106,7 @@ class HourlyForecast(BaseModel):
     dew_point: float = Field(description="Dew point temperature")
     uvi: float = Field(description="UV index")
     clouds: int = Field(description="Cloudiness percentage")
-    visibility: int = Field(description="Visibility in meters")
+    visibility: Optional[int] = Field(default=None, description="Visibility in meters")
     wind_speed: float = Field(description="Wind speed")
     wind_deg: int = Field(description="Wind direction in degrees")
     wind_gust: Optional[float] = Field(default=None, description="Wind gust speed")

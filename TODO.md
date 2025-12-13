@@ -2,7 +2,7 @@
 
 ## Test Suite Summary
 
-**Total Tests: 2,135 (2,133 passing, 2 skipped)**
+**Total Tests: 2,626 passing**
 
 | Category | Test Count | Location |
 |----------|------------|----------|
@@ -13,6 +13,7 @@
 | API Unit Tests | 285 | `tests/api/unit/` |
 | API Workflow Tests | 47 | `tests/api/workflows/` |
 | Cross-Cutting Tests | 105 | `tests/api/cross_cutting/` |
+| API Client Library Tests | 491 | `tests/client/` (437 unit tests + 54 integration tests) |
 
 Run all tests: `uv run pytest`
 
@@ -372,7 +373,17 @@ Run all tests: `uv run pytest`
   - [x] Tutorial: Manual time control workflow (`docs/guides/TUTORIAL_MANUAL_TIME.md`)
   - [ ] Tutorial: Building an agent response loop
   - [ ] Examples collection (copy-paste snippets)
-- [ ] Write API client library (optional)
+
+### API Client Library ✅
+- [x] Write API client library (491 tests passing)
+  - See `docs/API_CLIENT_IMPLEMENTATION_PLAN.md` for full implementation plan
+  - See `docs/API_CLIENT.md` for usage documentation
+  - [x] Phase 1: Core infrastructure (`client/_http.py`, `client/exceptions.py`, `client/_base.py`)
+  - [x] Phase 2: Control sub-clients (`client/_time.py`, `client/_simulation.py`, `client/_events.py`, `client/_environment.py`)
+  - [x] Phase 3: Modality sub-clients (`client/_email.py`, `client/_sms.py`, `client/_chat.py`, `client/_calendar.py`, `client/_location.py`, `client/_weather.py`)
+  - [x] Phase 4: Main client classes (`client/client.py`, `client/__init__.py`)
+  - [x] Phase 5: Unit tests (437 tests) + Integration tests (54 tests)
+  - [x] Phase 6: Documentation (`docs/API_CLIENT.md`) + docstrings
 
 ## Phase 3: Web App UI (After API)
 - [ ] TBD - Design interface based on API capabilities
