@@ -57,14 +57,14 @@ Run all tests: `uv run pytest`
   - Depends on: Contacts modality (for display names, blocking)
 
 ### Modality State Summaries
-- [ ] Override `summary` property for each `ModalityState` subclass (used by `/environment/state`)
-  - [ ] `LocationState.summary` - e.g., "At 123 Main St, New York" or "Location not set"
-  - [ ] `TimeState.summary` - e.g., "UTC, 12h format"
-  - [ ] `WeatherState.summary` - e.g., "Weather data for 3 locations"
-  - [ ] `ChatState.summary` - e.g., "15 messages in 2 conversations"
-  - [ ] `EmailState.summary` - e.g., "3 unread, 12 total emails"
-  - [ ] `CalendarState.summary` - e.g., "2 events today, 5 this week"
-  - [ ] `SMSState.summary` - e.g., "4 conversations, 2 unread"
+- [x] Override `summary` property for each `ModalityState` subclass (used by `/environment/state`)
+  - [x] `LocationState.summary` - e.g., "At 123 Main St, New York" or "Location not set"
+  - [x] `TimeState.summary` - e.g., "UTC, 12h format"
+  - [x] `WeatherState.summary` - e.g., "Weather data for 3 locations"
+  - [x] `ChatState.summary` - e.g., "15 messages in 2 conversations"
+  - [x] `EmailState.summary` - e.g., "3 unread, 12 total emails"
+  - [x] `CalendarState.summary` - e.g., "2 events today, 5 this week"
+  - [x] `SMSState.summary` - e.g., "4 conversations, 2 unread"
 
 ### Priority 3 Modalities (Complex Integrations)
 - [ ] **Contacts**: `ContactInput` (add/update/delete contact) + `ContactState` (contact database)
@@ -386,7 +386,70 @@ Run all tests: `uv run pytest`
   - [x] Phase 6: Documentation (`docs/API_CLIENT.md`) + docstrings
 
 ## Phase 3: Web App UI (After API)
-- [ ] TBD - Design interface based on API capabilities
+
+See `docs/WEB_UI_IMPLEMENTATION_PLAN.md` for detailed implementation plan.
+
+### Tech Stack
+- **Framework**: React 18 + TypeScript
+- **Build Tool**: Vite
+- **Styling**: Tailwind CSS + shadcn/ui
+- **State Management**: TanStack Query (server state), Zustand (client state)
+- **Routing**: React Router v6
+
+### Phase 3.1: Project Setup & Core Layout ✅
+- [x] Initialize Vite + React + TypeScript project (`webapp/`)
+- [x] Configure Tailwind CSS and shadcn/ui
+- [x] Set up path aliases (`@/`)
+- [x] Create API client layer with TanStack Query hooks
+- [x] Create layout components (Header, Sidebar, MainContent)
+- [x] Set up routing (Dashboard, Events, Modalities)
+- [x] Build production bundle verified
+
+### Phase 3.2: Simulation Controls ✅
+- [x] Time display component (TimeDisplay)
+- [x] Time scale slider (TimeScaleSlider)
+- [x] Time advancement controls (TimeAdvanceControls)
+- [x] Simulation status display (SimulationStatus)
+- [x] Connect all controls to live backend (requires running server)
+
+### Phase 3.3: Environment Overview ✅
+- [x] Dashboard with modality summary cards
+- [x] Sidebar with modality navigation
+- [x] Modality summary badges (uses backend summary property implementation)
+
+### Phase 3.4: Event Management
+- [x] Event list view with status filtering
+- [x] Event detail modal (JSON view)
+- [x] Cancel pending events
+- [x] Event creation form (per-modality dynamic forms)
+  - [x] Event creation dialog with modality selector
+  - [x] Immediate vs scheduled event toggle
+  - [x] LocationForm (lat/lon, address, named location, altitude, speed, bearing)
+  - [x] WeatherForm (city presets, conditions, temperature, humidity, wind, clouds)
+  - [x] TimeForm (timezone presets/custom, 12h/24h format, date format, locale, week start)
+  - [x] EmailForm (receive/send/reply operations, action operations like mark_read/delete/move)
+  - [x] SMSForm (send/receive messages, reactions, delivery status, group operations)
+  - [x] ChatForm (send_message, delete_message, clear_conversation with metadata)
+  - [x] CalendarForm (create/update/delete, recurrence, attendees, reminders)
+  - [x] Toast notifications for event scheduling and execution
+- [x] Event timeline visualization
+
+### Phase 3.5: Modality Detail Viewers
+- [ ] Email viewer (folders, threads, messages)
+- [ ] SMS viewer (conversations, message bubbles)
+- [ ] Calendar viewer (day/week/month views)
+- [ ] Chat viewer (conversation history)
+- [ ] Location viewer (current + history)
+- [ ] Weather viewer (current conditions + forecast)
+- [ ] Time preferences viewer
+
+### Phase 3.6: Polish & Configuration
+- [ ] Settings page (API URL, polling intervals)
+- [ ] Export/import environment state
+- [ ] Export/import event sequences
+- [ ] Error handling and toast notifications
+- [ ] Loading states and skeletons
+- [ ] Accessibility audit
 
 ## Phase 4: Event Agent Integration
 - [ ] Event Agent Configuration model (id, name, prompt_template, triggers)

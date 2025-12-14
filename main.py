@@ -14,6 +14,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import ValidationError
 
 from api.dependencies import initialize_simulation_engine, shutdown_simulation_engine
@@ -72,6 +73,21 @@ app = FastAPI(
     description="API for simulating user environments to test AI personal assistants",
     version="0.1.0",
     lifespan=lifespan,  # Register the lifespan handler
+)
+
+# Configure CORS for web UI access
+# Allow requests from the Vite dev server and common localhost ports
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",  # Vite dev server
+        "http://localhost:3000",  # Common React dev port
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:3000",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Register exception handlers

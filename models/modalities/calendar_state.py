@@ -548,6 +548,34 @@ class CalendarState(ModalityState):
             "event_count": len(self.events),
         }
 
+    @property
+    def summary(self) -> str:
+        """Return a brief human-readable summary of calendar state.
+
+        Returns:
+            A summary like "2 events today, 5 this week" or "No events".
+        """
+        from datetime import date, timedelta
+
+        if not self.events:
+            return "No events"
+
+        today = date.today()
+        week_start = today
+        week_end = today + timedelta(days=7)
+
+        events_today = 0
+        events_this_week = 0
+
+        for event in self.events.values():
+            event_date = event.start.date() if hasattr(event.start, 'date') else event.start
+            if event_date == today:
+                events_today += 1
+            if week_start <= event_date < week_end:
+                events_this_week += 1
+
+        return f"{events_today} events today, {events_this_week} this week"
+
     def validate_state(self) -> list[str]:
         """Validate state consistency.
 

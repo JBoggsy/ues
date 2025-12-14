@@ -65,12 +65,13 @@ When building features, refer to the README's modality list:
 - ✅ Core simulation engine and event system
 - ✅ Priority 1 & 2 modality data models (Location, Time, Weather, Chat, Email, Calendar, SMS)
 - ✅ Comprehensive documentation for implemented components
+- ✅ FastAPI REST API implementations
+- ✅ API endpoints for each modality
+- ✅ Client API library
 
 **In Progress / Next Steps**:
 - ⏳ Priority 3 modality implementations (Contacts, File System, Discord, Slack, Social Media, Screen)
-- ⏳ FastAPI REST API implementation
 - ⏳ Web UI for environment configuration
-- ⏳ API endpoints for each modality
 - ⏳ Agent integration framework
 
 ## Design Patterns to Follow
@@ -131,6 +132,11 @@ When building features, refer to the README's modality list:
   - `test_<specific_feature>_*`: Modality-specific tests
 - **Test organization**: Group related tests using pytest test classes when helpful
 - **Use fixtures**: Leverage pre-built fixtures from `tests/fixtures/modalities/` to reduce boilerplate
+
+### Commit Messages
+- Use clear, descriptive commit messages
+- Follow industry-standard conventions (e.g., "Add", "Fix", "Update", "Refactor", "Remove")
+- Always add "AI generated commit message" at the end of the commit message body
 
 **Example:**
 ```python

@@ -165,6 +165,15 @@ class TimeState(ModalityState):
 
         return snapshot
 
+    @property
+    def summary(self) -> str:
+        """Return a brief human-readable summary of time settings.
+
+        Returns:
+            A summary like "UTC, 12h format".
+        """
+        return f"{self.timezone}, {self.format_preference} format"
+
     def validate_state(self) -> list[str]:
         """Validate internal state consistency and return any issues.
 

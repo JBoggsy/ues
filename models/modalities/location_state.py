@@ -203,6 +203,23 @@ class LocationState(ModalityState):
 
         return snapshot
 
+    @property
+    def summary(self) -> str:
+        """Return a brief human-readable summary of the current location.
+
+        Returns:
+            A summary like "At 123 Main St, New York" or "Location not set".
+        """
+        if self.current_latitude is None or self.current_longitude is None:
+            return "Location not set"
+
+        # Prefer named location, then address, then coordinates
+        if self.current_named_location:
+            return f"At {self.current_named_location}"
+        if self.current_address:
+            return f"At {self.current_address}"
+        return f"At {self.current_latitude:.4f}, {self.current_longitude:.4f}"
+
     def validate_state(self) -> list[str]:
         """Validate internal state consistency and return any issues.
 

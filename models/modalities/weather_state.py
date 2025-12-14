@@ -204,6 +204,21 @@ class WeatherState(ModalityState):
             "location_count": len(self.locations),
         }
 
+    @property
+    def summary(self) -> str:
+        """Return a brief human-readable summary of weather state.
+
+        Returns:
+            A summary like "Weather data for 3 locations" or "No weather data".
+        """
+        count = len(self.locations)
+        if count == 0:
+            return "No weather data"
+        elif count == 1:
+            return "Weather data for 1 location"
+        else:
+            return f"Weather data for {count} locations"
+
     def validate_state(self) -> list[str]:
         """Validate internal state consistency and return any issues.
 

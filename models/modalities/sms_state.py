@@ -1006,6 +1006,23 @@ class SMSState(ModalityState):
             ),
         }
 
+    @property
+    def summary(self) -> str:
+        """Return a brief human-readable summary of SMS state.
+
+        Returns:
+            A summary like "4 conversations, 2 unread" or "No conversations".
+        """
+        conversation_count = len(self.conversations)
+        if conversation_count == 0:
+            return "No conversations"
+
+        unread_count = sum(conv.unread_count for conv in self.conversations.values())
+        conv_part = (
+            "1 conversation" if conversation_count == 1 else f"{conversation_count} conversations"
+        )
+        return f"{conv_part}, {unread_count} unread"
+
     def validate_state(self) -> list[str]:
         """Validate internal state consistency.
 

@@ -265,6 +265,25 @@ class ChatState(ModalityState):
             "conversation_count": len(self.conversations),
         }
 
+    @property
+    def summary(self) -> str:
+        """Return a brief human-readable summary of chat state.
+
+        Returns:
+            A summary like "15 messages in 2 conversations" or "No messages".
+        """
+        message_count = len(self.messages)
+        conversation_count = len(self.conversations)
+
+        if message_count == 0:
+            return "No messages"
+
+        msg_part = "1 message" if message_count == 1 else f"{message_count} messages"
+        conv_part = (
+            "1 conversation" if conversation_count == 1 else f"{conversation_count} conversations"
+        )
+        return f"{msg_part} in {conv_part}"
+
     def validate_state(self) -> list[str]:
         """Validate internal state consistency and return any issues.
 

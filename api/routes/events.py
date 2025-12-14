@@ -143,9 +143,9 @@ class EventResponse(BaseModel):
     status: str
     priority: int
     created_at: datetime
+    data: dict[str, Any] = None
     executed_at: Optional[datetime] = None
     error_message: Optional[str] = None
-    data: Optional[dict[str, Any]] = None
 
 
 class EventListResponse(BaseModel):
@@ -256,6 +256,7 @@ async def list_events(
             created_at=e.created_at,
             executed_at=e.executed_at,
             error_message=e.error_message,
+            data=e.data.model_dump(),
         )
         for e in events
     ]
@@ -286,7 +287,7 @@ async def create_event(request: CreateEventRequest, engine: SimulationEngineDep)
     
     Args:
         request: Event details including modality and data.
-        engine: The SimulationEngine instance (injected by FastAPI).
+        engine: The SimulationEngine i  nstance (injected by FastAPI).
     
     Returns:
         The created event details.

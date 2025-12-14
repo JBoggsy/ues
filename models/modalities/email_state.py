@@ -831,6 +831,20 @@ class EmailState(ModalityState):
             "draft_count": len(self.drafts),
         }
 
+    @property
+    def summary(self) -> str:
+        """Return a brief human-readable summary of email state.
+
+        Returns:
+            A summary like "3 unread, 12 total emails" or "No emails".
+        """
+        total_count = len(self.emails)
+        if total_count == 0:
+            return "No emails"
+
+        unread_count = sum(1 for e in self.emails.values() if not e.is_read)
+        return f"{unread_count} unread, {total_count} total emails"
+
     def get_summary_data(self) -> dict[str, Any]:
         """Return a compact summary of email state without full email contents.
 
