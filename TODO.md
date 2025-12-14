@@ -435,7 +435,7 @@ See `docs/WEB_UI_IMPLEMENTATION_PLAN.md` for detailed implementation plan.
 - [x] Event timeline visualization
 
 ### Phase 3.5: Modality Detail Viewers
-- [ ] Email viewer (folders, threads, messages)
+- [x] Email viewer (folders, threads, messages)
 - [ ] SMS viewer (conversations, message bubbles)
 - [ ] Calendar viewer (day/week/month views)
 - [ ] Chat viewer (conversation history)

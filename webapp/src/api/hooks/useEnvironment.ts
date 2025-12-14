@@ -42,7 +42,8 @@ export function useModalityState<T = unknown>(modality: Modality, pollingInterva
     queryKey: [...QUERY_KEY, 'modalities', modality],
     queryFn: async () => {
       const response = await apiClient.get(`/environment/modalities/${modality}`);
-      return response.data;
+      // API returns { modality_type, current_time, state }, extract just the state
+      return response.data.state;
     },
     refetchInterval: pollingInterval,
     enabled: !!modality,
