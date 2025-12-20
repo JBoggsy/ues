@@ -10,11 +10,15 @@ To run in production:
     uv run uvicorn main:app --host 0.0.0.0 --port 8000
 """
 
+import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import ValidationError
 
 from api.dependencies import initialize_simulation_engine, shutdown_simulation_engine
@@ -76,15 +80,10 @@ app = FastAPI(
 )
 
 # Configure CORS for web UI access
-# Allow requests from the Vite dev server and common localhost ports
+# Allow all origins to support Replit's proxy
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",  # Vite dev server
-        "http://localhost:3000",  # Common React dev port
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:3000",
-    ],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -137,3 +136,16 @@ async def health_check():
         A dictionary indicating the service is healthy.
     """
     return {"status": "healthy"}
+
+
+STATIC_DIR = Path(__file__).parent / "webapp" / "dist"
+if STATIC_DIR.exists():
+    app.mount("/assets", StaticFiles(directory=STATIC_DIR / "assets"), name="assets")
+    
+    @app.get("/{full_path:path}")
+    async def serve_spa(full_path: str):
+        """Serve the SPA for all non-API routes in production."""
+        file_path = STATIC_DIR / full_path
+        if file_path.exists() and file_path.is_file():
+            return FileResponse(file_path)
+        return FileResponse(STATIC_DIR / "index.html")
