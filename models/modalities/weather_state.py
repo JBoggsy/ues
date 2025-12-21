@@ -78,6 +78,7 @@ class WeatherLocationState(BaseModel):
             "last_updated": self.last_updated.isoformat(),
             "update_count": self.update_count,
             "history_count": len(self.report_history),
+            "history": [entry.to_dict() for entry in self.report_history],
         }
 
 

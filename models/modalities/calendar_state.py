@@ -909,6 +909,60 @@ class CalendarState(ModalityState):
 
         del self.calendars[calendar_id]
 
+    def update_calendar(
+        self,
+        calendar_id: str,
+        name: str | None = None,
+        color: str | None = None,
+        visible: bool | None = None,
+        default_reminders: list[Reminder] | None = None,
+    ) -> Calendar:
+        """Update an existing calendar's properties.
+
+        Args:
+            calendar_id: Calendar identifier to update.
+            name: New calendar display name (optional).
+            color: New calendar color (optional).
+            visible: New visibility setting (optional).
+            default_reminders: New default reminder settings (optional).
+
+        Returns:
+            Updated Calendar object.
+
+        Raises:
+            ValueError: If calendar not found.
+        """
+        if calendar_id not in self.calendars:
+            raise ValueError(f"Calendar {calendar_id} not found")
+
+        calendar = self.calendars[calendar_id]
+
+        if name is not None:
+            calendar.name = name
+        if color is not None:
+            calendar.color = color
+        if visible is not None:
+            calendar.visible = visible
+        if default_reminders is not None:
+            calendar.default_reminders = default_reminders
+
+        calendar.updated_at = datetime.now(timezone.utc)
+        return calendar
+
+    def set_default_calendar(self, calendar_id: str) -> None:
+        """Set a calendar as the default calendar for new events.
+
+        Args:
+            calendar_id: Calendar identifier to set as default.
+
+        Raises:
+            ValueError: If calendar not found.
+        """
+        if calendar_id not in self.calendars:
+            raise ValueError(f"Calendar {calendar_id} not found")
+
+        self.default_calendar_id = calendar_id
+
     def clear(self) -> None:
         """Reset calendar state to empty defaults.
 

@@ -245,10 +245,10 @@ Run all tests: `uv run pytest`
   - [x] `GET /simulation/status` - Get status and metrics
   - [x] `POST /simulation/reset` - Reset to initial state
 - [x] Implement Modality Convenience Routes (`api/routes/modalities.py`)
-  - [x] `POST /modalities/chat/submit` - Submit chat message
-  - [x] `POST /modalities/email/submit` - Submit email action
-  - [x] `POST /modalities/calendar/submit` - Submit calendar action
-  - [x] `POST /modalities/sms/submit` - Submit SMS action
+  - [x] `POST /chat/submit` - Submit chat message
+  - [x] `POST /email/submit` - Submit email action
+  - [x] `POST /calendar/submit` - Submit calendar action
+  - [x] `POST /sms/submit` - Submit SMS action
   - [x] `POST /modalities/location/submit` - Submit location update
   - [x] `POST /modalities/time/submit` - Submit time preference update (via generic handler)
   - [x] `POST /modalities/weather/submit` - Submit weather update (basic implementation in `api/routes/weather.py`)
@@ -436,12 +436,12 @@ See `docs/WEB_UI_IMPLEMENTATION_PLAN.md` for detailed implementation plan.
 
 ### Phase 3.5: Modality Detail Viewers
 - [x] Email viewer (folders, threads, messages)
-- [ ] SMS viewer (conversations, message bubbles)
-- [ ] Calendar viewer (day/week/month views)
-- [ ] Chat viewer (conversation history)
-- [ ] Location viewer (current + history)
-- [ ] Weather viewer (current conditions + forecast)
-- [ ] Time preferences viewer
+- [x] SMS viewer (conversations, message bubbles)
+- [x] Calendar viewer (day/week/month views)
+- [x] Chat viewer (conversation history, multimodal support, role selector for user/assistant)
+- [x] Location viewer (current + history)
+- [x] Weather viewer (current conditions + forecast)
+- [x] Time preferences viewer
 
 ### Phase 3.6: Polish & Configuration
 - [ ] Settings page (API URL, polling intervals)
@@ -453,8 +453,28 @@ See `docs/WEB_UI_IMPLEMENTATION_PLAN.md` for detailed implementation plan.
 
 ## Phase 4: Event Agent Integration
 - [ ] Event Agent Configuration model (id, name, prompt_template, triggers)
-- [ ] Event Agent Response model (generated_events, metadata)
+- [ ] Event Agent Response model (generat ed_events, metadata)
 - [ ] Event Agent Trigger model (event_type, conditions, frequency)
+
+## Miscellaneous ToDos
+- [ ] Add "Receive Email" compose button to UI Email view to allow simulating receiving emails
+- [ ] Add "Receive Text" compose button to UI SMS view to allow simulating receiving texts
+- [ ] Implement calendar event invites and accepting/rejection them
+- [ ] Implement backend storage/handling of named locations/saved addresses
+- [ ] Fix real weather timestamping and sunrise/sunset times
+- [ ] Rethink weather modality to some extent
+- [ ] Fix mismatch between `/{modality}/state` and `/environment/modalities/{modality}` endpoint responses
+  - **Issue discovered**: Weather history field name mismatch:
+    - `/weather/state` uses custom `to_dict()` method → returns `"history": [...]`
+    - `/environment/modalities/weather` uses Pydantic `model_dump()` → returns `"report_history": [...]`
+  - **Current workaround**: Frontend `WeatherLocationData` type accepts both field names:
+    - `webapp/src/components/modalities/weather/types.ts`: Added optional `history?` and `report_history?` fields
+    - `webapp/src/components/modalities/weather/WeatherViewer.tsx`: Uses `selectedLocation.history || selectedLocation.report_history || []`
+  - **To fix properly**:
+    - Align the `to_dict()` methods to use same field names as Pydantic model field names (e.g., `report_history`)
+    - OR update the `/environment/modalities/{modality}` endpoint to use custom `to_dict()` serialization
+    - Then remove the workaround: update `WeatherLocationData.history` to be required, remove `report_history` optional field
+  - **Audit other modalities**: Check if Location, Email, SMS, Calendar, Chat have similar mismatches between their `/{modality}/state` and `/environment/modalities/{modality}` responses
 
 ## Notes
 - All models should use Pydantic for validation

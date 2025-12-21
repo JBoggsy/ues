@@ -12,10 +12,15 @@ To run in production:
 
 from contextlib import asynccontextmanager
 
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import ValidationError
+
+# Load environment variables from .env file before any other imports
+# that might depend on them (e.g., WeatherState reads OPENWEATHER_API_KEY)
+load_dotenv()
 
 from api.dependencies import initialize_simulation_engine, shutdown_simulation_engine
 from api.exceptions import (

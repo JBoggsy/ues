@@ -15,6 +15,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useModalityState } from '@/api';
 import { EmailViewer } from '@/components/modalities/email';
+import { SMSViewer } from '@/components/modalities/sms';
+import { CalendarViewer } from '@/components/modalities/calendar';
+import { ChatViewer } from '@/components/modalities/chat';
+import { LocationViewer } from '@/components/modalities/location';
+import { WeatherViewer } from '@/components/modalities/weather';
+import { TimeViewer } from '@/components/modalities/time';
 
 const modalityIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   email: Mail,
@@ -33,6 +39,36 @@ function ModalityViewerContent({ modality }: { modality: string }) {
   // Email has a custom viewer
   if (modality === 'email') {
     return <EmailViewer />;
+  }
+
+  // SMS has a custom viewer
+  if (modality === 'sms') {
+    return <SMSViewer />;
+  }
+
+  // Calendar has a custom viewer
+  if (modality === 'calendar') {
+    return <CalendarViewer />;
+  }
+
+  // Chat has a custom viewer
+  if (modality === 'chat') {
+    return <ChatViewer />;
+  }
+
+  // Location has a custom viewer
+  if (modality === 'location') {
+    return <LocationViewer />;
+  }
+
+  // Weather has a custom viewer
+  if (modality === 'weather') {
+    return <WeatherViewer />;
+  }
+
+  // Time has a custom viewer
+  if (modality === 'time') {
+    return <TimeViewer />;
   }
 
   // Other modalities use generic JSON viewer (to be replaced)

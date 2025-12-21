@@ -142,6 +142,30 @@ class SMSDeleteRequest(BaseModel):
     message_ids: list[str] = Field(min_length=1, description="Message IDs to delete")
 
 
+class SMSConversationUpdateRequest(BaseModel):
+    """Request model for updating conversation settings.
+
+    Attributes:
+        thread_id: Conversation ID to update.
+        pin: Set pinned status (true to pin, false to unpin).
+        mute: Set muted status (true to mute, false to unmute).
+        archive: Set archived status (true to archive, false to unarchive).
+        mark_all_read: Mark all messages in conversation as read.
+        draft_message: Save or clear draft message (null to clear).
+    """
+
+    thread_id: str = Field(description="Conversation ID to update")
+    pin: bool | None = Field(default=None, description="Set pinned status")
+    mute: bool | None = Field(default=None, description="Set muted status")
+    archive: bool | None = Field(default=None, description="Set archived status")
+    mark_all_read: bool | None = Field(
+        default=None, description="Mark all messages as read"
+    )
+    draft_message: str | None = Field(
+        default=None, description="Save draft message (null to clear)"
+    )
+
+
 class SMSQueryRequest(BaseModel):
     """Request model for querying SMS/RCS messages.
 
@@ -718,4 +742,85 @@ async def react_to_sms(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to add reaction: {str(e)}",
+        )
+
+
+@router.post("/conversation", response_model=ModalityActionResponse)
+async def update_conversation(
+    request: SMSConversationUpdateRequest, engine: SimulationEngineDep
+) -> ModalityActionResponse:
+    """Update conversation settings.
+
+    Updates conversation metadata such as pinned, muted, or archived status.
+    Can also mark all messages as read or save/clear a draft message.
+
+    Args:
+        request: Conversation ID and settings to update.
+        engine: The simulation engine dependency.
+
+    Returns:
+        Action response with event details.
+    """
+    try:
+        # Build conversation_update_data from request
+        update_data: dict = {"thread_id": request.thread_id}
+        
+        if request.pin is not None:
+            update_data["pin"] = request.pin
+        if request.mute is not None:
+            update_data["mute"] = request.mute
+        if request.archive is not None:
+            update_data["archive"] = request.archive
+        if request.mark_all_read is not None:
+            update_data["mark_all_read"] = request.mark_all_read
+        if request.draft_message is not None:
+            update_data["draft_message"] = request.draft_message
+
+        # Validate that at least one update is specified
+        if len(update_data) == 1:  # Only thread_id
+            raise HTTPException(
+                status_code=400,
+                detail="At least one update field (pin, mute, archive, mark_all_read, draft_message) must be specified",
+            )
+
+        # Create SMSInput
+        sms_input = SMSInput(
+            timestamp=engine.environment.time_state.current_time,
+            action="update_conversation",
+            conversation_update_data=update_data,
+        )
+
+        event = create_immediate_event(
+            engine=engine,
+            modality="sms",
+            data=sms_input,
+            priority=100,
+        )
+
+        # Build descriptive message
+        updates = []
+        if request.pin is not None:
+            updates.append("pinned" if request.pin else "unpinned")
+        if request.mute is not None:
+            updates.append("muted" if request.mute else "unmuted")
+        if request.archive is not None:
+            updates.append("archived" if request.archive else "unarchived")
+        if request.mark_all_read:
+            updates.append("marked all read")
+        if request.draft_message is not None:
+            updates.append("draft saved" if request.draft_message else "draft cleared")
+
+        return ModalityActionResponse(
+            event_id=event.event_id,
+            scheduled_time=event.scheduled_time,
+            status="executed",
+            message=f"Conversation {', '.join(updates)}",
+            modality="sms",
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to update conversation: {str(e)}",
         )

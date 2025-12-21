@@ -121,3 +121,21 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Ensure Radix UI dialogs appear above Leaflet maps */
+/* Leaflet uses z-index up to 1000+ for various elements */
+[data-radix-popper-content-wrapper],
+[role="dialog"] {
+  z-index: 1100 !important;
+}
+
+/* Dialog overlay should also be above the map */
+[data-radix-dialog-overlay] {
+  z-index: 1050 !important;
+}
+
+/* Create a stacking context for the map so its internal z-indexes are isolated */
+/* This prevents Leaflet's high z-index values from escaping the container */
+.leaflet-container {
+  isolation: isolate;
+}

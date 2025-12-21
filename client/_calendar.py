@@ -201,6 +201,59 @@ class CalendarQueryResponse(BaseModel):
     total_count: int
 
 
+# Calendar container response models
+
+
+class CalendarInfo(BaseModel):
+    """Response model for calendar container information.
+    
+    Attributes:
+        calendar_id: Unique calendar identifier.
+        name: Calendar display name.
+        color: Calendar color (hex code).
+        visible: Whether calendar is visible.
+        event_count: Number of events in this calendar.
+        created_at: When calendar was created.
+        updated_at: When calendar was last modified.
+    """
+
+    calendar_id: str
+    name: str
+    color: str
+    visible: bool
+    event_count: int
+    created_at: str
+    updated_at: str
+
+
+class CalendarActionResponse(BaseModel):
+    """Response model for calendar container operations.
+    
+    Attributes:
+        status: Operation status ("success" or "error").
+        message: Human-readable message.
+        calendar: Calendar info if operation created/updated a calendar.
+    """
+
+    status: str
+    message: str
+    calendar: CalendarInfo | None = None
+
+
+class ListCalendarsResponse(BaseModel):
+    """Response model for listing all calendars.
+    
+    Attributes:
+        calendars: List of calendar info objects.
+        count: Number of calendars.
+        default_calendar_id: ID of the default calendar.
+    """
+
+    calendars: list[CalendarInfo]
+    count: int
+    default_calendar_id: str
+
+
 # Synchronous CalendarClient
 
 
@@ -560,6 +613,164 @@ class CalendarClient(BaseClient):
         
         data = self._post(f"{self._BASE_PATH}/delete", json=request_data)
         return ModalityActionResponse(**data)
+
+    # Calendar container management methods
+
+    def list_calendars(self) -> ListCalendarsResponse:
+        """List all calendar containers.
+        
+        Returns a list of all calendars with their metadata, including
+        the default calendar ID.
+        
+        Returns:
+            List of calendars with count and default calendar ID.
+        
+        Raises:
+            APIError: If the request fails.
+        
+        Example:
+            calendars = client.calendar.list_calendars()
+            for cal in calendars.calendars:
+                print(f"{cal.name} ({cal.event_count} events)")
+        """
+        data = self._get(f"{self._BASE_PATH}/calendars")
+        return ListCalendarsResponse(**data)
+
+    def create_calendar(
+        self,
+        calendar_id: str,
+        name: str,
+        color: str = "#4285f4",
+        visible: bool = True,
+    ) -> CalendarActionResponse:
+        """Create a new calendar container.
+        
+        Creates a new calendar that can hold events. Calendars provide
+        organization for events and can have their own color and visibility
+        settings.
+        
+        Args:
+            calendar_id: Unique identifier for the calendar.
+            name: Display name for the calendar.
+            color: Calendar color (hex code, e.g., "#4285f4").
+            visible: Whether calendar is visible by default.
+        
+        Returns:
+            Action response with created calendar info.
+        
+        Raises:
+            ValidationError: If request parameters are invalid.
+            APIError: If the request fails.
+        
+        Example:
+            result = client.calendar.create_calendar(
+                calendar_id="work",
+                name="Work Calendar",
+                color="#dc2626",
+            )
+            print(f"Created: {result.calendar.name}")
+        """
+        request_data = {
+            "calendar_id": calendar_id,
+            "name": name,
+            "color": color,
+            "visible": visible,
+        }
+        data = self._post(f"{self._BASE_PATH}/calendars/create", json=request_data)
+        return CalendarActionResponse(**data)
+
+    def update_calendar(
+        self,
+        calendar_id: str,
+        name: str | None = None,
+        color: str | None = None,
+        visible: bool | None = None,
+    ) -> CalendarActionResponse:
+        """Update an existing calendar container.
+        
+        Updates calendar properties like name, color, or visibility.
+        Only provided fields will be updated.
+        
+        Args:
+            calendar_id: Calendar identifier to update.
+            name: New display name (optional).
+            color: New calendar color (optional).
+            visible: New visibility setting (optional).
+        
+        Returns:
+            Action response with updated calendar info.
+        
+        Raises:
+            ValidationError: If request parameters are invalid.
+            APIError: If the request fails (e.g., calendar not found).
+        
+        Example:
+            result = client.calendar.update_calendar(
+                calendar_id="work",
+                name="Work Events",
+                color="#22c55e",
+            )
+        """
+        request_data: dict[str, Any] = {"calendar_id": calendar_id}
+        
+        if name is not None:
+            request_data["name"] = name
+        if color is not None:
+            request_data["color"] = color
+        if visible is not None:
+            request_data["visible"] = visible
+        
+        data = self._post(f"{self._BASE_PATH}/calendars/update", json=request_data)
+        return CalendarActionResponse(**data)
+
+    def delete_calendar(self, calendar_id: str) -> CalendarActionResponse:
+        """Delete a calendar container and all its events.
+        
+        Permanently removes a calendar and all events it contains.
+        Cannot delete the default calendar.
+        
+        Args:
+            calendar_id: Calendar identifier to delete.
+        
+        Returns:
+            Action response confirming deletion.
+        
+        Raises:
+            ValidationError: If request parameters are invalid.
+            APIError: If the request fails (e.g., calendar not found,
+                trying to delete default calendar).
+        
+        Example:
+            result = client.calendar.delete_calendar("old-calendar")
+            print(result.message)
+        """
+        request_data = {"calendar_id": calendar_id}
+        data = self._post(f"{self._BASE_PATH}/calendars/delete", json=request_data)
+        return CalendarActionResponse(**data)
+
+    def set_default_calendar(self, calendar_id: str) -> CalendarActionResponse:
+        """Set a calendar as the default for new events.
+        
+        The default calendar is used when creating events without
+        specifying a calendar_id.
+        
+        Args:
+            calendar_id: Calendar identifier to set as default.
+        
+        Returns:
+            Action response confirming the change.
+        
+        Raises:
+            ValidationError: If request parameters are invalid.
+            APIError: If the request fails (e.g., calendar not found).
+        
+        Example:
+            result = client.calendar.set_default_calendar("work")
+            print(f"Default calendar: {result.calendar.name}")
+        """
+        request_data = {"calendar_id": calendar_id}
+        data = self._post(f"{self._BASE_PATH}/calendars/set-default", json=request_data)
+        return CalendarActionResponse(**data)
 
 
 # Asynchronous AsyncCalendarClient
@@ -921,3 +1132,161 @@ class AsyncCalendarClient(AsyncBaseClient):
         
         data = await self._post(f"{self._BASE_PATH}/delete", json=request_data)
         return ModalityActionResponse(**data)
+
+    # Calendar container management methods (async)
+
+    async def list_calendars(self) -> ListCalendarsResponse:
+        """List all calendar containers.
+        
+        Returns a list of all calendars with their metadata, including
+        the default calendar ID.
+        
+        Returns:
+            List of calendars with count and default calendar ID.
+        
+        Raises:
+            APIError: If the request fails.
+        
+        Example:
+            calendars = await client.calendar.list_calendars()
+            for cal in calendars.calendars:
+                print(f"{cal.name} ({cal.event_count} events)")
+        """
+        data = await self._get(f"{self._BASE_PATH}/calendars")
+        return ListCalendarsResponse(**data)
+
+    async def create_calendar(
+        self,
+        calendar_id: str,
+        name: str,
+        color: str = "#4285f4",
+        visible: bool = True,
+    ) -> CalendarActionResponse:
+        """Create a new calendar container.
+        
+        Creates a new calendar that can hold events. Calendars provide
+        organization for events and can have their own color and visibility
+        settings.
+        
+        Args:
+            calendar_id: Unique identifier for the calendar.
+            name: Display name for the calendar.
+            color: Calendar color (hex code, e.g., "#4285f4").
+            visible: Whether calendar is visible by default.
+        
+        Returns:
+            Action response with created calendar info.
+        
+        Raises:
+            ValidationError: If request parameters are invalid.
+            APIError: If the request fails.
+        
+        Example:
+            result = await client.calendar.create_calendar(
+                calendar_id="work",
+                name="Work Calendar",
+                color="#dc2626",
+            )
+            print(f"Created: {result.calendar.name}")
+        """
+        request_data = {
+            "calendar_id": calendar_id,
+            "name": name,
+            "color": color,
+            "visible": visible,
+        }
+        data = await self._post(f"{self._BASE_PATH}/calendars/create", json=request_data)
+        return CalendarActionResponse(**data)
+
+    async def update_calendar(
+        self,
+        calendar_id: str,
+        name: str | None = None,
+        color: str | None = None,
+        visible: bool | None = None,
+    ) -> CalendarActionResponse:
+        """Update an existing calendar container.
+        
+        Updates calendar properties like name, color, or visibility.
+        Only provided fields will be updated.
+        
+        Args:
+            calendar_id: Calendar identifier to update.
+            name: New display name (optional).
+            color: New calendar color (optional).
+            visible: New visibility setting (optional).
+        
+        Returns:
+            Action response with updated calendar info.
+        
+        Raises:
+            ValidationError: If request parameters are invalid.
+            APIError: If the request fails (e.g., calendar not found).
+        
+        Example:
+            result = await client.calendar.update_calendar(
+                calendar_id="work",
+                name="Work Events",
+                color="#22c55e",
+            )
+        """
+        request_data: dict[str, Any] = {"calendar_id": calendar_id}
+        
+        if name is not None:
+            request_data["name"] = name
+        if color is not None:
+            request_data["color"] = color
+        if visible is not None:
+            request_data["visible"] = visible
+        
+        data = await self._post(f"{self._BASE_PATH}/calendars/update", json=request_data)
+        return CalendarActionResponse(**data)
+
+    async def delete_calendar(self, calendar_id: str) -> CalendarActionResponse:
+        """Delete a calendar container and all its events.
+        
+        Permanently removes a calendar and all events it contains.
+        Cannot delete the default calendar.
+        
+        Args:
+            calendar_id: Calendar identifier to delete.
+        
+        Returns:
+            Action response confirming deletion.
+        
+        Raises:
+            ValidationError: If request parameters are invalid.
+            APIError: If the request fails (e.g., calendar not found,
+                trying to delete default calendar).
+        
+        Example:
+            result = await client.calendar.delete_calendar("old-calendar")
+            print(result.message)
+        """
+        request_data = {"calendar_id": calendar_id}
+        data = await self._post(f"{self._BASE_PATH}/calendars/delete", json=request_data)
+        return CalendarActionResponse(**data)
+
+    async def set_default_calendar(self, calendar_id: str) -> CalendarActionResponse:
+        """Set a calendar as the default for new events.
+        
+        The default calendar is used when creating events without
+        specifying a calendar_id.
+        
+        Args:
+            calendar_id: Calendar identifier to set as default.
+        
+        Returns:
+            Action response confirming the change.
+        
+        Raises:
+            ValidationError: If request parameters are invalid.
+            APIError: If the request fails (e.g., calendar not found).
+        
+        Example:
+            result = await client.calendar.set_default_calendar("work")
+            print(f"Default calendar: {result.calendar.name}")
+        """
+        request_data = {"calendar_id": calendar_id}
+        data = await self._post(f"{self._BASE_PATH}/calendars/set-default", json=request_data)
+        return CalendarActionResponse(**data)

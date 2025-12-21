@@ -228,6 +228,111 @@ class CalendarQueryRequest(BaseModel):
     sort_order: str = Field(default="asc", description="Sort order")
 
 
+# Calendar Container Management Request Models
+
+
+class CreateCalendarRequest(BaseModel):
+    """Request to create a new calendar container.
+
+    Args:
+        calendar_id: Unique identifier for the calendar.
+        name: Display name for the calendar.
+        color: Calendar color (hex code, e.g., "#4285f4").
+        visible: Whether calendar is visible by default.
+    """
+
+    calendar_id: str = Field(description="Unique calendar identifier")
+    name: str = Field(description="Calendar display name")
+    color: str = Field(default="#4285f4", description="Calendar color (hex code)")
+    visible: bool = Field(default=True, description="Whether calendar is visible")
+
+
+class UpdateCalendarRequest(BaseModel):
+    """Request to update an existing calendar container.
+
+    Args:
+        calendar_id: Calendar identifier to update.
+        name: New display name (optional).
+        color: New calendar color (optional).
+        visible: New visibility setting (optional).
+    """
+
+    calendar_id: str = Field(description="Calendar identifier to update")
+    name: Optional[str] = Field(default=None, description="New calendar name")
+    color: Optional[str] = Field(default=None, description="New calendar color")
+    visible: Optional[bool] = Field(default=None, description="New visibility setting")
+
+
+class DeleteCalendarRequest(BaseModel):
+    """Request to delete a calendar container and all its events.
+
+    Args:
+        calendar_id: Calendar identifier to delete.
+    """
+
+    calendar_id: str = Field(description="Calendar identifier to delete")
+
+
+class SetDefaultCalendarRequest(BaseModel):
+    """Request to set the default calendar for new events.
+
+    Args:
+        calendar_id: Calendar identifier to set as default.
+    """
+
+    calendar_id: str = Field(description="Calendar identifier to set as default")
+
+
+class CalendarInfo(BaseModel):
+    """Response model for calendar container information.
+
+    Args:
+        calendar_id: Unique calendar identifier.
+        name: Calendar display name.
+        color: Calendar color (hex code).
+        visible: Whether calendar is visible.
+        event_count: Number of events in this calendar.
+        created_at: When calendar was created.
+        updated_at: When calendar was last modified.
+    """
+
+    calendar_id: str
+    name: str
+    color: str
+    visible: bool
+    event_count: int
+    created_at: str
+    updated_at: str
+
+
+class CalendarActionResponse(BaseModel):
+    """Response model for calendar container operations.
+
+    Args:
+        status: Operation status ("success" or "error").
+        message: Human-readable message.
+        calendar: Calendar info if operation created/updated a calendar.
+    """
+
+    status: str
+    message: str
+    calendar: Optional[CalendarInfo] = None
+
+
+class ListCalendarsResponse(BaseModel):
+    """Response model for listing all calendars.
+
+    Args:
+        calendars: List of calendar info objects.
+        count: Number of calendars.
+        default_calendar_id: ID of the default calendar.
+    """
+
+    calendars: list[CalendarInfo]
+    count: int
+    default_calendar_id: str
+
+
 # TODO: Invitation response not implemented in CalendarInput/CalendarState
 # These endpoints are planned but need backend implementation first:
 # - POST /calendar/accept - Accept calendar invitation
@@ -584,4 +689,280 @@ async def delete_calendar_event(
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Failed to delete calendar event: {str(e)}"
+        )
+
+
+# Calendar Container Management Endpoints
+
+
+@router.get("/calendars", response_model=ListCalendarsResponse)
+async def list_calendars(engine: SimulationEngineDep):
+    """List all calendar containers.
+
+    Returns a list of all calendars with their metadata.
+
+    Args:
+        engine: Simulation engine dependency.
+
+    Returns:
+        List of calendars with count and default calendar ID.
+
+    Raises:
+        HTTPException: If operation fails.
+    """
+    try:
+        calendar_state = engine.environment.get_state("calendar")
+        if not isinstance(calendar_state, CalendarState):
+            raise HTTPException(
+                status_code=500, detail="Calendar state not properly initialized"
+            )
+
+        calendars = []
+        for cal in calendar_state.calendars.values():
+            calendars.append(
+                CalendarInfo(
+                    calendar_id=cal.calendar_id,
+                    name=cal.name,
+                    color=cal.color,
+                    visible=cal.visible,
+                    event_count=cal.event_count,
+                    created_at=cal.created_at.isoformat(),
+                    updated_at=cal.updated_at.isoformat(),
+                )
+            )
+
+        return ListCalendarsResponse(
+            calendars=calendars,
+            count=len(calendars),
+            default_calendar_id=calendar_state.default_calendar_id,
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to list calendars: {str(e)}"
+        )
+
+
+@router.post("/calendars/create", response_model=CalendarActionResponse)
+async def create_calendar(
+    request: CreateCalendarRequest, engine: SimulationEngineDep
+):
+    """Create a new calendar container.
+
+    Creates a new calendar that can hold events. Calendars provide organization
+    for events and can have their own color and visibility settings.
+
+    Args:
+        request: Calendar details including ID, name, and color.
+        engine: Simulation engine dependency.
+
+    Returns:
+        Action response with created calendar info.
+
+    Raises:
+        HTTPException: If calendar creation fails.
+    """
+    try:
+        calendar_state = engine.environment.get_state("calendar")
+        if not isinstance(calendar_state, CalendarState):
+            raise HTTPException(
+                status_code=500, detail="Calendar state not properly initialized"
+            )
+
+        # Check if calendar already exists
+        if request.calendar_id in calendar_state.calendars:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Calendar '{request.calendar_id}' already exists",
+            )
+
+        # Create the calendar
+        calendar = calendar_state.create_calendar(
+            calendar_id=request.calendar_id,
+            name=request.name,
+            color=request.color,
+        )
+
+        # Set visibility if not default
+        if not request.visible:
+            calendar.visible = False
+
+        return CalendarActionResponse(
+            status="success",
+            message=f"Created calendar: {request.name}",
+            calendar=CalendarInfo(
+                calendar_id=calendar.calendar_id,
+                name=calendar.name,
+                color=calendar.color,
+                visible=calendar.visible,
+                event_count=calendar.event_count,
+                created_at=calendar.created_at.isoformat(),
+                updated_at=calendar.updated_at.isoformat(),
+            ),
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to create calendar: {str(e)}"
+        )
+
+
+@router.post("/calendars/update", response_model=CalendarActionResponse)
+async def update_calendar(
+    request: UpdateCalendarRequest, engine: SimulationEngineDep
+):
+    """Update an existing calendar container.
+
+    Updates calendar properties like name, color, or visibility.
+
+    Args:
+        request: Calendar ID and updated properties.
+        engine: Simulation engine dependency.
+
+    Returns:
+        Action response with updated calendar info.
+
+    Raises:
+        HTTPException: If calendar update fails.
+    """
+    try:
+        calendar_state = engine.environment.get_state("calendar")
+        if not isinstance(calendar_state, CalendarState):
+            raise HTTPException(
+                status_code=500, detail="Calendar state not properly initialized"
+            )
+
+        # Update the calendar
+        calendar = calendar_state.update_calendar(
+            calendar_id=request.calendar_id,
+            name=request.name,
+            color=request.color,
+            visible=request.visible,
+        )
+
+        return CalendarActionResponse(
+            status="success",
+            message=f"Updated calendar: {calendar.name}",
+            calendar=CalendarInfo(
+                calendar_id=calendar.calendar_id,
+                name=calendar.name,
+                color=calendar.color,
+                visible=calendar.visible,
+                event_count=calendar.event_count,
+                created_at=calendar.created_at.isoformat(),
+                updated_at=calendar.updated_at.isoformat(),
+            ),
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to update calendar: {str(e)}"
+        )
+
+
+@router.post("/calendars/delete", response_model=CalendarActionResponse)
+async def delete_calendar(
+    request: DeleteCalendarRequest, engine: SimulationEngineDep
+):
+    """Delete a calendar container and all its events.
+
+    Permanently removes a calendar and all events it contains.
+    Cannot delete the default calendar.
+
+    Args:
+        request: Calendar ID to delete.
+        engine: Simulation engine dependency.
+
+    Returns:
+        Action response confirming deletion.
+
+    Raises:
+        HTTPException: If calendar deletion fails.
+    """
+    try:
+        calendar_state = engine.environment.get_state("calendar")
+        if not isinstance(calendar_state, CalendarState):
+            raise HTTPException(
+                status_code=500, detail="Calendar state not properly initialized"
+            )
+
+        # Get calendar info before deletion for the response
+        calendar = calendar_state.get_calendar(request.calendar_id)
+        if not calendar:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Calendar '{request.calendar_id}' not found",
+            )
+
+        calendar_name = calendar.name
+
+        # Delete the calendar
+        calendar_state.delete_calendar(request.calendar_id)
+
+        return CalendarActionResponse(
+            status="success",
+            message=f"Deleted calendar: {calendar_name}",
+            calendar=None,
+        )
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to delete calendar: {str(e)}"
+        )
+
+
+@router.post("/calendars/set-default", response_model=CalendarActionResponse)
+async def set_default_calendar(
+    request: SetDefaultCalendarRequest, engine: SimulationEngineDep
+):
+    """Set a calendar as the default for new events.
+
+    The default calendar is used when creating events without specifying
+    a calendar_id.
+
+    Args:
+        request: Calendar ID to set as default.
+        engine: Simulation engine dependency.
+
+    Returns:
+        Action response confirming the change.
+
+    Raises:
+        HTTPException: If operation fails.
+    """
+    try:
+        calendar_state = engine.environment.get_state("calendar")
+        if not isinstance(calendar_state, CalendarState):
+            raise HTTPException(
+                status_code=500, detail="Calendar state not properly initialized"
+            )
+
+        # Set the default calendar
+        calendar_state.set_default_calendar(request.calendar_id)
+
+        # Get calendar info for response
+        calendar = calendar_state.get_calendar(request.calendar_id)
+
+        return CalendarActionResponse(
+            status="success",
+            message=f"Set default calendar to: {calendar.name}",
+            calendar=CalendarInfo(
+                calendar_id=calendar.calendar_id,
+                name=calendar.name,
+                color=calendar.color,
+                visible=calendar.visible,
+                event_count=calendar.event_count,
+                created_at=calendar.created_at.isoformat(),
+                updated_at=calendar.updated_at.isoformat(),
+            ),
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to set default calendar: {str(e)}"
         )
