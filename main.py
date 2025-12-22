@@ -10,6 +10,7 @@ To run in production:
     uv run uvicorn main:app --host 0.0.0.0 --port 8000
 """
 
+import os
 from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
@@ -81,15 +82,23 @@ app = FastAPI(
 )
 
 # Configure CORS for web UI access
-# Allow requests from the Vite dev server and common localhost ports
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",  # Vite dev server
-        "http://localhost:3000",  # Common React dev port
+# Read allowed origins from environment variable (comma-separated)
+# Example: CORS_ORIGINS=http://localhost:5173,http://192.168.1.42:5173
+cors_origins_env = os.getenv("CORS_ORIGINS", "")
+cors_origins = [origin.strip() for origin in cors_origins_env.split(",") if len(origin.strip()) > 0]
+
+# If no origins specified, allow common development origins
+if not cors_origins:
+    cors_origins = [
+        "http://localhost:5173",
+        "http://localhost:3000",
         "http://127.0.0.1:5173",
         "http://127.0.0.1:3000",
-    ],
+    ]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
