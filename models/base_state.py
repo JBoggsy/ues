@@ -1,10 +1,10 @@
 """Base class for all modality state models."""
 
 from abc import abstractmethod
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 if TYPE_CHECKING:
     from models.base_input import ModalityInput
@@ -35,6 +35,16 @@ class ModalityState(BaseModel):
     update_count: int = Field(
         default=0, description="Number of times this state has been modified"
     )
+
+    @field_validator("last_updated", mode="before")
+    @classmethod
+    def validate_timezone_aware(cls, v: datetime | str) -> datetime:
+        """Ensure datetime is timezone-aware, converting naive to UTC if needed."""
+        if isinstance(v, str):
+            v = datetime.fromisoformat(v.replace("Z", "+00:00"))
+        if isinstance(v, datetime) and v.tzinfo is None:
+            v = v.replace(tzinfo=timezone.utc)
+        return v
 
     @abstractmethod
     def apply_input(self, input_data: "ModalityInput") -> None:

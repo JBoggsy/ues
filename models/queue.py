@@ -2,7 +2,8 @@
 
 import bisect
 from datetime import datetime
-from typing import Optional
+from typing import Any, Optional
+from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
@@ -338,3 +339,93 @@ class EventQueue(BaseModel):
         ]
 
         return bisect.bisect_right(existing_keys, event_key)
+
+    # ===== Scenario Serialization Methods =====
+
+    def to_scenario_dict(self) -> dict[str, Any]:
+        """Serialize event queue to a dictionary suitable for scenario export.
+
+        This method produces a complete, round-trip serializable representation
+        of the event queue, suitable for saving to scenario files.
+
+        Each event is serialized using model_dump(mode="json"), which includes:
+        - Event metadata (event_id, scheduled_time, status, etc.)
+        - The data field (ModalityInput) serialized with modality_type discriminator
+
+        Returns:
+            Dictionary with:
+            - events: List of serialized SimulatorEvent dictionaries
+
+        Example:
+            >>> queue = EventQueue()
+            >>> queue.add_event(some_event)
+            >>> data = queue.to_scenario_dict()
+            >>> json.dump(data, f, indent=2)
+        """
+        return {
+            "events": [
+                event.model_dump(mode="json")
+                for event in self.events
+            ],
+        }
+
+    @classmethod
+    def from_scenario_dict(
+        cls,
+        data: dict[str, Any],
+        regenerate_ids: bool = True,
+    ) -> "EventQueue":
+        """Deserialize event queue from a scenario dictionary.
+
+        Reconstructs an EventQueue from data previously produced by
+        `to_scenario_dict()`. Uses the modality registry (via SimulatorEvent's
+        model_validator) to correctly instantiate ModalityInput subclasses.
+
+        Args:
+            data: Dictionary from `to_scenario_dict()` containing:
+                - events: List of serialized SimulatorEvent dictionaries
+            regenerate_ids: If True (default), generate new event_ids to avoid
+                conflicts when loading into an existing simulation. If False,
+                preserve original event_ids.
+
+        Returns:
+            New EventQueue instance with deserialized events.
+
+        Raises:
+            ValueError: If required data fields are missing.
+            ValidationError: If event data fails Pydantic validation.
+
+        Example:
+            >>> with open("events.json") as f:
+            ...     data = json.load(f)
+            >>> queue = EventQueue.from_scenario_dict(data)
+            >>> print(f"Loaded {len(queue.events)} events")
+        """
+        # Validate required fields
+        if "events" not in data:
+            raise ValueError("Missing required field: 'events'")
+
+        events_data = data["events"]
+        if not isinstance(events_data, list):
+            raise ValueError("Field 'events' must be a list")
+
+        # Deserialize events
+        events: list[SimulatorEvent] = []
+        for event_dict in events_data:
+            # Optionally regenerate event_id
+            if regenerate_ids:
+                event_dict = dict(event_dict)  # Make a copy to avoid modifying input
+                event_dict["event_id"] = str(uuid4())
+
+            # SimulatorEvent.model_validate will use the deserialize_data_field
+            # validator to convert data dict to appropriate ModalityInput subclass
+            event = SimulatorEvent.model_validate(event_dict)
+            events.append(event)
+
+        # Create queue with events
+        queue = cls(events=events)
+
+        # Ensure proper sorting (events may come from file unsorted)
+        queue._sort_events()
+
+        return queue

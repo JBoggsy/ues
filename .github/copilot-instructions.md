@@ -54,26 +54,6 @@ uv run python script.py
 
 **IMPORTANT**: Always use `uv run python ...` (or `uv run <command>`) when executing Python code. Do NOT use plain `python ...` commands, as they will use the system Python installation which won't have access to project dependencies installed in the virtual environment.
 
-## Implementation Priorities
-
-When building features, refer to the README's modality list:
-1. User Location, Current Time, Current Weather Data ✅ (Models complete)
-2. Chat-style User Interaction, Email, Calendar, Text (SMS/RCS) ✅ (Models complete)
-3. File System, Discord, Slack, Social Media, Screen Simulation ⏳ (Stub files only)
-
-**Completed**:
-- ✅ Core simulation engine and event system
-- ✅ Priority 1 & 2 modality data models (Location, Time, Weather, Chat, Email, Calendar, SMS)
-- ✅ Comprehensive documentation for implemented components
-- ✅ FastAPI REST API implementations
-- ✅ API endpoints for each modality
-- ✅ Client API library
-
-**In Progress / Next Steps**:
-- ⏳ Priority 3 modality implementations (Contacts, File System, Discord, Slack, Social Media, Screen)
-- ⏳ Web UI for environment configuration
-- ⏳ Agent integration framework
-
 ## Design Patterns to Follow
 
 - **API-First**: All modalities must be accessible via REST API for easy agent integration
@@ -96,7 +76,29 @@ When building features, refer to the README's modality list:
 - **Storage**: TBD (SQLite/PostgreSQL for events, filesystem for configs)
 - **Frontend**: TBD (React/Vue SPA or FastAPI templates)
 
+## Non-Code Documentation Imperatives
+- Ensure documentation is clear, concise, and accessible to future developers
+- Documentation is also for your future self, use it to store important context
+
+### Post-Implementation Documentation
+- When working from one or more documents (e.g., TODO lists, plans, design descriptions), always update documents after implementing a feature
+- Carefully review both your code changes and your thinking and output to accurately reflect what was done
+- It is crucial that documentation reflects the current state of the project, so you must update it as part of your development process
+
+### Commit Messages
+- Use clear, descriptive commit messages
+- Follow industry-standard conventions (e.g., "Add", "Fix", "Update", "Refactor", "Remove")
+- Always add "AI generated commit message" at the end of the commit message body
+
+## Coding Instructions
+- When writing code which calls methods or uses classes defined in this project, always make sure you first read and understand the relevant code
+- Avoid hallucinations - if you are unsure about how something works, refer to the existing code or documentation
+
 ## Code Style Guidelines
+
+### Timezone Handling
+- Always use **timezone-aware** datetime objects
+- Be VERY CAREFUL when using `datetime.now()` or `datetime.utcnow()` - these should only be used when capturing wall-clock time, not simulator time
 
 ### Documentation
 - Use **Google-style docstrings** for all functions, classes, and modules
@@ -132,11 +134,6 @@ When building features, refer to the README's modality list:
   - `test_<specific_feature>_*`: Modality-specific tests
 - **Test organization**: Group related tests using pytest test classes when helpful
 - **Use fixtures**: Leverage pre-built fixtures from `tests/fixtures/modalities/` to reduce boilerplate
-
-### Commit Messages
-- Use clear, descriptive commit messages
-- Follow industry-standard conventions (e.g., "Add", "Fix", "Update", "Refactor", "Remove")
-- Always add "AI generated commit message" at the end of the commit message body
 
 **Example:**
 ```python

@@ -1,21 +1,32 @@
 /**
  * API client configuration and base Axios instance.
+ * 
+ * The client dynamically reads settings from the Zustand store
+ * to support runtime configuration of API URL and timeout.
  */
 import axios from 'axios';
+import { useSettingsStore } from '@/lib/store';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+// Get initial values from store (persisted in localStorage)
+const getSettings = () => useSettingsStore.getState();
+
+const initialSettings = getSettings();
 
 export const apiClient = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: initialSettings.apiUrl,
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 10000,
+  timeout: initialSettings.connectionTimeout,
 });
 
-// Request interceptor for logging/debugging
+// Request interceptor to dynamically use current settings
 apiClient.interceptors.request.use(
   (config) => {
+    const settings = getSettings();
+    // Update baseURL and timeout from current settings
+    config.baseURL = settings.apiUrl;
+    config.timeout = settings.connectionTimeout;
     console.debug(`[API] ${config.method?.toUpperCase()} ${config.url}`);
     return config;
   },

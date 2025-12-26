@@ -252,7 +252,9 @@ async def query_chat(
             conversation_id=msg["conversation_id"],
             role=msg["role"],
             content=msg["content"],
-            timestamp=datetime.fromisoformat(msg["timestamp"]),
+            timestamp=datetime.fromisoformat(
+                msg["timestamp"].replace("Z", "+00:00")
+            ),
             metadata=msg.get("metadata", {}),
         )
         for msg in result["messages"]

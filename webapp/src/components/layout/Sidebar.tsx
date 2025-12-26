@@ -11,7 +11,8 @@ import {
   Cloud, 
   Clock,
   LayoutDashboard,
-  ListTodo
+  ListTodo,
+  Settings
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -29,6 +30,7 @@ interface NavItem {
 const mainNavItems: NavItem[] = [
   { name: 'Dashboard', path: '/', icon: LayoutDashboard },
   { name: 'Events', path: '/events', icon: ListTodo },
+  { name: 'Settings', path: '/settings', icon: Settings },
 ];
 
 const modalityNavItems: NavItem[] = [

@@ -60,6 +60,7 @@ Splitting everything into multiple controllers adds:
 │  • State access and validation                              │
 │  • Lifecycle management (start, stop, pause, resume)        │
 │  • Mode coordination (manual, event-driven)                 │
+│  • Scenario export/load (save/restore full state)           │
 │  • Error handling and logging                               │
 │  • API request handling                                     │
 │                                                             │
@@ -184,7 +185,7 @@ class SimulationEngine:
 
 ### Methods
 
-SimulationEngine has approximately **16 public methods** organized into these categories:
+SimulationEngine has approximately **22 public methods** organized into these categories:
 
 #### Lifecycle Methods (4)
 
@@ -442,6 +443,192 @@ def validate(self) -> list[str]:
     """
 ```
 
+#### Scenario Export/Load Methods (6)
+
+**`export_environment() -> dict[str, Any]`**
+```python
+def export_environment(self) -> dict[str, Any]:
+    """Export current environment state for saving.
+    
+    Creates a serialized representation of the environment suitable
+    for saving to a file or sending over the API. The exported data
+    can be later loaded with `load_environment()`.
+    
+    Returns:
+        Serialized environment dictionary containing:
+        - time_state: Serialized SimulatorTime
+        - modality_states: Dict of modality_type -> serialized state
+    
+    Example:
+        >>> env_data = engine.export_environment()
+        >>> json.dump(env_data, open("env.ues-env.json", "w"))
+    """
+```
+
+**`export_event_queue() -> dict[str, Any]`**
+```python
+def export_event_queue(self) -> dict[str, Any]:
+    """Export current event queue for saving.
+    
+    Creates a serialized representation of the event queue suitable
+    for saving to a file or sending over the API. The exported data
+    can be later loaded with `load_event_queue()`.
+    
+    Returns:
+        Serialized event queue dictionary containing:
+        - events: List of serialized SimulatorEvent dictionaries
+    
+    Example:
+        >>> events_data = engine.export_event_queue()
+        >>> json.dump(events_data, open("events.ues-events.json", "w"))
+    """
+```
+
+**`export_scenario(author: Optional[str] = None, description: Optional[str] = None) -> Scenario`**
+```python
+def export_scenario(
+    self,
+    author: Optional[str] = None,
+    description: Optional[str] = None,
+) -> Scenario:
+    """Export complete scenario with metadata.
+    
+    Creates a complete Scenario object containing the environment state,
+    event queue, and metadata. This is the most complete export format
+    and includes version information for compatibility checking.
+    
+    Args:
+        author: Optional author name for the scenario metadata.
+        description: Optional human-readable description.
+    
+    Returns:
+        Scenario object ready for serialization with `to_json()`.
+    
+    Example:
+        >>> scenario = engine.export_scenario(
+        ...     author="Test User",
+        ...     description="Initial state for regression testing",
+        ... )
+        >>> with open("scenario.ues-scenario.json", "w") as f:
+        ...     f.write(scenario.to_json())
+    """
+```
+
+**`load_environment(data: dict[str, Any], historic_event_handling: str = "ignore", strict_modalities: bool = False) -> dict[str, Any]`**
+```python
+def load_environment(
+    self,
+    data: dict[str, Any],
+    historic_event_handling: str = "ignore",
+    strict_modalities: bool = False,
+) -> dict[str, Any]:
+    """Load environment state from serialized data.
+    
+    Replaces the current environment state with state from the provided
+    data. This is typically used to restore a previously saved environment
+    or to set up a specific test scenario.
+    
+    The undo stack is cleared when loading an environment, as the undo
+    history from before the load is no longer relevant.
+    
+    Args:
+        data: Serialized environment dictionary from `export_environment()`.
+        historic_event_handling: How to handle existing events scheduled
+            before the loaded environment's time:
+            - "ignore": Leave them in queue (they will never execute)
+            - "delete": Remove them from the queue
+            - "apply": Execute them immediately against the loaded state
+        strict_modalities: If True, raise ValueError on unknown modality
+            types. If False, skip unknown modalities with warnings.
+    
+    Returns:
+        Dict with load results:
+        - success: True if load succeeded
+        - modalities_loaded: List of modality types that were loaded
+        - modalities_skipped: List of modality types that were skipped
+        - warnings: List of warning messages
+        - historic_events_count: Number of historic events found
+        - historic_events_action: How historic events were handled
+    
+    Raises:
+        RuntimeError: If simulation is running (must stop first).
+        ValueError: If strict_modalities=True and unknown modality found.
+    """
+```
+
+**`load_event_queue(data: dict[str, Any], merge: bool = False) -> dict[str, Any]`**
+```python
+def load_event_queue(
+    self,
+    data: dict[str, Any],
+    merge: bool = False,
+) -> dict[str, Any]:
+    """Load event queue from serialized data.
+    
+    Replaces or merges the current event queue with events from the
+    provided data. This is typically used to restore previously saved
+    events or to set up test scenarios.
+    
+    When merging, the undo stack is preserved. When replacing, the
+    undo stack is cleared.
+    
+    Args:
+        data: Serialized event queue dictionary from `export_event_queue()`.
+        merge: If True, add loaded events to existing queue.
+            If False, replace all events.
+    
+    Returns:
+        Dict with load results:
+        - success: True if load succeeded
+        - events_loaded: Number of events loaded
+        - events_merged: Number of events added (only when merge=True)
+        - previous_events: Number of events before load (when replacing)
+        - historic_events_warning: True if any events are before current time
+        - historic_event_count: Number of events before current time
+    
+    Raises:
+        RuntimeError: If simulation is running (must stop first).
+    """
+```
+
+**`load_scenario(scenario: Scenario, strict_modalities: bool = False) -> dict[str, Any]`**
+```python
+def load_scenario(
+    self,
+    scenario: Scenario,
+    strict_modalities: bool = False,
+) -> dict[str, Any]:
+    """Load complete scenario (environment + events).
+    
+    Replaces both the environment and event queue with data from
+    the provided scenario. This is the most complete load operation
+    and is typically used to restore a fully saved state or set up
+    regression tests.
+    
+    The undo stack is always cleared when loading a scenario.
+    
+    Args:
+        scenario: Scenario object from `export_scenario()` or loaded
+            from a file with `Scenario.from_json()`.
+        strict_modalities: If True, raise ValueError on unknown modality
+            types. If False, skip unknown modalities with warnings.
+    
+    Returns:
+        Dict with load results:
+        - success: True if load succeeded
+        - environment_loaded: True if environment was loaded
+        - events_loaded: Number of events loaded
+        - modalities_loaded: List of modality types loaded
+        - modalities_skipped: List of modality types skipped
+        - warnings: List of warning messages
+        - scenario_metadata: Summary of loaded scenario metadata
+    
+    Raises:
+        RuntimeError: If simulation is running (must stop first).
+        ValueError: If strict_modalities=True and unknown modality found.
+    """
+```
+
 #### Internal/Helper Method (1)
 
 **`tick() -> None`**
@@ -586,6 +773,72 @@ return {
 }
 ```
 
+#### Pattern 5: Scenario Export/Load
+
+```python
+# Export complete scenario for saving
+
+# 1. API calls SimulationEngine
+scenario = simulation_engine.export_scenario(
+    author="Test User",
+    description="Regression test state"
+)
+
+# 2. SimulationEngine creates Scenario with metadata
+scenario = Scenario.create(
+    environment=simulation_engine.environment,
+    event_queue=simulation_engine.event_queue,
+    author=author,
+    description=description
+)
+
+# 3. Scenario serializes environment and event queue
+# (internally calls environment.to_scenario_dict() and event_queue.to_scenario_dict())
+
+# 4. Save to file
+with open("scenario.ues-scenario.json", "w") as f:
+    f.write(scenario.to_json())
+```
+
+```python
+# Load scenario from file
+
+# 1. Parse scenario from JSON
+scenario = Scenario.from_json(json_str)
+
+# 2. Ensure simulation is stopped
+simulation_engine.stop()
+
+# 3. API calls SimulationEngine.load_scenario()
+result = simulation_engine.load_scenario(
+    scenario,
+    strict_modalities=False  # Allow skipping unknown modalities
+)
+
+# 4. SimulationEngine loads environment
+# - Deserializes environment from scenario.environment
+# - Clears undo stack
+
+# 5. SimulationEngine loads event queue
+# - Deserializes events from scenario.events
+# - Regenerates event IDs to avoid conflicts
+# - Warns about historic events (scheduled before environment time)
+
+# 6. Return summary
+return {
+    "success": True,
+    "environment_loaded": True,
+    "events_loaded": len(new_queue.events),
+    "modalities_loaded": ["time", "weather", "email", ...],
+    "warnings": [...],
+    "scenario_metadata": {
+        "ues_version": "1.0.0",
+        "created_at": "2025-12-26T10:30:00Z",
+        "author": "Test User"
+    }
+}
+```
+
 ### What SimulationEngine IS Responsible For
 
 ✅ **Coordination** - Orchestrate all simulation operations  
@@ -596,6 +849,7 @@ return {
 ✅ **Validation** - Validate simulation consistency  
 ✅ **Lifecycle** - Handle start, stop, pause, resume  
 ✅ **Mode Coordination** - Implement manual, event-driven, auto-advance modes  
+✅ **Scenario Export/Load** - Save and restore complete simulation state  
 ✅ **Error Handling** - Catch errors, log, decide whether to continue  
 ✅ **API Gateway** - All REST API requests go through SimulationEngine  
 ✅ **Loop Control** - Start/stop SimulationLoop for auto-advance mode

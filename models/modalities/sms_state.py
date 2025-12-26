@@ -1,14 +1,44 @@
 """SMS/RCS state model for text messaging."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Optional
 from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from models.base_input import ModalityInput
 from models.base_state import ModalityState
 from models.modalities.sms_input import SMSInput
+
+
+def _ensure_timezone_aware(v: datetime) -> datetime:
+    """Ensure datetime is timezone-aware.
+
+    Args:
+        v: Datetime value (may be naive or string).
+
+    Returns:
+        Timezone-aware datetime.
+    """
+    if isinstance(v, str):
+        v = datetime.fromisoformat(v.replace("Z", "+00:00"))
+    if v.tzinfo is None:
+        v = v.replace(tzinfo=timezone.utc)
+    return v
+
+
+def _ensure_timezone_aware_optional(v: Optional[datetime]) -> Optional[datetime]:
+    """Ensure optional datetime is timezone-aware.
+
+    Args:
+        v: Optional datetime value (may be naive or string).
+
+    Returns:
+        Timezone-aware datetime or None.
+    """
+    if v is None:
+        return None
+    return _ensure_timezone_aware(v)
 
 
 class MessageAttachment(BaseModel):
@@ -102,6 +132,12 @@ class MessageReaction(BaseModel):
     emoji: str = Field(description="Emoji character(s) used for reaction")
     timestamp: datetime = Field(description="When reaction was added")
 
+    @field_validator("timestamp", mode="before")
+    @classmethod
+    def ensure_timezone_aware(cls, v: datetime) -> datetime:
+        """Ensure datetime is timezone-aware."""
+        return _ensure_timezone_aware(v)
+
     def to_dict(self) -> dict[str, Any]:
         """Convert reaction to dictionary.
 
@@ -137,6 +173,18 @@ class GroupParticipant(BaseModel):
         default=None,
         description="When participant left group",
     )
+
+    @field_validator("joined_at", mode="before")
+    @classmethod
+    def ensure_timezone_aware(cls, v: datetime) -> datetime:
+        """Ensure datetime is timezone-aware."""
+        return _ensure_timezone_aware(v)
+
+    @field_validator("left_at", mode="before")
+    @classmethod
+    def ensure_timezone_aware_optional(cls, v: Optional[datetime]) -> Optional[datetime]:
+        """Ensure optional datetime is timezone-aware."""
+        return _ensure_timezone_aware_optional(v)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert participant to dictionary.
@@ -225,6 +273,18 @@ class SMSMessage(BaseModel):
         description="ID of message this replies to",
     )
     is_spam: bool = Field(default=False, description="Whether flagged as spam")
+
+    @field_validator("sent_at", mode="before")
+    @classmethod
+    def ensure_timezone_aware(cls, v: datetime) -> datetime:
+        """Ensure datetime is timezone-aware."""
+        return _ensure_timezone_aware(v)
+
+    @field_validator("delivered_at", "read_at", "edited_at", mode="before")
+    @classmethod
+    def ensure_timezone_aware_optional(cls, v: Optional[datetime]) -> Optional[datetime]:
+        """Ensure optional datetime is timezone-aware."""
+        return _ensure_timezone_aware_optional(v)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert message to dictionary for API responses.
@@ -397,6 +457,12 @@ class SMSConversation(BaseModel):
         default=None,
         description="Partially composed message text",
     )
+
+    @field_validator("created_at", "last_message_at", mode="before")
+    @classmethod
+    def ensure_timezone_aware(cls, v: datetime) -> datetime:
+        """Ensure datetime is timezone-aware."""
+        return _ensure_timezone_aware(v)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert conversation to dictionary for API responses.
@@ -1659,7 +1725,7 @@ class SMSState(ModalityState):
         if action == "noop":
             self.update_count = undo_data["state_previous_update_count"]
             self.last_updated = datetime.fromisoformat(
-                undo_data["state_previous_last_updated"]
+                undo_data["state_previous_last_updated"].replace("Z", "+00:00")
             )
             return
 
@@ -1711,7 +1777,7 @@ class SMSState(ModalityState):
                         conv.message_count = previous_conv_data["message_count"]
                         conv.unread_count = previous_conv_data["unread_count"]
                         conv.last_message_at = datetime.fromisoformat(
-                            previous_conv_data["last_message_at"]
+                            previous_conv_data["last_message_at"].replace("Z", "+00:00")
                         )
 
             # Restore removed message due to capacity
@@ -1730,12 +1796,16 @@ class SMSState(ModalityState):
                 msg.delivery_status = undo_data["previous_delivery_status"]
                 msg.is_read = undo_data["previous_is_read"]
                 msg.delivered_at = (
-                    datetime.fromisoformat(undo_data["previous_delivered_at"])
+                    datetime.fromisoformat(
+                        undo_data["previous_delivered_at"].replace("Z", "+00:00")
+                    )
                     if undo_data.get("previous_delivered_at")
                     else None
                 )
                 msg.read_at = (
-                    datetime.fromisoformat(undo_data["previous_read_at"])
+                    datetime.fromisoformat(
+                        undo_data["previous_read_at"].replace("Z", "+00:00")
+                    )
                     if undo_data.get("previous_read_at")
                     else None
                 )
@@ -1774,7 +1844,9 @@ class SMSState(ModalityState):
                 msg = self.messages[message_id]
                 msg.body = undo_data["previous_body"]
                 msg.edited_at = (
-                    datetime.fromisoformat(undo_data["previous_edited_at"])
+                    datetime.fromisoformat(
+                        undo_data["previous_edited_at"].replace("Z", "+00:00")
+                    )
                     if undo_data.get("previous_edited_at")
                     else None
                 )
@@ -1867,7 +1939,9 @@ class SMSState(ModalityState):
                         msg = self.messages[msg_id]
                         msg.is_read = msg_data["previous_is_read"]
                         msg.read_at = (
-                            datetime.fromisoformat(msg_data["previous_read_at"])
+                            datetime.fromisoformat(
+                                msg_data["previous_read_at"].replace("Z", "+00:00")
+                            )
                             if msg_data.get("previous_read_at")
                             else None
                         )
@@ -1878,5 +1952,5 @@ class SMSState(ModalityState):
         # Restore state-level metadata
         self.update_count = undo_data["state_previous_update_count"]
         self.last_updated = datetime.fromisoformat(
-            undo_data["state_previous_last_updated"]
+            undo_data["state_previous_last_updated"].replace("Z", "+00:00")
         )

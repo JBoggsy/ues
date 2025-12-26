@@ -1,11 +1,11 @@
 """Simulator event model."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Optional
 from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 if TYPE_CHECKING:
     from models.base_input import ModalityInput
@@ -82,6 +82,70 @@ class SimulatorEvent(BaseModel):
     class Config:
         arbitrary_types_allowed = True
         use_enum_values = False
+
+    @field_validator("scheduled_time", "created_at", "executed_at", mode="before")
+    @classmethod
+    def validate_timezone_aware(cls, v: datetime | str | None) -> datetime | None:
+        """Ensure datetime is timezone-aware, converting naive to UTC if needed."""
+        if v is None:
+            return None
+        if isinstance(v, str):
+            v = datetime.fromisoformat(v.replace("Z", "+00:00"))
+        if isinstance(v, datetime) and v.tzinfo is None:
+            v = v.replace(tzinfo=timezone.utc)
+        return v
+
+    @model_validator(mode="before")
+    @classmethod
+    def deserialize_data_field(cls, values: Any) -> Any:
+        """Convert data field from dict to appropriate ModalityInput subclass.
+
+        When deserializing from JSON/dict (e.g., from scenario files), the data
+        field will be a plain dict containing a 'modality_type' key. This validator
+        uses the registry to instantiate the correct ModalityInput subclass.
+
+        If data is already a ModalityInput instance (normal construction),
+        or if it's a dict without 'modality_type' (legacy/test usage),
+        this validator passes it through unchanged.
+
+        Args:
+            values: The raw input values (dict when deserializing).
+
+        Returns:
+            The values with data converted to ModalityInput if needed.
+        """
+        # Only process dict inputs (deserialization case)
+        if not isinstance(values, dict):
+            return values
+
+        data = values.get("data")
+
+        # If data is not a dict, nothing to do
+        if not isinstance(data, dict):
+            return values
+
+        # Only attempt deserialization if data has modality_type field
+        # This distinguishes scenario deserialization from legacy/test dict usage
+        modality_type = data.get("modality_type")
+        if not modality_type:
+            return values
+
+        # Import here to avoid circular import at module level
+        from models.registry import get_modality_input_class, is_modality_input_registered
+
+        if not is_modality_input_registered(modality_type):
+            # Unknown modality - let validation handle the error later
+            return values
+
+        # Get the appropriate input class and instantiate
+        input_class = get_modality_input_class(modality_type)
+        values["data"] = input_class.model_validate(data)
+
+        # Ensure event modality matches data modality_type
+        if "modality" not in values or not values["modality"]:
+            values["modality"] = modality_type
+
+        return values
 
     def execute(
         self, environment: "Environment", capture_undo: bool = True

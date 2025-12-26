@@ -234,6 +234,72 @@ def get_dependencies(self) -> list[str]:
 
 **Rationale**: Nice-to-have for advanced scheduling and conflict detection.
 
+### Scenario Serialization Support
+
+SimulatorEvent supports round-trip serialization for scenario save/load via Pydantic's built-in serialization combined with a custom model validator for polymorphic deserialization of the `data` field.
+
+#### Serialization (Export)
+
+Events are serialized using Pydantic's `model_dump(mode="json")`:
+
+```python
+# Serialize a single event
+event_dict = event.model_dump(mode="json")
+
+# Result includes all fields with JSON-compatible types:
+# {
+#     "event_id": "abc123",
+#     "scheduled_time": "2024-03-15T14:30:00Z",
+#     "modality": "email",
+#     "data": {
+#         "modality_type": "email",  # Discriminator for polymorphic deserialization
+#         "from_address": "sender@example.com",
+#         ...
+#     },
+#     "status": "pending",
+#     ...
+# }
+```
+
+**Key Point**: The `data` field (ModalityInput) includes its `modality_type` discriminator, which is essential for reconstructing the correct subclass during deserialization.
+
+#### Deserialization (Import)
+
+SimulatorEvent uses a Pydantic model validator to handle polymorphic deserialization of the `data` field:
+
+```python
+@model_validator(mode="before")
+@classmethod
+def deserialize_data_field(cls, values: Any) -> Any:
+    """Convert data field from dict to appropriate ModalityInput subclass.
+    
+    When deserializing from JSON/dict (e.g., from scenario files), the data
+    field will be a plain dict containing a 'modality_type' key. This validator
+    uses the modality registry to instantiate the correct ModalityInput subclass.
+    
+    If data is already a ModalityInput instance (normal construction),
+    or if it's a dict without 'modality_type', this validator passes it
+    through unchanged.
+    """
+```
+
+**Behavior**:
+1. Checks if `values.data` is a dict with a `modality_type` field
+2. Looks up the input class in the modality registry
+3. Instantiates the correct ModalityInput subclass via `model_validate()`
+4. Also syncs the event's `modality` field with `data.modality_type` if not set
+
+**Usage**:
+```python
+# Deserialize from dict (e.g., loaded from JSON file)
+event = SimulatorEvent.model_validate(event_dict)
+
+# The data field is now the correct ModalityInput subclass:
+assert isinstance(event.data, EmailInput)  # Not a plain dict
+```
+
+**Modality Registry**: The deserialization relies on `models/registry.py` which maps `modality_type` strings to their corresponding ModalityInput classes.
+
 ## EventQueue Class
 
 ### Purpose
@@ -457,6 +523,82 @@ def validate(self) -> list[str]:
 
 **Rationale**: Catches queue corruption, useful for debugging.
 
+### Scenario Serialization Methods
+
+#### 10. `to_scenario_dict() -> dict[str, Any]`
+```python
+def to_scenario_dict(self) -> dict[str, Any]:
+    """Serialize event queue to a dictionary suitable for scenario export.
+    
+    This method produces a complete, round-trip serializable representation
+    of the event queue, suitable for saving to scenario files.
+    
+    Each event is serialized using model_dump(mode="json"), which includes:
+    - Event metadata (event_id, scheduled_time, status, etc.)
+    - The data field (ModalityInput) serialized with modality_type discriminator
+    
+    Returns:
+        Dictionary with:
+        - events: List of serialized SimulatorEvent dictionaries
+    
+    Example:
+        >>> queue = EventQueue()
+        >>> queue.add_event(some_event)
+        >>> data = queue.to_scenario_dict()
+        >>> json.dump(data, f, indent=2)
+    """
+```
+
+**Rationale**: Enables saving the complete event queue state for scenario export.
+
+#### 11. `from_scenario_dict(data, regenerate_ids=True) -> EventQueue` (classmethod)
+```python
+@classmethod
+def from_scenario_dict(
+    cls,
+    data: dict[str, Any],
+    regenerate_ids: bool = True,
+) -> "EventQueue":
+    """Deserialize event queue from a scenario dictionary.
+    
+    Reconstructs an EventQueue from data previously produced by
+    `to_scenario_dict()`. Uses the modality registry (via SimulatorEvent's
+    model_validator) to correctly instantiate ModalityInput subclasses.
+    
+    Args:
+        data: Dictionary from `to_scenario_dict()` containing:
+            - events: List of serialized SimulatorEvent dictionaries
+        regenerate_ids: If True (default), generate new event_ids to avoid
+            conflicts when loading into an existing simulation. If False,
+            preserve original event_ids.
+    
+    Returns:
+        New EventQueue instance with deserialized events.
+    
+    Raises:
+        ValueError: If required data fields are missing.
+        ValidationError: If event data fails Pydantic validation.
+    
+    Example:
+        >>> with open("events.json") as f:
+        ...     data = json.load(f)
+        >>> queue = EventQueue.from_scenario_dict(data)
+        >>> print(f"Loaded {len(queue.events)} events")
+    """
+```
+
+**Rationale**:
+- Enables restoring event queues from scenario files
+- Delegates polymorphic deserialization to SimulatorEvent's model validator
+- Generates new event IDs by default to avoid conflicts with existing events
+- Preserves event status (pending, executed, etc.) from the saved state
+
+**Event ID Regeneration**:
+When loading events, IDs are regenerated by default because:
+1. Avoids conflicts if loading into a simulation with existing events
+2. Allows loading the same scenario multiple times
+3. Set `regenerate_ids=False` if exact ID preservation is needed (e.g., debugging)
+
 ### Internal Helpers
 
 #### `_sort_events() -> None`
@@ -590,6 +732,60 @@ return {
 ```
 
 **Key Point**: Queue enables efficient time skipping by providing next event time.
+
+### Pattern 5: Scenario Serialization
+
+```python
+# Export event queue for saving
+
+data = event_queue.to_scenario_dict()
+
+# data contains:
+# {
+#     "events": [
+#         {
+#             "event_id": "abc123",
+#             "scheduled_time": "2024-03-15T14:30:00Z",
+#             "modality": "email",
+#             "data": {
+#                 "modality_type": "email",
+#                 "from_address": "sender@example.com",
+#                 ...
+#             },
+#             "status": "pending",
+#             ...
+#         },
+#         ...
+#     ]
+# }
+
+# Save to file
+with open("events.ues-events.json", "w") as f:
+    json.dump(data, f, indent=2)
+```
+
+```python
+# Restore event queue from file
+
+with open("events.ues-events.json") as f:
+    data = json.load(f)
+
+# Default: regenerate IDs to avoid conflicts
+queue = EventQueue.from_scenario_dict(data, regenerate_ids=True)
+
+# Or preserve original IDs (for debugging/testing)
+queue = EventQueue.from_scenario_dict(data, regenerate_ids=False)
+
+print(f"Loaded {len(queue.events)} events")
+print(f"Pending: {queue.pending_count}, Executed: {queue.executed_count}")
+```
+
+**Key Points**:
+- Events are serialized with their complete ModalityInput data
+- `modality_type` discriminator enables polymorphic reconstruction
+- Event IDs are regenerated by default for safe re-import
+- Event status is preserved (pending, executed, failed, etc.)
+- SimulatorEvent's model validator handles the data field deserialization
 
 ## EventStatus Enum
 

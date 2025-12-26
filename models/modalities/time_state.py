@@ -439,7 +439,9 @@ class TimeState(ModalityState):
         if "removed_history_entry" in undo_data:
             entry_data = undo_data["removed_history_entry"]
             restored_entry = TimeSettingsHistoryEntry(
-                timestamp=datetime.fromisoformat(entry_data["timestamp"]),
+                timestamp=datetime.fromisoformat(
+                    entry_data["timestamp"].replace("Z", "+00:00")
+                ),
                 timezone=entry_data["timezone"],
                 format_preference=entry_data["format_preference"],
                 date_format=entry_data.get("date_format"),
@@ -458,5 +460,5 @@ class TimeState(ModalityState):
         # Restore state-level metadata
         self.update_count = undo_data["state_previous_update_count"]
         self.last_updated = datetime.fromisoformat(
-            undo_data["state_previous_last_updated"]
+            undo_data["state_previous_last_updated"].replace("Z", "+00:00")
         )

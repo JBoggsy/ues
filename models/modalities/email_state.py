@@ -1,13 +1,29 @@
 """Email state model."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Optional
 from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from models.base_input import ModalityInput
 from models.base_state import ModalityState
+
+
+def _ensure_timezone_aware(v: datetime) -> datetime:
+    """Ensure datetime is timezone-aware.
+
+    Args:
+        v: Datetime value (may be naive or string).
+
+    Returns:
+        Timezone-aware datetime.
+    """
+    if isinstance(v, str):
+        v = datetime.fromisoformat(v.replace("Z", "+00:00"))
+    if v.tzinfo is None:
+        v = v.replace(tzinfo=timezone.utc)
+    return v
 
 
 class Email(BaseModel):
@@ -56,6 +72,12 @@ class Email(BaseModel):
     priority: str = Field(default="normal", description="Priority level")
     folder: str = Field(default="inbox", description="Current folder location")
     labels: list[str] = Field(default_factory=list, description="List of applied labels/tags")
+
+    @field_validator("sent_at", "received_at", mode="before")
+    @classmethod
+    def ensure_timezone_aware(cls, v: datetime) -> datetime:
+        """Ensure datetime is timezone-aware."""
+        return _ensure_timezone_aware(v)
 
     def mark_read(self) -> None:
         """Set email as read."""
@@ -119,6 +141,12 @@ class EmailThread(BaseModel):
     message_count: int = Field(default=0, description="Number of emails in thread")
     unread_count: int = Field(default=0, description="Number of unread emails in thread")
 
+    @field_validator("created_at", "last_message_at", mode="before")
+    @classmethod
+    def ensure_timezone_aware(cls, v: datetime) -> datetime:
+        """Ensure datetime is timezone-aware."""
+        return _ensure_timezone_aware(v)
+
     def add_message(self, message_id: str, timestamp: datetime) -> None:
         """Add message to thread.
 
@@ -175,6 +203,12 @@ class EmailSummary(BaseModel):
     has_attachments: bool = Field(description="Whether email has attachments")
     attachment_count: int = Field(description="Number of attachments")
     body_preview: str = Field(description="First ~100 chars of body text")
+
+    @field_validator("sent_at", "received_at", mode="before")
+    @classmethod
+    def ensure_timezone_aware(cls, v: datetime) -> datetime:
+        """Ensure datetime is timezone-aware."""
+        return _ensure_timezone_aware(v)
 
     @classmethod
     def from_email(cls, email: "Email", preview_length: int = 100) -> "EmailSummary":
@@ -1276,7 +1310,7 @@ class EmailState(ModalityState):
         if action == "noop":
             self.update_count = undo_data["state_previous_update_count"]
             self.last_updated = datetime.fromisoformat(
-                undo_data["state_previous_last_updated"]
+                undo_data["state_previous_last_updated"].replace("Z", "+00:00")
             )
             return
 
@@ -1369,7 +1403,9 @@ class EmailState(ModalityState):
                 self.folders[email.folder].append(message_id)
                 # Restore sent_at
                 if previous_sent_at:
-                    email.sent_at = datetime.fromisoformat(previous_sent_at)
+                    email.sent_at = datetime.fromisoformat(
+                        previous_sent_at.replace("Z", "+00:00")
+                    )
                 # Re-add to drafts dict
                 self.drafts[message_id] = email
 
@@ -1457,5 +1493,5 @@ class EmailState(ModalityState):
         # Restore state-level metadata
         self.update_count = undo_data["state_previous_update_count"]
         self.last_updated = datetime.fromisoformat(
-            undo_data["state_previous_last_updated"]
+            undo_data["state_previous_last_updated"].replace("Z", "+00:00")
         )

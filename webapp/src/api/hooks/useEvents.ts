@@ -3,6 +3,7 @@
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '../client';
+import { usePollingSettings } from './useSettings';
 import type { 
   SimulatorEvent, 
   EventListResponse, 
@@ -24,8 +25,12 @@ interface EventFilters {
 
 /**
  * Hook to fetch events list with polling.
+ * Uses settings store for default polling interval.
  */
-export function useEvents(filters?: EventFilters, pollingInterval = 3000) {
+export function useEvents(filters?: EventFilters, pollingInterval?: number) {
+  const { eventsPollingInterval } = usePollingSettings();
+  const interval = pollingInterval ?? eventsPollingInterval;
+
   return useQuery<EventListResponse>({
     queryKey: [...QUERY_KEY, filters],
     queryFn: async () => {
@@ -38,7 +43,7 @@ export function useEvents(filters?: EventFilters, pollingInterval = 3000) {
       const response = await apiClient.get(`/events?${params.toString()}`);
       return response.data;
     },
-    refetchInterval: pollingInterval,
+    refetchInterval: interval,
   });
 }
 

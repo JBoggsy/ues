@@ -32,6 +32,7 @@ The key architectural question: **What does Environment own?**
 ✅ **Time Container**: Holds current simulator time state  
 ✅ **State Accessor**: Provides lookup methods for states  
 ✅ **Serializable**: Can export current state as dictionary  
+✅ **Scenario Serializable**: Can export/import for scenario save/load  
 ✅ **Validatable**: Can check internal consistency  
 
 ### What Environment IS NOT
@@ -294,6 +295,106 @@ def list_modalities(self) -> list[str]:
 - Simple convenience method
 - Sorted for consistent ordering
 
+### 5. `to_scenario_dict() -> dict[str, Any]`
+
+Serialize environment for scenario export.
+
+```python
+def to_scenario_dict(self) -> dict[str, Any]:
+    """Serialize environment to a dictionary suitable for scenario export.
+    
+    This method produces a complete, round-trip serializable representation
+    of the environment state, suitable for saving to scenario files.
+    
+    Unlike `get_snapshot()` which is optimized for API responses, this method
+    preserves all data needed to fully reconstruct the environment, including
+    the modality_type discriminator for polymorphic deserialization.
+    
+    Returns:
+        Dictionary with:
+        - time_state: Serialized SimulatorTime (using model_dump with ISO dates)
+        - modality_states: Dict of modality_type -> serialized state
+    
+    Example:
+        >>> env = Environment(...)
+        >>> data = env.to_scenario_dict()
+        >>> # Save to file
+        >>> json.dump(data, f, indent=2)
+        >>> # Later, restore:
+        >>> restored_env, warnings = Environment.from_scenario_dict(data)
+    """
+```
+
+**Rationale**:
+- Essential for scenario save/load functionality
+- Round-trip serialization (can be deserialized back)
+- Preserves modality_type for polymorphic reconstruction
+- Uses Pydantic's model_dump for robust serialization
+
+**Comparison with get_snapshot()**:
+- `get_snapshot()`: Optimized for API responses, human-readable
+- `to_scenario_dict()`: Optimized for round-trip serialization, machine-readable
+
+### 6. `from_scenario_dict(data, strict=True) -> tuple[Environment, list[str]]` (classmethod)
+
+Deserialize environment from scenario data.
+
+```python
+@classmethod
+def from_scenario_dict(
+    cls,
+    data: dict[str, Any],
+    strict: bool = True,
+) -> tuple["Environment", list[str]]:
+    """Deserialize environment from a scenario dictionary.
+    
+    Reconstructs an Environment from data previously produced by
+    `to_scenario_dict()`. Uses the modality registry to correctly
+    instantiate the appropriate ModalityState subclass for each modality.
+    
+    Args:
+        data: Dictionary from `to_scenario_dict()` containing:
+            - time_state: Serialized SimulatorTime data
+            - modality_states: Dict of modality_type -> serialized state data
+        strict: If True, raise ValueError on unknown modality types.
+            If False, skip unknown modalities and add them to warnings.
+    
+    Returns:
+        Tuple of (Environment, list of warning messages).
+        Warnings include skipped modalities when strict=False.
+    
+    Raises:
+        ValueError: If strict=True and an unknown modality type is encountered.
+        ValueError: If required data fields are missing.
+        ValidationError: If data fails Pydantic validation.
+    
+    Example:
+        >>> # Load from file
+        >>> with open("scenario.json") as f:
+        ...     data = json.load(f)
+        >>> env, warnings = Environment.from_scenario_dict(data["environment"])
+        >>> if warnings:
+        ...     print(f"Loaded with warnings: {warnings}")
+    """
+```
+
+**Rationale**:
+- Enables scenario import/restore functionality
+- Uses modality registry for polymorphic deserialization
+- Supports graceful degradation with strict=False
+- Returns warnings for partial compatibility scenarios
+
+**Modality Registry**:
+The `from_scenario_dict()` method uses the modality registry (`models/registry.py`) to:
+1. Check if a modality type is registered
+2. Get the correct ModalityState subclass for each type
+3. Instantiate the state using Pydantic's model_validate()
+
+**Partial Compatibility**:
+When loading scenarios from different UES versions, some modalities may be unknown:
+- `strict=True`: Fails fast, ensuring complete state
+- `strict=False`: Skips unknown modalities, returns warnings
+
 ## Interaction Patterns
 
 ### Pattern 1: Event Execution
@@ -423,6 +524,55 @@ mode = environment.time_state.mode
 - Single source of truth
 - Read-only access from events
 - Only SimulationEngine modifies time
+
+### Pattern 6: Scenario Serialization
+
+Saving and restoring complete environment state for scenario files.
+
+```python
+# Export environment for saving
+
+data = environment.to_scenario_dict()
+
+# data contains:
+# {
+#     "time_state": {...},  # Full SimulatorTime serialization
+#     "modality_states": {
+#         "email": {...},
+#         "calendar": {...},
+#         ...
+#     }
+# }
+
+# Save to file
+with open("scenario.ues-env.json", "w") as f:
+    json.dump(data, f, indent=2)
+```
+
+```python
+# Restore environment from file
+
+with open("scenario.ues-env.json") as f:
+    data = json.load(f)
+
+# Strict mode - fails on unknown modalities
+environment, warnings = Environment.from_scenario_dict(data, strict=True)
+
+# Or lenient mode - skips unknown modalities
+environment, warnings = Environment.from_scenario_dict(data, strict=False)
+
+if warnings:
+    print(f"Loaded with warnings:")
+    for warning in warnings:
+        print(f"  - {warning}")
+```
+
+**Key Points**:
+- `to_scenario_dict()` produces round-trip serializable data
+- `from_scenario_dict()` uses modality registry for polymorphic deserialization
+- Strict mode for complete state guarantee
+- Lenient mode for partial compatibility across UES versions
+- Returns warnings list (not raises) for graceful degradation
 
 ## Error Handling
 

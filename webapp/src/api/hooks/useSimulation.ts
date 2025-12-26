@@ -3,6 +3,7 @@
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '../client';
+import { usePollingSettings } from './useSettings';
 import type { 
   SimulationStatus, 
   StartSimulationRequest, 
@@ -14,15 +15,19 @@ const QUERY_KEY = ['simulation'];
 
 /**
  * Hook to fetch simulation status with polling.
+ * Uses settings store for default polling interval.
  */
-export function useSimulationStatus(pollingInterval = 2000) {
+export function useSimulationStatus(pollingInterval?: number) {
+  const { timePollingInterval } = usePollingSettings();
+  const interval = pollingInterval ?? timePollingInterval;
+
   return useQuery<SimulationStatus>({
     queryKey: QUERY_KEY,
     queryFn: async () => {
       const response = await apiClient.get('/simulation/status');
       return response.data;
     },
-    refetchInterval: pollingInterval,
+    refetchInterval: interval,
   });
 }
 

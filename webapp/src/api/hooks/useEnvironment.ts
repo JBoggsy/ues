@@ -3,21 +3,26 @@
  */
 import { useQuery } from '@tanstack/react-query';
 import apiClient from '../client';
+import { usePollingSettings } from './useSettings';
 import type { EnvironmentState, ModalitySummary, Modality } from '../types';
 
 const QUERY_KEY = ['environment'];
 
 /**
  * Hook to fetch complete environment state with polling.
+ * Uses settings store for default polling interval.
  */
-export function useEnvironmentState(pollingInterval = 5000) {
+export function useEnvironmentState(pollingInterval?: number) {
+  const { environmentPollingInterval } = usePollingSettings();
+  const interval = pollingInterval ?? environmentPollingInterval;
+
   return useQuery<EnvironmentState>({
     queryKey: QUERY_KEY,
     queryFn: async () => {
       const response = await apiClient.get('/environment/state');
       return response.data;
     },
-    refetchInterval: pollingInterval,
+    refetchInterval: interval,
   });
 }
 
@@ -36,8 +41,12 @@ export function useModalityList() {
 
 /**
  * Hook to fetch state of a specific modality with polling.
+ * Uses settings store for default polling interval.
  */
-export function useModalityState<T = unknown>(modality: Modality, pollingInterval = 5000) {
+export function useModalityState<T = unknown>(modality: Modality, pollingInterval?: number) {
+  const { environmentPollingInterval } = usePollingSettings();
+  const interval = pollingInterval ?? environmentPollingInterval;
+
   return useQuery<T>({
     queryKey: [...QUERY_KEY, 'modalities', modality],
     queryFn: async () => {
@@ -45,7 +54,7 @@ export function useModalityState<T = unknown>(modality: Modality, pollingInterva
       // API returns { modality_type, current_time, state }, extract just the state
       return response.data.state;
     },
-    refetchInterval: pollingInterval,
+    refetchInterval: interval,
     enabled: !!modality,
   });
 }

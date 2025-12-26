@@ -4,7 +4,7 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any, Optional
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, field_serializer
+from pydantic import BaseModel, Field, field_serializer, field_validator
 
 from models.base_input import ModalityInput
 from models.base_state import ModalityState
@@ -49,6 +49,23 @@ class Calendar(BaseModel):
     default_reminders: list[Reminder] = Field(
         default_factory=list, description="Default reminder settings"
     )
+
+    @field_validator("created_at", "updated_at", mode="before")
+    @classmethod
+    def ensure_timezone_aware(cls, v: datetime) -> datetime:
+        """Ensure datetime is timezone-aware.
+
+        Args:
+            v: Datetime value (may be naive or string).
+
+        Returns:
+            Timezone-aware datetime.
+        """
+        if isinstance(v, str):
+            v = datetime.fromisoformat(v.replace("Z", "+00:00"))
+        if v.tzinfo is None:
+            v = v.replace(tzinfo=timezone.utc)
+        return v
 
     @field_serializer("created_at", "updated_at")
     def serialize_datetime(self, dt: datetime) -> str:
@@ -152,6 +169,42 @@ class CalendarEvent(BaseModel):
     deleted_at: Optional[datetime] = Field(
         default=None, description="When event was deleted"
     )
+
+    @field_validator("start", "end", "created_at", "updated_at", mode="before")
+    @classmethod
+    def ensure_timezone_aware(cls, v: datetime) -> datetime:
+        """Ensure datetime is timezone-aware.
+
+        Args:
+            v: Datetime value (may be naive or string).
+
+        Returns:
+            Timezone-aware datetime.
+        """
+        if isinstance(v, str):
+            v = datetime.fromisoformat(v.replace("Z", "+00:00"))
+        if v.tzinfo is None:
+            v = v.replace(tzinfo=timezone.utc)
+        return v
+
+    @field_validator("deleted_at", mode="before")
+    @classmethod
+    def ensure_timezone_aware_optional(cls, v: Optional[datetime]) -> Optional[datetime]:
+        """Ensure optional datetime is timezone-aware.
+
+        Args:
+            v: Optional datetime value (may be naive or string).
+
+        Returns:
+            Timezone-aware datetime or None.
+        """
+        if v is None:
+            return None
+        if isinstance(v, str):
+            v = datetime.fromisoformat(v.replace("Z", "+00:00"))
+        if v.tzinfo is None:
+            v = v.replace(tzinfo=timezone.utc)
+        return v
 
     @field_serializer("start", "end", "created_at", "updated_at")
     def serialize_datetime(self, dt: datetime) -> str:
@@ -1177,7 +1230,7 @@ class CalendarState(ModalityState):
             # Restore state-level metadata only
             self.update_count = undo_data["state_previous_update_count"]
             self.last_updated = datetime.fromisoformat(
-                undo_data["state_previous_last_updated"]
+                undo_data["state_previous_last_updated"].replace("Z", "+00:00")
             )
             return
 
@@ -1225,7 +1278,7 @@ class CalendarState(ModalityState):
                 prev_updated = undo_data.get("previous_calendar_updated_at")
                 if prev_updated:
                     self.calendars[calendar_id].updated_at = datetime.fromisoformat(
-                        prev_updated
+                        prev_updated.replace("Z", "+00:00")
                     )
 
         elif action == "restore_event_remove_split":
@@ -1259,7 +1312,7 @@ class CalendarState(ModalityState):
                 prev_updated = undo_data.get("previous_calendar_updated_at")
                 if prev_updated:
                     self.calendars[calendar_id].updated_at = datetime.fromisoformat(
-                        prev_updated
+                        prev_updated.replace("Z", "+00:00")
                     )
 
         elif action == "restore_event_remove_occurrence":
@@ -1322,7 +1375,7 @@ class CalendarState(ModalityState):
                 prev_updated = undo_data.get("previous_calendar_updated_at")
                 if prev_updated:
                     self.calendars[calendar_id].updated_at = datetime.fromisoformat(
-                        prev_updated
+                        prev_updated.replace("Z", "+00:00")
                     )
 
         elif action == "restore_deleted_event":
@@ -1349,7 +1402,7 @@ class CalendarState(ModalityState):
                 prev_updated = undo_data.get("previous_calendar_updated_at")
                 if prev_updated:
                     self.calendars[calendar_id].updated_at = datetime.fromisoformat(
-                        prev_updated
+                        prev_updated.replace("Z", "+00:00")
                     )
 
         else:
@@ -1358,5 +1411,5 @@ class CalendarState(ModalityState):
         # Restore state-level metadata
         self.update_count = undo_data["state_previous_update_count"]
         self.last_updated = datetime.fromisoformat(
-            undo_data["state_previous_last_updated"]
+            undo_data["state_previous_last_updated"].replace("Z", "+00:00")
         )

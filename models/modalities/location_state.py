@@ -473,7 +473,9 @@ class LocationState(ModalityState):
             if "removed_history_entry" in undo_data:
                 entry_data = undo_data["removed_history_entry"]
                 restored_entry = LocationHistoryEntry(
-                    timestamp=datetime.fromisoformat(entry_data["timestamp"]),
+                    timestamp=datetime.fromisoformat(
+                        entry_data["timestamp"].replace("Z", "+00:00")
+                    ),
                     latitude=entry_data["latitude"],
                     longitude=entry_data["longitude"],
                     address=entry_data.get("address"),
@@ -501,5 +503,5 @@ class LocationState(ModalityState):
         # Restore state-level metadata
         self.update_count = undo_data["state_previous_update_count"]
         self.last_updated = datetime.fromisoformat(
-            undo_data["state_previous_last_updated"]
+            undo_data["state_previous_last_updated"].replace("Z", "+00:00")
         )

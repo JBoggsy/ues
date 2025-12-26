@@ -170,3 +170,294 @@ class ErrorResponse(BaseModel):
     error: str
     message: str
     details: dict[str, Any] | None = None
+
+
+# ===== Scenario Export/Import Models =====
+# These models are used by the scenario save/load API endpoints
+
+class HistoricEventHandling(str):
+    """Valid options for handling historic events during environment load.
+    
+    - ignore: Leave events in queue (they will never execute)
+    - delete: Remove historic events from queue
+    - apply: Execute historic events immediately against loaded state
+    """
+    IGNORE = "ignore"
+    DELETE = "delete"
+    APPLY = "apply"
+
+
+# --- Exported Data Structure Models ---
+# These model the structure of exported environment/event data
+
+class ExportedTimeState(BaseModel):
+    """Serialized simulator time state.
+    
+    Represents the time_state portion of an exported environment.
+    This model captures the structure from SimulatorTime.model_dump(mode="json").
+    """
+    current_time: datetime = Field(description="Current simulator time")
+    time_scale: float = Field(description="Time multiplier for auto-advance")
+    is_paused: bool = Field(description="Whether simulation is paused")
+    auto_advance: bool = Field(description="Whether auto-advance is enabled")
+    last_wall_time_update: datetime = Field(description="Last wall-clock update time")
+
+
+class ExportedEnvironmentData(BaseModel):
+    """Structure of exported environment data.
+    
+    This matches the output of Environment.to_scenario_dict().
+    """
+    time_state: ExportedTimeState = Field(
+        description="Serialized SimulatorTime state"
+    )
+    modality_states: dict[str, dict[str, Any]] = Field(
+        description="Dict mapping modality_type to serialized state data"
+    )
+
+
+class ExportedEventQueueData(BaseModel):
+    """Structure of exported event queue data.
+    
+    This matches the output of EventQueue.to_scenario_dict().
+    """
+    events: list[dict[str, Any]] = Field(
+        description="List of serialized SimulatorEvent dictionaries"
+    )
+
+
+class ScenarioMetadataModel(BaseModel):
+    """Metadata for a saved scenario (API representation).
+    
+    This mirrors models.scenario.ScenarioMetadata for API responses.
+    """
+    ues_version: str = Field(description="UES version that created this scenario")
+    scenario_version: str = Field(description="Schema version for file format")
+    created_at: datetime = Field(description="When scenario was created (UTC)")
+    author: str | None = Field(default=None, description="Author name or identifier")
+    description: str | None = Field(default=None, description="Human-readable description")
+
+
+class ExportedScenarioData(BaseModel):
+    """Complete scenario structure for export.
+    
+    This matches the structure of models.scenario.Scenario.
+    """
+    metadata: ScenarioMetadataModel = Field(description="Scenario metadata")
+    environment: ExportedEnvironmentData = Field(description="Serialized environment")
+    events: ExportedEventQueueData = Field(description="Serialized event queue")
+
+
+# --- Export Response Models ---
+
+
+class ExportEnvironmentResponse(BaseModel):
+    """Response for environment export endpoint.
+    
+    Returns the exported environment data along with summary information
+    about what was exported.
+    """
+    environment: ExportedEnvironmentData = Field(
+        description="Serialized environment data"
+    )
+    modalities_exported: list[str] = Field(
+        description="List of modality types included in export"
+    )
+
+
+class ExportEventsResponse(BaseModel):
+    """Response for event queue export endpoint.
+    
+    Returns the exported event queue along with summary statistics.
+    """
+    events: ExportedEventQueueData = Field(
+        description="Serialized event queue data"
+    )
+    total_events: int = Field(
+        ge=0,
+        description="Total number of events exported"
+    )
+    pending_events: int = Field(
+        ge=0,
+        description="Number of pending events"
+    )
+    executed_events: int = Field(
+        ge=0,
+        description="Number of executed events"
+    )
+
+
+class ExportScenarioResponse(BaseModel):
+    """Response for full scenario export endpoint.
+    
+    Returns the complete scenario with metadata, environment, and events.
+    """
+    scenario: ExportedScenarioData = Field(
+        description="Complete serialized scenario with metadata"
+    )
+
+
+# --- Import Request Models ---
+
+
+class LoadEnvironmentRequest(BaseModel):
+    """Request body for importing an environment.
+    
+    The data field should contain the output from export_environment()
+    or Environment.to_scenario_dict().
+    """
+    data: ExportedEnvironmentData = Field(
+        description="Environment data to load (from export)"
+    )
+    historic_event_handling: str = Field(
+        default="ignore",
+        pattern="^(ignore|delete|apply)$",
+        description=(
+            "How to handle existing events scheduled before the loaded environment's time: "
+            "'ignore' (leave in queue, will never execute), "
+            "'delete' (remove from queue), "
+            "'apply' (execute immediately against loaded state)"
+        )
+    )
+    strict_modalities: bool = Field(
+        default=False,
+        description=(
+            "If True, raise error on unknown modality types. "
+            "If False, skip unknown modalities and include in warnings."
+        )
+    )
+
+
+class LoadEventsRequest(BaseModel):
+    """Request body for importing events.
+    
+    The data field should contain the output from export_event_queue()
+    or EventQueue.to_scenario_dict().
+    """
+    data: ExportedEventQueueData = Field(
+        description="Event queue data to load (from export)"
+    )
+    merge: bool = Field(
+        default=False,
+        description=(
+            "If True, add loaded events to existing queue. "
+            "If False, replace all events."
+        )
+    )
+
+
+class LoadScenarioRequest(BaseModel):
+    """Request body for importing a full scenario.
+    
+    The scenario field should contain the output from export_scenario()
+    or Scenario.to_dict().
+    """
+    scenario: ExportedScenarioData = Field(
+        description="Complete scenario data to load"
+    )
+    strict_modalities: bool = Field(
+        default=False,
+        description=(
+            "If True, raise error on unknown modality types. "
+            "If False, skip unknown modalities and include in warnings."
+        )
+    )
+
+
+# --- Import Response Models ---
+
+
+class LoadEnvironmentResponse(BaseModel):
+    """Response for environment import endpoint.
+    
+    Returns detailed information about what was loaded and any issues.
+    """
+    success: bool = Field(
+        description="Whether the load operation succeeded"
+    )
+    modalities_loaded: list[str] = Field(
+        description="List of modality types that were successfully loaded"
+    )
+    modalities_skipped: list[str] = Field(
+        description="List of modality types that were skipped (unknown types)"
+    )
+    warnings: list[str] = Field(
+        description="Warning messages about the load operation"
+    )
+    historic_events_count: int = Field(
+        ge=0,
+        description="Number of existing events scheduled before loaded environment time"
+    )
+    historic_events_action: str = Field(
+        description="How historic events were handled ('ignore', 'delete', or 'apply')"
+    )
+
+
+class LoadEventsResponse(BaseModel):
+    """Response for event queue import endpoint.
+    
+    Returns detailed information about what was loaded.
+    """
+    success: bool = Field(
+        description="Whether the load operation succeeded"
+    )
+    events_loaded: int = Field(
+        ge=0,
+        description="Total number of events in the loaded data"
+    )
+    events_merged: int = Field(
+        ge=0,
+        description="Number of events actually added (when merge=True)"
+    )
+    previous_events: int = Field(
+        ge=0,
+        description="Number of events in queue before load"
+    )
+    historic_events_warning: bool = Field(
+        description="True if any loaded events are scheduled before current time"
+    )
+    historic_event_count: int = Field(
+        ge=0,
+        description="Number of events scheduled before current simulator time"
+    )
+
+
+class LoadedScenarioMetadata(BaseModel):
+    """Summary of loaded scenario metadata.
+    
+    Returned as part of LoadScenarioResponse to confirm what was loaded.
+    """
+    ues_version: str = Field(description="UES version from loaded scenario")
+    scenario_version: str = Field(description="Schema version from loaded scenario")
+    created_at: str = Field(description="When scenario was created (ISO format)")
+    author: str | None = Field(default=None, description="Author from loaded scenario")
+    description: str | None = Field(default=None, description="Description from loaded scenario")
+
+
+class LoadScenarioResponse(BaseModel):
+    """Response for full scenario import endpoint.
+    
+    Returns comprehensive information about the loaded scenario.
+    """
+    success: bool = Field(
+        description="Whether the load operation succeeded"
+    )
+    environment_loaded: bool = Field(
+        description="Whether environment was successfully loaded"
+    )
+    events_loaded: int = Field(
+        ge=0,
+        description="Number of events loaded from scenario"
+    )
+    modalities_loaded: list[str] = Field(
+        description="List of modality types that were successfully loaded"
+    )
+    modalities_skipped: list[str] = Field(
+        description="List of modality types that were skipped (unknown types)"
+    )
+    warnings: list[str] = Field(
+        description="Warning messages about the load operation"
+    )
+    scenario_metadata: LoadedScenarioMetadata = Field(
+        description="Metadata from the loaded scenario"
+    )

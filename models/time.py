@@ -56,12 +56,14 @@ class SimulatorTime(BaseModel):
         description="Whether time automatically advances based on wall time",
     )
 
-    @field_validator("current_time", "last_wall_time_update")
+    @field_validator("current_time", "last_wall_time_update", mode="before")
     @classmethod
     def validate_timezone_aware(cls, v: datetime) -> datetime:
-        """Ensure datetime is timezone-aware."""
+        """Ensure datetime is timezone-aware, converting naive to UTC if needed."""
+        if isinstance(v, str):
+            v = datetime.fromisoformat(v.replace("Z", "+00:00"))
         if v.tzinfo is None:
-            raise ValueError("Datetime must be timezone-aware (recommend UTC)")
+            v = v.replace(tzinfo=timezone.utc)
         return v
 
     @property

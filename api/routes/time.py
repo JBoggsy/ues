@@ -170,7 +170,9 @@ async def advance_time(request: AdvanceTimeRequest, engine: SimulationEngineDep)
         
         return AdvanceTimeResponse(
             previous_time=previous_time,
-            current_time=datetime.fromisoformat(result["current_time"]),
+            current_time=datetime.fromisoformat(
+                result["current_time"].replace("Z", "+00:00")
+            ),
             time_advanced=result["time_advanced"],
             events_executed=result["events_executed"],
             events_failed=events_failed,
@@ -263,8 +265,12 @@ async def set_time(request: SetTimeRequest, engine: SimulationEngineDep):
         result = engine.set_time(new_time=request.target_time, execute_skipped=False)
         
         return SetTimeResponse(
-            current_time=datetime.fromisoformat(result["current_time"]),
-            previous_time=datetime.fromisoformat(result["previous_time"]),
+            current_time=datetime.fromisoformat(
+                result["current_time"].replace("Z", "+00:00")
+            ),
+            previous_time=datetime.fromisoformat(
+                result["previous_time"].replace("Z", "+00:00")
+            ),
             skipped_events=result["skipped_events"],
             executed_events=result["executed_events"],
         )
@@ -311,10 +317,14 @@ async def skip_to_next_event(engine: SimulationEngineDep):
         
         return SkipToNextResponse(
             previous_time=previous_time,
-            current_time=datetime.fromisoformat(result["current_time"]),
+            current_time=datetime.fromisoformat(
+                result["current_time"].replace("Z", "+00:00")
+            ),
             events_executed=result["events_executed"],
             next_event_time=(
-                datetime.fromisoformat(result["next_event_time"])
+                datetime.fromisoformat(
+                    result["next_event_time"].replace("Z", "+00:00")
+                )
                 if result["next_event_time"]
                 else None
             ),

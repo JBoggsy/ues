@@ -2,15 +2,15 @@
 
 ## Test Suite Summary
 
-**Total Tests: 2,626 passing**
+**Total Tests: 2,935 passing**
 
 | Category | Test Count | Location |
 |----------|------------|----------|
-| Core Infrastructure Models | 392 | `tests/models/` (includes 61 undo + 22 simulation undo tests) |
-| Priority 1 Modality Models | 234 | `tests/models/` |
-| Priority 2 Modality Models | 549 | `tests/models/` (includes 192 modality undo tests) |
-| API Integration Tests | 523 | `tests/api/{events,time,environment,simulation,modalities}/` (includes 40 undo/redo + 20 reset tests) |
-| API Unit Tests | 285 | `tests/api/unit/` |
+| Core Infrastructure Models | 673 | `tests/models/` (includes 61 undo + 22 simulation undo + 181 scenario/serialization tests) |
+| Priority 1 Modality Models | 290 | `tests/models/` |
+| Priority 2 Modality Models | 493 | `tests/models/` (includes 192 modality undo tests) |
+| API Integration Tests | 587 | `tests/api/{events,time,environment,simulation,modalities,scenario}/` (includes 40 undo/redo + 20 reset + 40 scenario tests) |
+| API Unit Tests | 328 | `tests/api/unit/` (includes 43 scenario model tests) |
 | API Workflow Tests | 47 | `tests/api/workflows/` |
 | Cross-Cutting Tests | 105 | `tests/api/cross_cutting/` |
 | API Client Library Tests | 491 | `tests/client/` (437 unit tests + 54 integration tests) |
@@ -444,12 +444,20 @@ See `docs/WEB_UI_IMPLEMENTATION_PLAN.md` for detailed implementation plan.
 - [x] Time preferences viewer
 
 ### Phase 3.6: Polish & Configuration
-- [ ] Settings page (API URL, polling intervals)
-- [ ] Export/import environment state
-- [ ] Export/import event sequences
-- [ ] Error handling and toast notifications
-- [ ] Loading states and skeletons
+- [x] Settings page (API URL, polling intervals, theme, toast duration, confirm destructive actions)
+  - Theme toggle (light/dark/system)
+  - Time display options (timezone, 24h format) - placeholders for future implementation
+- [x] Error handling and toast notifications
 - [ ] Accessibility audit
+
+### Phase 3.7: Saving/Loading Scenarios ✅
+- [x] Generate implementation plan
+- [x] Phase 1: Backend models - serialization infrastructure (registry, environment/queue serialization, scenario model)
+- [x] Phase 2: SimulationEngine load/export methods
+- [x] Phase 3: API routes for scenario endpoints (`/scenario/export/*`, `/scenario/import/*`)
+- [x] Phase 4: Web UI export/import dialogs (ExportDialog, ImportDialog, CompatibilityDialog)
+- [x] Phase 5: Testing (264 scenario-related tests)
+- [x] Phase 6: Documentation (SCENARIO_FORMAT.md, SCENARIO_SAVE_LOAD.md, example scenarios)
 
 ## Phase 4: Event Agent Integration
 - [ ] Event Agent Configuration model (id, name, prompt_template, triggers)
@@ -457,12 +465,24 @@ See `docs/WEB_UI_IMPLEMENTATION_PLAN.md` for detailed implementation plan.
 - [ ] Event Agent Trigger model (event_type, conditions, frequency)
 
 ## Miscellaneous ToDos
+
+### Scenario Save/Load Future Enhancements
+- [ ] **Cloud Storage**: Add saving scenarios to backend storage/database
+- [ ] **Scenario Library**: UI to browse and manage multiple saved scenarios
+- [ ] **Scenario Versioning**: Track changes to scenarios over time
+- [ ] **Scenario Diff**: Compare two scenarios to see differences
+- [ ] **Auto-save**: Periodically auto-save current state (with recovery)
+- [ ] **Scenario Templates**: Pre-built scenarios for common testing patterns
+
+### UI Improvements
 - [ ] Add "Receive Email" compose button to UI Email view to allow simulating receiving emails
 - [ ] Add "Receive Text" compose button to UI SMS view to allow simulating receiving texts
 - [ ] Implement calendar event invites and accepting/rejection them
 - [ ] Implement backend storage/handling of named locations/saved addresses
 - [ ] Fix real weather timestamping and sunrise/sunset times
 - [ ] Rethink weather modality to some extent
+  - I actually think I should remove the real weather updates from the backend code, have clients
+    supply it if desired
 - [ ] Fix mismatch between `/{modality}/state` and `/environment/modalities/{modality}` endpoint responses
   - **Issue discovered**: Weather history field name mismatch:
     - `/weather/state` uses custom `to_dict()` method → returns `"history": [...]`
@@ -474,7 +494,11 @@ See `docs/WEB_UI_IMPLEMENTATION_PLAN.md` for detailed implementation plan.
     - Align the `to_dict()` methods to use same field names as Pydantic model field names (e.g., `report_history`)
     - OR update the `/environment/modalities/{modality}` endpoint to use custom `to_dict()` serialization
     - Then remove the workaround: update `WeatherLocationData.history` to be required, remove `report_history` optional field
-  - **Audit other modalities**: Check if Location, Email, SMS, Calendar, Chat have similar mismatches between their `/{modality}/state` and `/environment/modalities/{modality}` responses
+  - **Audit other modalities**: Check if Location, Email, SMS, Calendar, Chat have similar
+    mismatches between their `/{modality}/state` and `/environment/modalities/{modality}` responses
+- [x] Double check timestamp formatting re: "Z"/"+00:00". Make consistent
+- [ ] Allow setting Simulator time to arbitrary time, roll back events to pending + undo effects
+- [ ] Fix web UI to work well on mobile?
 
 ## Notes
 - All models should use Pydantic for validation

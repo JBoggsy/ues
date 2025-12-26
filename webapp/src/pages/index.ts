@@ -4,3 +4,4 @@
 export { Dashboard } from './Dashboard';
 export { EventManager } from './EventManager';
 export { ModalityPage } from './ModalityPage';
+export { Settings } from './Settings';

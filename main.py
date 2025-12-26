@@ -41,6 +41,7 @@ from api.routes import email as email_routes
 from api.routes import environment as environment_routes
 from api.routes import events as events_routes
 from api.routes import location as location_routes
+from api.routes import scenario as scenario_routes
 from api.routes import simulation as simulation_routes
 from api.routes import sms as sms_routes
 from api.routes import time as time_routes
@@ -73,11 +74,13 @@ async def lifespan(app: FastAPI):
     print("✅ Shutdown complete")
 
 
+from models.version import UES_VERSION
+
 # Create the FastAPI application instance
 app = FastAPI(
     title="User Environment Simulator (UES)",
     description="API for simulating user environments to test AI personal assistants",
-    version="0.1.0",
+    version=UES_VERSION,
     lifespan=lifespan,  # Register the lifespan handler
 )
 
@@ -121,6 +124,7 @@ app.include_router(time_routes.router)
 app.include_router(environment_routes.router)
 app.include_router(events_routes.router)
 app.include_router(simulation_routes.router)
+app.include_router(scenario_routes.router)
 app.include_router(weather_routes.router)
 app.include_router(email_routes.router)
 app.include_router(sms_routes.router)

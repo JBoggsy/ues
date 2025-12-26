@@ -4,13 +4,14 @@ The User Environment Simulator exposes a comprehensive RESTful API for controlli
 
 ## API Organization
 
-The API is organized into five main categories:
+The API is organized into six main categories:
 
 1. **Time Control** - Manage simulator time advancement and scaling
 2. **Environment State** - Query current state across all modalities
 3. **Event Management** - Create, query, and manage simulation events
 4. **Simulation Control** - Start, stop, and reset simulations
-5. **Modality-Specific Routes** - Type-safe endpoints for each modality
+5. **Scenario Save/Load** - Export and import simulation state
+6. **Modality-Specific Routes** - Type-safe endpoints for each modality
 
 ## Documentation Resources
 
@@ -112,7 +113,150 @@ Manage simulation lifecycle:
 
 ---
 
-### 5. Modality-Specific Routes
+### 5. Scenario Save/Load (`/scenario`)
+
+Export and import simulation state for saving scenarios to files:
+
+**Export Endpoints:**
+- `GET /scenario/export/environment` - Export environment state only
+- `GET /scenario/export/events` - Export event queue only
+- `GET /scenario/export/full` - Export complete scenario with metadata
+
+**Import Endpoints:**
+- `POST /scenario/import/environment` - Import environment state
+- `POST /scenario/import/events` - Import event queue (replace or merge)
+- `POST /scenario/import/full` - Import complete scenario
+
+**File Extensions:**
+- `.ues-env.json` - Environment-only exports
+- `.ues-events.json` - Event queue-only exports
+- `.ues-scenario.json` - Complete scenario exports
+
+**Use Cases:**
+- Save simulation state for later restoration
+- Share scenarios between users
+- Create regression test fixtures
+- Checkpoint long-running simulations
+
+#### Export Examples
+
+```bash
+# Export complete scenario
+GET /scenario/export/full?author=Developer&description=Test%20scenario
+
+# Response:
+{
+  "scenario": {
+    "metadata": {
+      "ues_version": "0.1.0",
+      "scenario_version": "1",
+      "created_at": "2025-01-01T00:00:00Z",
+      "author": "Developer",
+      "description": "Test scenario"
+    },
+    "environment": {
+      "time_state": {...},
+      "modality_states": {...}
+    },
+    "events": {
+      "events": [...]
+    }
+  }
+}
+```
+
+```bash
+# Export environment only
+GET /scenario/export/environment
+
+# Response:
+{
+  "environment": {
+    "time_state": {...},
+    "modality_states": {...}
+  },
+  "modalities_exported": ["weather", "email", "sms", "chat", ...]
+}
+```
+
+```bash
+# Export events only
+GET /scenario/export/events
+
+# Response:
+{
+  "events": {
+    "events": [...]
+  },
+  "total_events": 10,
+  "pending_events": 5,
+  "executed_events": 4
+}
+```
+
+#### Import Examples
+
+```bash
+# Import complete scenario
+POST /scenario/import/full
+{
+  "scenario": {
+    "metadata": {...},
+    "environment": {...},
+    "events": {...}
+  },
+  "strict_modalities": false
+}
+
+# Response:
+{
+  "success": true,
+  "environment_loaded": true,
+  "events_loaded": 10,
+  "modalities_loaded": ["weather", "email", ...],
+  "modalities_skipped": [],
+  "warnings": [],
+  "scenario_metadata": {
+    "ues_version": "0.1.0",
+    "created_at": "2025-01-01T00:00:00Z",
+    "author": "Developer"
+  }
+}
+```
+
+```bash
+# Import environment with historic event handling
+POST /scenario/import/environment
+{
+  "data": {
+    "time_state": {...},
+    "modality_states": {...}
+  },
+  "historic_event_handling": "delete",  # "ignore", "delete", or "apply"
+  "strict_modalities": false
+}
+```
+
+```bash
+# Import events (merge with existing)
+POST /scenario/import/events
+{
+  "data": {
+    "events": [...]
+  },
+  "merge": true  # false = replace all events
+}
+```
+
+**Important Notes:**
+- Simulation must be stopped before importing (returns 409 Conflict if running)
+- Import clears the undo stack (except event merge)
+- Use `strict_modalities: false` for partial compatibility with older scenarios
+- Event IDs are regenerated on import to avoid conflicts
+
+---
+
+### 6. Modality-Specific Routes
 
 Each modality has dedicated, type-safe endpoints following a consistent pattern:
 

@@ -1,11 +1,11 @@
 """Base class for all modality input models."""
 
 from abc import abstractmethod
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class ModalityInput(BaseModel):
@@ -33,6 +33,16 @@ class ModalityInput(BaseModel):
         default_factory=lambda: str(uuid4()),
         description="Unique identifier for this specific input",
     )
+
+    @field_validator("timestamp", mode="before")
+    @classmethod
+    def validate_timezone_aware(cls, v: datetime | str) -> datetime:
+        """Ensure datetime is timezone-aware, converting naive to UTC if needed."""
+        if isinstance(v, str):
+            v = datetime.fromisoformat(v.replace("Z", "+00:00"))
+        if isinstance(v, datetime) and v.tzinfo is None:
+            v = v.replace(tzinfo=timezone.utc)
+        return v
 
     @abstractmethod
     def validate_input(self) -> None:

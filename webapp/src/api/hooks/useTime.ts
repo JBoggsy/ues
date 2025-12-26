@@ -4,6 +4,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import apiClient from '../client';
+import { usePollingSettings } from './useSettings';
 import type { 
   TimeState, 
   AdvanceTimeRequest, 
@@ -64,15 +65,19 @@ function showExecutionToasts(
 
 /**
  * Hook to fetch current time state with polling.
+ * Uses settings store for default polling interval.
  */
-export function useTimeState(pollingInterval = 1000) {
+export function useTimeState(pollingInterval?: number) {
+  const { timePollingInterval } = usePollingSettings();
+  const interval = pollingInterval ?? timePollingInterval;
+  
   return useQuery<TimeState>({
     queryKey: QUERY_KEY,
     queryFn: async () => {
       const response = await apiClient.get('/simulator/time');
       return response.data;
     },
-    refetchInterval: pollingInterval,
+    refetchInterval: interval,
   });
 }
 

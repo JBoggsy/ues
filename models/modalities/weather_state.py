@@ -421,8 +421,8 @@ class WeatherState(ModalityState):
         report = WeatherReport(**data)
 
         weather_input = WeatherInput(
-            timestamp=datetime.now(),
-            input_id=f"openweather_{lat}_{lon}_{datetime.now().timestamp()}",
+            timestamp=datetime.now(timezone.utc),
+            input_id=f"openweather_{lat}_{lon}_{datetime.now(timezone.utc).timestamp()}",
             latitude=lat,
             longitude=lon,
             report=report,
@@ -634,7 +634,9 @@ class WeatherState(ModalityState):
             if "removed_history_entry" in undo_data:
                 removed = undo_data["removed_history_entry"]
                 restored_entry = WeatherReportHistoryEntry(
-                    timestamp=datetime.fromisoformat(removed["timestamp"]),
+                    timestamp=datetime.fromisoformat(
+                        removed["timestamp"].replace("Z", "+00:00")
+                    ),
                     report=WeatherReport(**removed["report"]),
                 )
                 location.report_history.insert(0, restored_entry)
@@ -642,7 +644,7 @@ class WeatherState(ModalityState):
             # Restore the previous current report
             location.current_report = WeatherReport(**undo_data["previous_report"])
             location.last_updated = datetime.fromisoformat(
-                undo_data["previous_last_updated"]
+                undo_data["previous_last_updated"].replace("Z", "+00:00")
             )
             location.update_count = undo_data["previous_update_count"]
 
@@ -652,5 +654,5 @@ class WeatherState(ModalityState):
         # Restore state-level metadata
         self.update_count = undo_data["state_previous_update_count"]
         self.last_updated = datetime.fromisoformat(
-            undo_data["state_previous_last_updated"]
+            undo_data["state_previous_last_updated"].replace("Z", "+00:00")
         )

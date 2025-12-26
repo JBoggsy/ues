@@ -6,11 +6,19 @@ import {
   TriangleAlertIcon,
 } from "lucide-react"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
+import { useSettingsStore, type Theme } from "@/lib/store"
 
 const Toaster = ({ ...props }: ToasterProps) => {
+  const storeTheme = useSettingsStore((state) => state.theme);
+  
+  // Resolve 'system' theme to actual value for sonner
+  const resolvedTheme = storeTheme === 'system' 
+    ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+    : storeTheme;
+
   return (
     <Sonner
-      theme="light"
+      theme={resolvedTheme as Theme}
       className="toaster group"
       icons={{
         success: <CircleCheckIcon className="size-4" />,

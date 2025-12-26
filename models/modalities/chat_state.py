@@ -2,16 +2,32 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Optional, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from models.base_input import ModalityInput
 from models.base_state import ModalityState
 
 if TYPE_CHECKING:
     from models.modalities.chat_input import ChatInput
+
+
+def _ensure_timezone_aware(v: datetime) -> datetime:
+    """Ensure datetime is timezone-aware.
+
+    Args:
+        v: Datetime value (may be naive or string).
+
+    Returns:
+        Timezone-aware datetime.
+    """
+    if isinstance(v, str):
+        v = datetime.fromisoformat(v.replace("Z", "+00:00"))
+    if v.tzinfo is None:
+        v = v.replace(tzinfo=timezone.utc)
+    return v
 
 
 class ChatMessage(BaseModel):
@@ -34,6 +50,12 @@ class ChatMessage(BaseModel):
     content: Union[str, list[dict]] = Field(description="Message content")
     timestamp: datetime = Field(description="When message was sent")
     metadata: dict = Field(default_factory=dict, description="Optional additional data")
+
+    @field_validator("timestamp", mode="before")
+    @classmethod
+    def ensure_timezone_aware(cls, v: datetime) -> datetime:
+        """Ensure datetime is timezone-aware."""
+        return _ensure_timezone_aware(v)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert this message to a dictionary.
@@ -71,6 +93,12 @@ class ConversationMetadata(BaseModel):
     last_message_at: datetime = Field(description="When last message was sent")
     message_count: int = Field(default=0, description="Number of messages")
     participant_roles: set[str] = Field(default_factory=set, description="Roles that have participated")
+
+    @field_validator("created_at", "last_message_at", mode="before")
+    @classmethod
+    def ensure_timezone_aware(cls, v: datetime) -> datetime:
+        """Ensure datetime is timezone-aware."""
+        return _ensure_timezone_aware(v)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert this metadata to a dictionary.
@@ -376,11 +404,19 @@ class ChatState(ModalityState):
             filtered_messages = [m for m in filtered_messages if m.role == role]
 
         if since:
-            since_dt = since if isinstance(since, datetime) else datetime.fromisoformat(since)
+            since_dt = (
+                since
+                if isinstance(since, datetime)
+                else datetime.fromisoformat(since.replace("Z", "+00:00"))
+            )
             filtered_messages = [m for m in filtered_messages if m.timestamp >= since_dt]
 
         if until:
-            until_dt = until if isinstance(until, datetime) else datetime.fromisoformat(until)
+            until_dt = (
+                until
+                if isinstance(until, datetime)
+                else datetime.fromisoformat(until.replace("Z", "+00:00"))
+            )
             filtered_messages = [m for m in filtered_messages if m.timestamp <= until_dt]
 
         if search:
@@ -647,7 +683,7 @@ class ChatState(ModalityState):
             # Restore state-level metadata only
             self.update_count = undo_data["state_previous_update_count"]
             self.last_updated = datetime.fromisoformat(
-                undo_data["state_previous_last_updated"]
+                undo_data["state_previous_last_updated"].replace("Z", "+00:00")
             )
             return
 
@@ -684,7 +720,7 @@ class ChatState(ModalityState):
                     prev_meta = undo_data.get("previous_conv_metadata", {})
                     conv = self.conversations[conversation_id]
                     conv.last_message_at = datetime.fromisoformat(
-                        prev_meta["last_message_at"]
+                        prev_meta["last_message_at"].replace("Z", "+00:00")
                     )
                     conv.message_count = prev_meta["message_count"]
                     conv.participant_roles = set(prev_meta["participant_roles"])
@@ -697,7 +733,9 @@ class ChatState(ModalityState):
                     conversation_id=removed["conversation_id"],
                     role=removed["role"],
                     content=removed["content"],
-                    timestamp=datetime.fromisoformat(removed["timestamp"]),
+                    timestamp=datetime.fromisoformat(
+                        removed["timestamp"].replace("Z", "+00:00")
+                    ),
                     metadata=removed["metadata"],
                 )
                 self.messages.append(restored_message)
@@ -714,7 +752,9 @@ class ChatState(ModalityState):
                 conversation_id=message_data["conversation_id"],
                 role=message_data["role"],
                 content=message_data["content"],
-                timestamp=datetime.fromisoformat(message_data["timestamp"]),
+                timestamp=datetime.fromisoformat(
+                    message_data["timestamp"].replace("Z", "+00:00")
+                ),
                 metadata=message_data["metadata"],
             )
             self.messages.append(restored_message)
@@ -726,7 +766,9 @@ class ChatState(ModalityState):
                 conv = self.conversations[conv_id]
                 conv.message_count += 1
                 # Update last_message_at if this was the most recent
-                msg_time = datetime.fromisoformat(message_data["timestamp"])
+                msg_time = datetime.fromisoformat(
+                    message_data["timestamp"].replace("Z", "+00:00")
+                )
                 if msg_time > conv.last_message_at:
                     conv.last_message_at = msg_time
 
@@ -744,7 +786,9 @@ class ChatState(ModalityState):
                     conversation_id=msg_data["conversation_id"],
                     role=msg_data["role"],
                     content=msg_data["content"],
-                    timestamp=datetime.fromisoformat(msg_data["timestamp"]),
+                    timestamp=datetime.fromisoformat(
+                        msg_data["timestamp"].replace("Z", "+00:00")
+                    ),
                     metadata=msg_data["metadata"],
                 )
                 self.messages.append(restored_message)
@@ -756,8 +800,12 @@ class ChatState(ModalityState):
             if conv_metadata:
                 self.conversations[conversation_id] = ConversationMetadata(
                     conversation_id=conv_metadata["conversation_id"],
-                    created_at=datetime.fromisoformat(conv_metadata["created_at"]),
-                    last_message_at=datetime.fromisoformat(conv_metadata["last_message_at"]),
+                    created_at=datetime.fromisoformat(
+                        conv_metadata["created_at"].replace("Z", "+00:00")
+                    ),
+                    last_message_at=datetime.fromisoformat(
+                        conv_metadata["last_message_at"].replace("Z", "+00:00")
+                    ),
                     message_count=conv_metadata["message_count"],
                     participant_roles=set(conv_metadata["participant_roles"]),
                 )
@@ -768,5 +816,5 @@ class ChatState(ModalityState):
         # Restore state-level metadata
         self.update_count = undo_data["state_previous_update_count"]
         self.last_updated = datetime.fromisoformat(
-            undo_data["state_previous_last_updated"]
+            undo_data["state_previous_last_updated"].replace("Z", "+00:00")
         )

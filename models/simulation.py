@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 from models.environment import Environment
 from models.event import EventStatus, SimulatorEvent
 from models.queue import EventQueue
+from models.scenario import Scenario
 from models.undo import UndoEntry, UndoStack
 
 if TYPE_CHECKING:
@@ -894,6 +895,427 @@ class SimulationEngine(BaseModel):
                 )
 
         return errors
+
+    # ===== Scenario Export/Load Methods =====
+
+    def export_environment(self) -> dict[str, Any]:
+        """Export current environment state for saving.
+
+        Creates a serialized representation of the environment suitable
+        for saving to a file or sending over the API. The exported data
+        can be later loaded with `load_environment()`.
+
+        Returns:
+            Serialized environment dictionary containing:
+            - time_state: Serialized SimulatorTime
+            - modality_states: Dict of modality_type -> serialized state
+
+        Example:
+            >>> env_data = engine.export_environment()
+            >>> json.dump(env_data, open("env.json", "w"))
+        """
+        return self.environment.to_scenario_dict()
+
+    def export_event_queue(self) -> dict[str, Any]:
+        """Export current event queue for saving.
+
+        Creates a serialized representation of the event queue suitable
+        for saving to a file or sending over the API. The exported data
+        can be later loaded with `load_event_queue()`.
+
+        Returns:
+            Serialized event queue dictionary containing:
+            - events: List of serialized SimulatorEvent dictionaries
+
+        Example:
+            >>> events_data = engine.export_event_queue()
+            >>> json.dump(events_data, open("events.json", "w"))
+        """
+        return self.event_queue.to_scenario_dict()
+
+    def export_scenario(
+        self,
+        author: Optional[str] = None,
+        description: Optional[str] = None,
+    ) -> Scenario:
+        """Export complete scenario with metadata.
+
+        Creates a complete Scenario object containing the environment state,
+        event queue, and metadata. This is the most complete export format
+        and includes version information for compatibility checking.
+
+        Args:
+            author: Optional author name for the scenario metadata.
+            description: Optional human-readable description.
+
+        Returns:
+            Scenario object ready for serialization with `to_json()`.
+
+        Example:
+            >>> scenario = engine.export_scenario(
+            ...     author="Test User",
+            ...     description="Initial state for regression testing",
+            ... )
+            >>> with open("scenario.ues-scenario.json", "w") as f:
+            ...     f.write(scenario.to_json())
+        """
+        return Scenario.create(
+            environment=self.environment,
+            event_queue=self.event_queue,
+            author=author,
+            description=description,
+        )
+
+    def load_environment(
+        self,
+        data: dict[str, Any],
+        historic_event_handling: str = "ignore",
+        strict_modalities: bool = False,
+    ) -> dict[str, Any]:
+        """Load environment state from serialized data.
+
+        Replaces the current environment state with state from the provided
+        data. This is typically used to restore a previously saved environment
+        or to set up a specific test scenario.
+
+        The undo stack is cleared when loading an environment, as the undo
+        history from before the load is no longer relevant.
+
+        Historic events (events scheduled before the new environment time)
+        can be handled in different ways based on the `historic_event_handling`
+        parameter.
+
+        Args:
+            data: Serialized environment dictionary from `export_environment()`
+                or `Environment.to_scenario_dict()`.
+            historic_event_handling: How to handle existing events scheduled
+                before the loaded environment's time:
+                - "ignore": Leave them in queue (they will never execute)
+                - "delete": Remove them from the queue
+                - "apply": Execute them immediately against the loaded state
+            strict_modalities: If True, raise ValueError on unknown modality
+                types in the data. If False, skip unknown modalities and
+                include them in the warnings list.
+
+        Returns:
+            Dict with load results:
+            - success: True if load succeeded
+            - modalities_loaded: List of modality types that were loaded
+            - modalities_skipped: List of modality types that were skipped
+            - warnings: List of warning messages
+            - historic_events_count: Number of historic events found
+            - historic_events_action: How historic events were handled
+
+        Raises:
+            RuntimeError: If simulation is running (must stop first).
+            ValueError: If strict_modalities=True and unknown modality found.
+            ValueError: If data is missing required fields.
+
+        Example:
+            >>> engine.stop()
+            >>> result = engine.load_environment(env_data, strict_modalities=False)
+            >>> if result["warnings"]:
+            ...     print(f"Loaded with warnings: {result['warnings']}")
+        """
+        if self.is_running:
+            raise RuntimeError(
+                "Cannot load environment while simulation is running. "
+                "Call stop() first."
+            )
+
+        valid_handling_options = ("ignore", "delete", "apply")
+        if historic_event_handling not in valid_handling_options:
+            raise ValueError(
+                f"historic_event_handling must be one of {valid_handling_options}, "
+                f"got '{historic_event_handling}'"
+            )
+
+        # Deserialize the new environment
+        new_environment, warnings = Environment.from_scenario_dict(
+            data, strict=strict_modalities
+        )
+
+        # Get the new environment time
+        new_time = new_environment.time_state.current_time
+
+        # Find historic events (scheduled before new time)
+        historic_events = [
+            e for e in self.event_queue.events
+            if e.status == EventStatus.PENDING and e.scheduled_time < new_time
+        ]
+        historic_count = len(historic_events)
+
+        # Handle historic events based on option
+        if historic_event_handling == "delete":
+            # Remove historic events from queue
+            for event in historic_events:
+                self.event_queue.remove_event(event.event_id)
+            if historic_count > 0:
+                warnings.append(
+                    f"Deleted {historic_count} historic events "
+                    f"(scheduled before {new_time.isoformat()})"
+                )
+        elif historic_event_handling == "apply":
+            # Execute historic events against the NEW environment
+            # (use the loaded environment, not the old one)
+            applied_count = 0
+            for event in historic_events:
+                try:
+                    event.execute(new_environment, capture_undo=False)
+                    applied_count += 1
+                except Exception as e:
+                    warnings.append(
+                        f"Failed to apply historic event {event.event_id}: {e}"
+                    )
+            if applied_count > 0:
+                warnings.append(
+                    f"Applied {applied_count} historic events to loaded state"
+                )
+        else:  # "ignore"
+            if historic_count > 0:
+                warnings.append(
+                    f"{historic_count} events scheduled before environment time "
+                    f"({new_time.isoformat()}) will be ignored (never execute)"
+                )
+
+        # Replace the environment
+        self.environment = new_environment
+
+        # Clear undo stack (history no longer relevant)
+        self.undo_stack.clear()
+
+        # Build modalities info
+        modalities_loaded = list(new_environment.modality_states.keys())
+        modalities_skipped = [
+            w.replace("Skipped unknown modality type: '", "").rstrip("'")
+            for w in warnings
+            if w.startswith("Skipped unknown modality type:")
+        ]
+
+        logger.info(
+            f"Loaded environment with {len(modalities_loaded)} modalities, "
+            f"{historic_count} historic events ({historic_event_handling})"
+        )
+
+        return {
+            "success": True,
+            "modalities_loaded": modalities_loaded,
+            "modalities_skipped": modalities_skipped,
+            "warnings": warnings,
+            "historic_events_count": historic_count,
+            "historic_events_action": historic_event_handling,
+        }
+
+    def load_event_queue(
+        self,
+        data: dict[str, Any],
+        merge: bool = False,
+    ) -> dict[str, Any]:
+        """Load event queue from serialized data.
+
+        Replaces or merges the current event queue with events from the
+        provided data. This is typically used to restore previously saved
+        events or to set up test scenarios.
+
+        When merging, the undo stack is preserved. When replacing, the
+        undo stack is cleared.
+
+        Args:
+            data: Serialized event queue dictionary from `export_event_queue()`
+                or `EventQueue.to_scenario_dict()`.
+            merge: If True, add loaded events to existing queue.
+                If False, replace all events.
+
+        Returns:
+            Dict with load results:
+            - success: True if load succeeded
+            - events_loaded: Number of events loaded
+            - events_merged: Number of events added (only when merge=True)
+            - previous_events: Number of events before load (when replacing)
+            - historic_events_warning: True if any events are before current time
+            - historic_event_count: Number of events scheduled before current time
+
+        Raises:
+            RuntimeError: If simulation is running (must stop first).
+            ValueError: If data is missing required fields.
+
+        Example:
+            >>> engine.stop()
+            >>> result = engine.load_event_queue(events_data, merge=True)
+            >>> print(f"Added {result['events_merged']} events")
+        """
+        if self.is_running:
+            raise RuntimeError(
+                "Cannot load event queue while simulation is running. "
+                "Call stop() first."
+            )
+
+        # Deserialize the new event queue
+        new_queue = EventQueue.from_scenario_dict(data, regenerate_ids=True)
+
+        # Get current time for historic event check
+        current_time = self.environment.time_state.current_time
+
+        # Count historic events in loaded data
+        historic_events = [
+            e for e in new_queue.events
+            if e.status == EventStatus.PENDING and e.scheduled_time < current_time
+        ]
+        historic_count = len(historic_events)
+
+        if merge:
+            # Merge: add new events to existing queue
+            previous_count = len(self.event_queue.events)
+            added_count = 0
+
+            for event in new_queue.events:
+                try:
+                    self.event_queue.add_event(event)
+                    added_count += 1
+                except ValueError as e:
+                    logger.warning(f"Skipped event during merge: {e}")
+
+            logger.info(
+                f"Merged {added_count} events into queue "
+                f"(had {previous_count}, now {len(self.event_queue.events)})"
+            )
+
+            return {
+                "success": True,
+                "events_loaded": len(new_queue.events),
+                "events_merged": added_count,
+                "previous_events": previous_count,
+                "historic_events_warning": historic_count > 0,
+                "historic_event_count": historic_count,
+            }
+        else:
+            # Replace: swap out entire queue
+            previous_count = len(self.event_queue.events)
+            self.event_queue = new_queue
+
+            # Clear undo stack (history no longer relevant)
+            self.undo_stack.clear()
+
+            logger.info(
+                f"Replaced event queue: {previous_count} -> {len(new_queue.events)} events"
+            )
+
+            return {
+                "success": True,
+                "events_loaded": len(new_queue.events),
+                "events_merged": 0,
+                "previous_events": previous_count,
+                "historic_events_warning": historic_count > 0,
+                "historic_event_count": historic_count,
+            }
+
+    def load_scenario(
+        self,
+        scenario: Scenario,
+        strict_modalities: bool = False,
+    ) -> dict[str, Any]:
+        """Load complete scenario (environment + events).
+
+        Replaces both the environment and event queue with data from
+        the provided scenario. This is the most complete load operation
+        and is typically used to restore a fully saved state or set up
+        regression tests.
+
+        The undo stack is always cleared when loading a scenario.
+
+        Args:
+            scenario: Scenario object from `export_scenario()` or loaded
+                from a file with `Scenario.from_json()`.
+            strict_modalities: If True, raise ValueError on unknown modality
+                types. If False, skip unknown modalities with warnings.
+
+        Returns:
+            Dict with load results:
+            - success: True if load succeeded
+            - environment_loaded: True if environment was loaded
+            - events_loaded: Number of events loaded
+            - modalities_loaded: List of modality types loaded
+            - modalities_skipped: List of modality types skipped
+            - warnings: List of warning messages
+            - scenario_metadata: Summary of loaded scenario metadata
+
+        Raises:
+            RuntimeError: If simulation is running (must stop first).
+            ValueError: If strict_modalities=True and unknown modality found.
+
+        Example:
+            >>> scenario = Scenario.from_json(open("scenario.json").read())
+            >>> engine.stop()
+            >>> result = engine.load_scenario(scenario)
+            >>> print(f"Loaded scenario by {result['scenario_metadata']['author']}")
+        """
+        if self.is_running:
+            raise RuntimeError(
+                "Cannot load scenario while simulation is running. "
+                "Call stop() first."
+            )
+
+        warnings: list[str] = []
+
+        # Check version compatibility
+        if not scenario.is_compatible:
+            warnings.append(
+                f"Scenario was created with UES version {scenario.metadata.ues_version}, "
+                f"which may not be fully compatible with current version"
+            )
+
+        # Load environment (this also clears undo stack)
+        # Use "ignore" for historic events - the scenario's events are the truth
+        env_result = self.load_environment(
+            scenario.environment,
+            historic_event_handling="ignore",
+            strict_modalities=strict_modalities,
+        )
+        warnings.extend(env_result["warnings"])
+
+        # Load event queue (replace, not merge)
+        # Note: We regenerate IDs by default via from_scenario_dict
+        new_queue = EventQueue.from_scenario_dict(scenario.events, regenerate_ids=True)
+
+        # Count historic events
+        current_time = self.environment.time_state.current_time
+        historic_events = [
+            e for e in new_queue.events
+            if e.status == EventStatus.PENDING and e.scheduled_time < current_time
+        ]
+        if historic_events:
+            warnings.append(
+                f"{len(historic_events)} events in scenario are scheduled before "
+                f"environment time ({current_time.isoformat()}) and will not execute"
+            )
+
+        # Replace event queue
+        self.event_queue = new_queue
+
+        # Build metadata summary
+        metadata_summary = {
+            "ues_version": scenario.metadata.ues_version,
+            "scenario_version": scenario.metadata.scenario_version,
+            "created_at": scenario.metadata.created_at.isoformat(),
+            "author": scenario.metadata.author,
+            "description": scenario.metadata.description,
+        }
+
+        logger.info(
+            f"Loaded scenario: {len(env_result['modalities_loaded'])} modalities, "
+            f"{len(new_queue.events)} events "
+            f"(created {scenario.metadata.created_at.isoformat()})"
+        )
+
+        return {
+            "success": True,
+            "environment_loaded": True,
+            "events_loaded": len(new_queue.events),
+            "modalities_loaded": env_result["modalities_loaded"],
+            "modalities_skipped": env_result["modalities_skipped"],
+            "warnings": warnings,
+            "scenario_metadata": metadata_summary,
+        }
 
     # ===== Internal/Helper Method =====
 

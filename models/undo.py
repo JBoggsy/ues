@@ -163,7 +163,9 @@ class UndoEntry(BaseModel):
             event_id=data["event_id"],
             modality=data["modality"],
             undo_data=data["undo_data"],
-            executed_at=datetime.fromisoformat(data["executed_at"]),
+            executed_at=datetime.fromisoformat(
+                data["executed_at"].replace("Z", "+00:00")
+            ),
         )
 
 

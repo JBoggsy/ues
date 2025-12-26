@@ -307,3 +307,114 @@ class Environment(BaseModel):
             state.last_updated = new_last_updated
 
         return len(self.modality_states)
+
+    # ===== Scenario Serialization Methods =====
+
+    def to_scenario_dict(self) -> dict[str, Any]:
+        """Serialize environment to a dictionary suitable for scenario export.
+
+        This method produces a complete, round-trip serializable representation
+        of the environment state, suitable for saving to scenario files.
+
+        Unlike `get_snapshot()` which is optimized for API responses, this method
+        preserves all data needed to fully reconstruct the environment, including
+        the modality_type discriminator for polymorphic deserialization.
+
+        Returns:
+            Dictionary with:
+            - time_state: Serialized SimulatorTime (using model_dump with ISO dates)
+            - modality_states: Dict of modality_type -> serialized state
+
+        Example:
+            >>> env = Environment(...)
+            >>> data = env.to_scenario_dict()
+            >>> # Save to file
+            >>> json.dump(data, f, indent=2)
+            >>> # Later, restore:
+            >>> restored_env, warnings = Environment.from_scenario_dict(data)
+        """
+        return {
+            "time_state": self.time_state.model_dump(mode="json"),
+            "modality_states": {
+                modality_name: state.model_dump(mode="json")
+                for modality_name, state in self.modality_states.items()
+            },
+        }
+
+    @classmethod
+    def from_scenario_dict(
+        cls,
+        data: dict[str, Any],
+        strict: bool = True,
+    ) -> tuple["Environment", list[str]]:
+        """Deserialize environment from a scenario dictionary.
+
+        Reconstructs an Environment from data previously produced by
+        `to_scenario_dict()`. Uses the modality registry to correctly
+        instantiate the appropriate ModalityState subclass for each modality.
+
+        Args:
+            data: Dictionary from `to_scenario_dict()` containing:
+                - time_state: Serialized SimulatorTime data
+                - modality_states: Dict of modality_type -> serialized state data
+            strict: If True, raise ValueError on unknown modality types.
+                If False, skip unknown modalities and add them to warnings.
+
+        Returns:
+            Tuple of (Environment, list of warning messages).
+            Warnings include skipped modalities when strict=False.
+
+        Raises:
+            ValueError: If strict=True and an unknown modality type is encountered.
+            ValueError: If required data fields are missing.
+            ValidationError: If data fails Pydantic validation.
+
+        Example:
+            >>> # Load from file
+            >>> with open("scenario.json") as f:
+            ...     data = json.load(f)
+            >>> env, warnings = Environment.from_scenario_dict(data["environment"])
+            >>> if warnings:
+            ...     print(f"Loaded with warnings: {warnings}")
+        """
+        # Import registry functions here to avoid circular imports
+        from models.registry import (
+            get_modality_state_class,
+            is_modality_state_registered,
+        )
+
+        warnings: list[str] = []
+
+        # Validate required fields
+        if "time_state" not in data:
+            raise ValueError("Missing required field: 'time_state'")
+        if "modality_states" not in data:
+            raise ValueError("Missing required field: 'modality_states'")
+
+        # Deserialize time state
+        time_state = SimulatorTime.model_validate(data["time_state"])
+
+        # Deserialize modality states
+        modality_states: dict[str, ModalityState] = {}
+
+        for modality_type, state_data in data["modality_states"].items():
+            if not is_modality_state_registered(modality_type):
+                if strict:
+                    raise ValueError(
+                        f"Unknown modality type: '{modality_type}'. "
+                        "Use strict=False to skip unknown modalities."
+                    )
+                warnings.append(f"Skipped unknown modality type: '{modality_type}'")
+                continue
+
+            state_class = get_modality_state_class(modality_type)
+            state = state_class.model_validate(state_data)
+            modality_states[modality_type] = state
+
+        # Create and return the environment
+        environment = cls(
+            time_state=time_state,
+            modality_states=modality_states,
+        )
+
+        return environment, warnings

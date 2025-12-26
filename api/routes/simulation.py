@@ -417,7 +417,9 @@ async def clear_simulation(
     reset_time_to = None
     if request and request.reset_time_to:
         try:
-            reset_time_to = datetime.fromisoformat(request.reset_time_to)
+            reset_time_to = datetime.fromisoformat(
+                request.reset_time_to.replace("Z", "+00:00")
+            )
         except ValueError as e:
             raise HTTPException(
                 status_code=400,

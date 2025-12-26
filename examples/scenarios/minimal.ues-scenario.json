@@ -1,0 +1,76 @@
+{
+  "metadata": {
+    "ues_version": "0.1.0",
+    "scenario_version": "1",
+    "created_at": "2024-03-15T09:00:00+00:00",
+    "author": "UES Examples",
+    "description": "A minimal scenario demonstrating the basic structure with location and time modalities only."
+  },
+  "environment": {
+    "time_state": {
+      "current_time": "2024-03-15T09:00:00+00:00",
+      "time_scale": 1.0,
+      "is_paused": true,
+      "last_wall_time_update": "2024-03-15T09:00:00+00:00",
+      "auto_advance": false
+    },
+    "modality_states": {
+      "location": {
+        "modality_type": "location",
+        "last_updated": "2024-03-15T09:00:00+00:00",
+        "update_count": 1,
+        "current_latitude": 37.7749,
+        "current_longitude": -122.4194,
+        "current_address": "San Francisco, CA",
+        "current_named_location": "Home",
+        "current_altitude": null,
+        "current_accuracy": null,
+        "current_speed": null,
+        "current_bearing": null,
+        "location_history": [],
+        "max_history_size": 100
+      },
+      "time": {
+        "modality_type": "time",
+        "last_updated": "2024-03-15T09:00:00+00:00",
+        "update_count": 0,
+        "timezone": "America/Los_Angeles",
+        "format_preference": "12h",
+        "date_format": null,
+        "locale": null,
+        "week_start": null,
+        "settings_history": [],
+        "max_history_size": 50
+      }
+    }
+  },
+  "events": {
+    "events": [
+      {
+        "event_id": "evt-001-location-update",
+        "scheduled_time": "2024-03-15T10:00:00+00:00",
+        "modality": "location",
+        "data": {
+          "modality_type": "location",
+          "timestamp": "2024-03-15T10:00:00+00:00",
+          "input_id": "input-001",
+          "latitude": 37.7849,
+          "longitude": -122.4094,
+          "address": "Financial District, San Francisco, CA",
+          "named_location": "Office",
+          "altitude": null,
+          "accuracy": 10.0,
+          "speed": null,
+          "bearing": null
+        },
+        "status": "pending",
+        "created_at": "2024-03-15T09:00:00+00:00",
+        "executed_at": null,
+        "agent_id": null,
+        "priority": 0,
+        "error_message": null,
+        "metadata": {}
+      }
+    ]
+  }
+}

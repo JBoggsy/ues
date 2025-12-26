@@ -87,30 +87,32 @@ class TestSimulatorTimeValidation:
     """SIMULATOR_TIME-SPECIFIC: Test validation rules."""
 
     def test_timezone_aware_current_time_required(self):
-        """Test that current_time must be timezone-aware."""
+        """Test that naive current_time is converted to UTC."""
         naive_time = datetime(2025, 1, 15, 12, 0, 0)  # no tzinfo
         wall_time = datetime(2025, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
 
-        with pytest.raises(ValidationError) as exc_info:
-            SimulatorTime(
-                current_time=naive_time,
-                last_wall_time_update=wall_time,
-            )
+        # Naive datetime should be auto-converted to UTC
+        sim_time = SimulatorTime(
+            current_time=naive_time,
+            last_wall_time_update=wall_time,
+        )
 
-        assert "timezone-aware" in str(exc_info.value).lower()
+        assert sim_time.current_time.tzinfo is not None
+        assert sim_time.current_time.tzinfo == timezone.utc
 
     def test_timezone_aware_wall_time_required(self):
-        """Test that last_wall_time_update must be timezone-aware."""
-        sim_time = datetime(2025, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
+        """Test that naive last_wall_time_update is converted to UTC."""
+        sim_time_dt = datetime(2025, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
         naive_time = datetime(2025, 1, 15, 12, 0, 0)  # no tzinfo
 
-        with pytest.raises(ValidationError) as exc_info:
-            SimulatorTime(
-                current_time=sim_time,
-                last_wall_time_update=naive_time,
-            )
+        # Naive datetime should be auto-converted to UTC
+        sim_time = SimulatorTime(
+            current_time=sim_time_dt,
+            last_wall_time_update=naive_time,
+        )
 
-        assert "timezone-aware" in str(exc_info.value).lower()
+        assert sim_time.last_wall_time_update.tzinfo is not None
+        assert sim_time.last_wall_time_update.tzinfo == timezone.utc
 
     def test_time_scale_must_be_positive(self):
         """Test that time_scale must be > 0."""

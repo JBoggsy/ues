@@ -1,0 +1,468 @@
+{
+  "metadata": {
+    "ues_version": "0.1.0",
+    "scenario_version": "1",
+    "created_at": "2024-03-15T07:00:00+00:00",
+    "author": "UES Examples",
+    "description": "A workday scenario simulating a typical morning for testing AI assistant interactions. Includes location updates, weather, calendar events, and incoming emails."
+  },
+  "environment": {
+    "time_state": {
+      "current_time": "2024-03-15T07:00:00+00:00",
+      "time_scale": 1.0,
+      "is_paused": true,
+      "last_wall_time_update": "2024-03-15T07:00:00+00:00",
+      "auto_advance": false
+    },
+    "modality_states": {
+      "location": {
+        "modality_type": "location",
+        "last_updated": "2024-03-15T07:00:00+00:00",
+        "update_count": 1,
+        "current_latitude": 37.7849,
+        "current_longitude": -122.4294,
+        "current_address": "123 Residential Ave, San Francisco, CA 94110",
+        "current_named_location": "Home",
+        "current_altitude": 25.0,
+        "current_accuracy": 5.0,
+        "current_speed": 0.0,
+        "current_bearing": null,
+        "location_history": [],
+        "max_history_size": 100
+      },
+      "time": {
+        "modality_type": "time",
+        "last_updated": "2024-03-15T07:00:00+00:00",
+        "update_count": 0,
+        "timezone": "America/Los_Angeles",
+        "format_preference": "12h",
+        "date_format": "MM/DD/YYYY",
+        "locale": "en_US",
+        "week_start": "sunday",
+        "settings_history": [],
+        "max_history_size": 50
+      },
+      "weather": {
+        "modality_type": "weather",
+        "last_updated": "2024-03-15T07:00:00+00:00",
+        "update_count": 1,
+        "locations": {
+          "37.78,-122.43": {
+            "latitude": 37.78,
+            "longitude": -122.43,
+            "current_report": {
+              "lat": 37.78,
+              "lon": -122.43,
+              "timezone": "America/Los_Angeles",
+              "timezone_offset": -25200,
+              "current": {
+                "dt": 1710493200,
+                "sunrise": 1710505200,
+                "sunset": 1710548400,
+                "temp": 285.15,
+                "feels_like": 284.0,
+                "pressure": 1015,
+                "humidity": 72,
+                "dew_point": 280.0,
+                "uvi": 0.0,
+                "clouds": 40,
+                "visibility": 10000,
+                "wind_speed": 3.5,
+                "wind_deg": 280,
+                "wind_gust": null,
+                "weather": [
+                  {
+                    "id": 802,
+                    "main": "Clouds",
+                    "description": "scattered clouds",
+                    "icon": "03n"
+                  }
+                ]
+              }
+            },
+            "first_seen": "2024-03-15T07:00:00+00:00",
+            "last_updated": "2024-03-15T07:00:00+00:00",
+            "update_count": 1,
+            "report_history": []
+          }
+        },
+        "max_history_per_location": 100,
+        "openweather_api_key": null
+      },
+      "calendar": {
+        "modality_type": "calendar",
+        "last_updated": "2024-03-15T07:00:00+00:00",
+        "update_count": 2,
+        "calendars": {
+          "work": {
+            "calendar_id": "work",
+            "name": "Work",
+            "color": "#4285f4",
+            "visible": true,
+            "created_at": "2024-01-01T00:00:00+00:00",
+            "updated_at": "2024-03-15T07:00:00+00:00",
+            "event_ids": ["standup-daily", "project-review"],
+            "default_reminders": [
+              {"method": "notification", "minutes_before": 10}
+            ]
+          }
+        },
+        "events": {
+          "standup-daily": {
+            "event_id": "standup-daily",
+            "calendar_id": "work",
+            "title": "Daily Standup",
+            "start": "2024-03-15T17:00:00+00:00",
+            "end": "2024-03-15T17:15:00+00:00",
+            "all_day": false,
+            "timezone": "America/Los_Angeles",
+            "description": "Quick sync with the team",
+            "location": "Zoom",
+            "status": "confirmed",
+            "organizer": "manager@company.com",
+            "attendees": [
+              {
+                "email": "user@company.com",
+                "display_name": null,
+                "optional": false,
+                "response": "accepted",
+                "comment": null
+              }
+            ],
+            "recurrence": {
+              "frequency": "weekly",
+              "interval": 1,
+              "days_of_week": ["monday", "tuesday", "wednesday", "thursday", "friday"],
+              "day_of_month": null,
+              "month_of_year": null,
+              "end_type": "never",
+              "end_date": null,
+              "count": null
+            },
+            "recurrence_exceptions": [],
+            "recurrence_id": null,
+            "parent_event_id": null,
+            "reminders": [
+              {"method": "notification", "minutes_before": 5}
+            ],
+            "color": null,
+            "visibility": "default",
+            "transparency": "opaque",
+            "attachments": [],
+            "conference_link": "https://zoom.us/j/123456789",
+            "created_at": "2024-01-15T10:00:00+00:00",
+            "updated_at": "2024-03-15T07:00:00+00:00",
+            "deleted_at": null
+          },
+          "project-review": {
+            "event_id": "project-review",
+            "calendar_id": "work",
+            "title": "Q1 Project Review",
+            "start": "2024-03-15T22:00:00+00:00",
+            "end": "2024-03-15T23:00:00+00:00",
+            "all_day": false,
+            "timezone": "America/Los_Angeles",
+            "description": "Review Q1 deliverables with stakeholders",
+            "location": "Conference Room B",
+            "status": "confirmed",
+            "organizer": "user@company.com",
+            "attendees": [
+              {
+                "email": "stakeholder@company.com",
+                "display_name": "Product Lead",
+                "optional": false,
+                "response": "accepted",
+                "comment": null
+              },
+              {
+                "email": "designer@company.com",
+                "display_name": "Design Lead",
+                "optional": true,
+                "response": "tentative",
+                "comment": null
+              }
+            ],
+            "recurrence": null,
+            "recurrence_exceptions": [],
+            "recurrence_id": null,
+            "parent_event_id": null,
+            "reminders": [
+              {"method": "notification", "minutes_before": 30},
+              {"method": "email", "minutes_before": 60}
+            ],
+            "color": "#ea4335",
+            "visibility": "default",
+            "transparency": "opaque",
+            "attachments": [],
+            "conference_link": null,
+            "created_at": "2024-03-10T15:00:00+00:00",
+            "updated_at": "2024-03-15T07:00:00+00:00",
+            "deleted_at": null
+          }
+        },
+        "default_calendar_id": "work"
+      },
+      "email": {
+        "modality_type": "email",
+        "last_updated": "2024-03-15T07:00:00+00:00",
+        "update_count": 1,
+        "emails": {
+          "email-001": {
+            "message_id": "email-001",
+            "thread_id": "thread-001",
+            "from_address": "newsletter@techdigest.com",
+            "to_addresses": ["user@company.com"],
+            "cc_addresses": [],
+            "bcc_addresses": [],
+            "reply_to_address": null,
+            "subject": "Your Daily Tech Digest - March 15",
+            "body_text": "Good morning! Here are today's top tech stories...",
+            "body_html": null,
+            "attachments": [],
+            "in_reply_to": null,
+            "references": [],
+            "sent_at": "2024-03-15T06:00:00+00:00",
+            "received_at": "2024-03-15T06:01:00+00:00",
+            "is_read": false,
+            "is_starred": false,
+            "priority": "normal",
+            "folder": "inbox",
+            "labels": ["newsletter"]
+          }
+        },
+        "threads": {
+          "thread-001": {
+            "thread_id": "thread-001",
+            "subject": "Your Daily Tech Digest - March 15",
+            "participant_addresses": ["newsletter@techdigest.com", "user@company.com"],
+            "message_ids": ["email-001"],
+            "created_at": "2024-03-15T06:01:00+00:00",
+            "last_message_at": "2024-03-15T06:01:00+00:00",
+            "message_count": 1,
+            "unread_count": 1
+          }
+        },
+        "folders": {
+          "inbox": ["email-001"],
+          "sent": [],
+          "drafts": [],
+          "trash": [],
+          "spam": [],
+          "archive": []
+        },
+        "labels": {
+          "newsletter": ["email-001"],
+          "important": [],
+          "work": []
+        },
+        "drafts": {},
+        "user_email_address": "user@company.com"
+      },
+      "chat": {
+        "modality_type": "chat",
+        "last_updated": "2024-03-15T07:00:00+00:00",
+        "update_count": 0,
+        "messages": [],
+        "conversations": {},
+        "max_history_size": 1000,
+        "default_conversation_id": "default"
+      },
+      "sms": {
+        "modality_type": "sms",
+        "last_updated": "2024-03-15T07:00:00+00:00",
+        "update_count": 0,
+        "conversations": {},
+        "messages": {},
+        "user_phone_number": "+15551234567"
+      }
+    }
+  },
+  "events": {
+    "events": [
+      {
+        "event_id": "evt-001-weather-update",
+        "scheduled_time": "2024-03-15T08:00:00+00:00",
+        "modality": "weather",
+        "data": {
+          "modality_type": "weather",
+          "timestamp": "2024-03-15T08:00:00+00:00",
+          "input_id": "weather-input-001",
+          "latitude": 37.78,
+          "longitude": -122.43,
+          "report": {
+            "lat": 37.78,
+            "lon": -122.43,
+            "timezone": "America/Los_Angeles",
+            "timezone_offset": -25200,
+            "current": {
+              "dt": 1710496800,
+              "sunrise": 1710505200,
+              "sunset": 1710548400,
+              "temp": 287.15,
+              "feels_like": 286.5,
+              "pressure": 1016,
+              "humidity": 65,
+              "dew_point": 280.5,
+              "uvi": 1.5,
+              "clouds": 25,
+              "visibility": 10000,
+              "wind_speed": 4.0,
+              "wind_deg": 290,
+              "wind_gust": null,
+              "weather": [
+                {
+                  "id": 801,
+                  "main": "Clouds",
+                  "description": "few clouds",
+                  "icon": "02d"
+                }
+              ]
+            }
+          }
+        },
+        "status": "pending",
+        "created_at": "2024-03-15T07:00:00+00:00",
+        "executed_at": null,
+        "agent_id": null,
+        "priority": 0,
+        "error_message": null,
+        "metadata": {"source": "scheduled_update"}
+      },
+      {
+        "event_id": "evt-002-email-receive",
+        "scheduled_time": "2024-03-15T08:30:00+00:00",
+        "modality": "email",
+        "data": {
+          "modality_type": "email",
+          "timestamp": "2024-03-15T08:30:00+00:00",
+          "input_id": "email-input-001",
+          "operation": "receive",
+          "message_id": "email-002",
+          "from_address": "manager@company.com",
+          "to_addresses": ["user@company.com"],
+          "cc_addresses": [],
+          "bcc_addresses": [],
+          "reply_to_address": null,
+          "subject": "Project Review Prep",
+          "body_text": "Hi,\n\nJust a reminder about our Q1 review meeting this afternoon. Please have your slides ready by 2pm.\n\nThanks,\nManager",
+          "body_html": null,
+          "attachments": [],
+          "thread_id": null,
+          "in_reply_to": null,
+          "references": [],
+          "priority": "high",
+          "folder": "inbox",
+          "labels": ["work"],
+          "is_draft": false
+        },
+        "status": "pending",
+        "created_at": "2024-03-15T07:00:00+00:00",
+        "executed_at": null,
+        "agent_id": null,
+        "priority": 0,
+        "error_message": null,
+        "metadata": {}
+      },
+      {
+        "event_id": "evt-003-location-commute",
+        "scheduled_time": "2024-03-15T09:00:00+00:00",
+        "modality": "location",
+        "data": {
+          "modality_type": "location",
+          "timestamp": "2024-03-15T09:00:00+00:00",
+          "input_id": "location-input-001",
+          "latitude": 37.7749,
+          "longitude": -122.4194,
+          "address": "456 Market St, San Francisco, CA 94105",
+          "named_location": "Office",
+          "altitude": 10.0,
+          "accuracy": 8.0,
+          "speed": null,
+          "bearing": null
+        },
+        "status": "pending",
+        "created_at": "2024-03-15T07:00:00+00:00",
+        "executed_at": null,
+        "agent_id": null,
+        "priority": 0,
+        "error_message": null,
+        "metadata": {"event_type": "commute"}
+      },
+      {
+        "event_id": "evt-004-sms-receive",
+        "scheduled_time": "2024-03-15T12:30:00+00:00",
+        "modality": "sms",
+        "data": {
+          "modality_type": "sms",
+          "timestamp": "2024-03-15T12:30:00+00:00",
+          "input_id": "sms-input-001",
+          "action": "receive_message",
+          "message_data": {
+            "from_number": "+15559876543",
+            "to_numbers": ["+15551234567"],
+            "body": "Hey! Want to grab lunch today?",
+            "message_type": "sms",
+            "attachments": []
+          }
+        },
+        "status": "pending",
+        "created_at": "2024-03-15T07:00:00+00:00",
+        "executed_at": null,
+        "agent_id": null,
+        "priority": 0,
+        "error_message": null,
+        "metadata": {}
+      },
+      {
+        "event_id": "evt-005-location-lunch",
+        "scheduled_time": "2024-03-15T12:45:00+00:00",
+        "modality": "location",
+        "data": {
+          "modality_type": "location",
+          "timestamp": "2024-03-15T12:45:00+00:00",
+          "input_id": "location-input-002",
+          "latitude": 37.7879,
+          "longitude": -122.4074,
+          "address": "Ferry Building, San Francisco, CA",
+          "named_location": "Lunch Spot",
+          "altitude": 5.0,
+          "accuracy": 10.0,
+          "speed": null,
+          "bearing": null
+        },
+        "status": "pending",
+        "created_at": "2024-03-15T07:00:00+00:00",
+        "executed_at": null,
+        "agent_id": null,
+        "priority": 0,
+        "error_message": null,
+        "metadata": {"event_type": "lunch_break"}
+      },
+      {
+        "event_id": "evt-006-location-return",
+        "scheduled_time": "2024-03-15T13:30:00+00:00",
+        "modality": "location",
+        "data": {
+          "modality_type": "location",
+          "timestamp": "2024-03-15T13:30:00+00:00",
+          "input_id": "location-input-003",
+          "latitude": 37.7749,
+          "longitude": -122.4194,
+          "address": "456 Market St, San Francisco, CA 94105",
+          "named_location": "Office",
+          "altitude": 10.0,
+          "accuracy": 8.0,
+          "speed": null,
+          "bearing": null
+        },
+        "status": "pending",
+        "created_at": "2024-03-15T07:00:00+00:00",
+        "executed_at": null,
+        "agent_id": null,
+        "priority": 0,
+        "error_message": null,
+        "metadata": {"event_type": "return_from_lunch"}
+      }
+    ]
+  }
+}
