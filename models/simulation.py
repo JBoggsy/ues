@@ -362,76 +362,199 @@ class SimulationEngine(BaseModel):
 
     def set_time(self, new_time: datetime, execute_skipped: bool = False) -> dict:
         """Jump to specific simulator time.
+
+        Supports both forward and backward time jumps:
         
-        Handles events in skipped range based on execute_skipped flag.
+        **Forward jumps (new_time > current_time)**:
+        Events in the skipped range are either executed (if execute_skipped=True)
+        or marked as SKIPPED.
         
+        **Backward jumps (new_time < current_time)**:
+        Events that were executed after the target time are undone and reset
+        to PENDING status, allowing them to be re-executed when time advances
+        again.
+
         Args:
             new_time: Target simulator time.
-            execute_skipped: If True, execute all skipped events instantly.
-                           If False, mark them as SKIPPED.
-        
+            execute_skipped: If True, execute all skipped events instantly
+                           (only applies to forward jumps). If False, mark
+                           them as SKIPPED.
+
         Returns:
-            Dict with current_time, skipped_events, executed_events.
-        
-        Raises:
-            ValueError: If new_time is in the past.
+            Dict with current_time, previous_time, skipped_events, executed_events,
+            and for backward jumps: rolled_back_events.
         """
         if not self.is_running:
             raise ValueError("Cannot set time: simulation is not running")
 
         current_time = self.environment.time_state.current_time
 
-        if new_time < current_time:
-            raise ValueError(
-                f"Cannot travel backwards in time: "
-                f"current={current_time}, target={new_time}"
-            )
-
         with self._operation_lock:
-            # Find events in skipped range
-            skipped_events = [
+            if new_time < current_time:
+                # Backward time jump - undo events and reset to pending
+                return self._set_time_backwards(new_time, current_time)
+            else:
+                # Forward time jump - skip or execute events
+                return self._set_time_forwards(
+                    new_time, current_time, execute_skipped
+                )
+
+    def _set_time_backwards(
+        self, new_time: datetime, current_time: datetime
+    ) -> dict:
+        """Handle backward time jump by undoing events.
+
+        Finds all executed events that occurred after the target time,
+        undoes their effects in reverse order, and resets them to PENDING.
+
+        Args:
+            new_time: Target time to jump back to.
+            current_time: Current simulator time.
+
+        Returns:
+            Dict with operation summary.
+        """
+        # Find executed events that occurred after the target time
+        # These need to be undone in reverse chronological order
+        events_to_rollback = sorted(
+            [
                 e
                 for e in self.event_queue.events
-                if e.status == EventStatus.PENDING
-                and current_time < e.scheduled_time <= new_time
-            ]
+                if e.status == EventStatus.EXECUTED
+                and e.scheduled_time > new_time
+            ],
+            key=lambda e: e.scheduled_time,
+            reverse=True,  # Most recent first
+        )
 
-            if execute_skipped:
-                # Execute all skipped events instantly with undo capture
-                for event in skipped_events:
-                    try:
-                        undo_entry = event.execute(self.environment, capture_undo=True)
-                        if undo_entry is not None:
-                            self.undo_stack.push(undo_entry)
-                        logger.debug(f"Executed skipped event {event.event_id}")
-                    except Exception as e:
-                        logger.error(
-                            f"Error executing skipped event {event.event_id}: {e}"
-                        )
-                executed_count = len(
-                    [e for e in skipped_events if e.status == EventStatus.EXECUTED]
-                )
-            else:
-                # Mark as skipped
-                for event in skipped_events:
-                    event.status = EventStatus.SKIPPED
-                    event.error_message = f"Time jumped from {current_time} to {new_time}"
-                executed_count = 0
+        rolled_back_count = 0
 
-            # Jump time
-            self.environment.time_state.set_time(new_time)
+        # We need to find undo entries for these events and apply them
+        # Walk through the undo stack to find entries for events to rollback
+        for event in events_to_rollback:
+            # Find the undo entry for this event in the undo stack
+            undo_entry = None
+            entry_index = None
 
-            logger.info(
-                f"Jumped time from {current_time} to {new_time}, "
-                f"{'executed' if execute_skipped else 'skipped'} {len(skipped_events)} events"
+            # Search the undo stack for this event's entry
+            for i, entry in enumerate(self.undo_stack.undo_entries):
+                if entry.event_id == event.event_id:
+                    undo_entry = entry
+                    entry_index = i
+                    break
+
+            if undo_entry is not None:
+                try:
+                    # Get the modality state and apply undo
+                    state = self.environment.get_state(undo_entry.modality)
+                    state.apply_undo(undo_entry.undo_data)
+
+                    # Remove from undo stack (don't push to redo - we're resetting)
+                    self.undo_stack.undo_entries.pop(entry_index)
+
+                    logger.debug(
+                        f"Rolled back event {event.event_id} ({undo_entry.modality})"
+                    )
+                except Exception as e:
+                    logger.error(
+                        f"Failed to rollback event {event.event_id}: {e}",
+                        exc_info=True,
+                    )
+                    # Continue with other events even if one fails
+
+            # Reset event status to PENDING regardless of whether undo succeeded
+            # (the event should be re-executable when time advances again)
+            event.status = EventStatus.PENDING
+            event.executed_at = None
+            event.error_message = None
+            rolled_back_count += 1
+
+        # Also reset any SKIPPED events that were in the future
+        skipped_reset_count = 0
+        for event in self.event_queue.events:
+            if (
+                event.status == EventStatus.SKIPPED
+                and event.scheduled_time > new_time
+            ):
+                event.status = EventStatus.PENDING
+                event.error_message = None
+                skipped_reset_count += 1
+
+        # Jump time backwards
+        self.environment.time_state.set_time(new_time)
+
+        logger.info(
+            f"Jumped time backwards from {current_time} to {new_time}, "
+            f"rolled back {rolled_back_count} events, "
+            f"reset {skipped_reset_count} skipped events to pending"
+        )
+
+        return {
+            "current_time": new_time.isoformat(),
+            "previous_time": current_time.isoformat(),
+            "skipped_events": 0,
+            "executed_events": 0,
+            "rolled_back_events": rolled_back_count,
+            "reset_skipped_events": skipped_reset_count,
+        }
+
+    def _set_time_forwards(
+        self, new_time: datetime, current_time: datetime, execute_skipped: bool
+    ) -> dict:
+        """Handle forward time jump by skipping or executing events.
+
+        Args:
+            new_time: Target time to jump to.
+            current_time: Current simulator time.
+            execute_skipped: If True, execute events in the jumped range.
+
+        Returns:
+            Dict with operation summary.
+        """
+        # Find events in skipped range
+        skipped_events = [
+            e
+            for e in self.event_queue.events
+            if e.status == EventStatus.PENDING
+            and current_time < e.scheduled_time <= new_time
+        ]
+
+        if execute_skipped:
+            # Execute all skipped events instantly with undo capture
+            for event in skipped_events:
+                try:
+                    undo_entry = event.execute(self.environment, capture_undo=True)
+                    if undo_entry is not None:
+                        self.undo_stack.push(undo_entry)
+                    logger.debug(f"Executed skipped event {event.event_id}")
+                except Exception as e:
+                    logger.error(
+                        f"Error executing skipped event {event.event_id}: {e}"
+                    )
+            executed_count = len(
+                [e for e in skipped_events if e.status == EventStatus.EXECUTED]
             )
+        else:
+            # Mark as skipped
+            for event in skipped_events:
+                event.status = EventStatus.SKIPPED
+                event.error_message = f"Time jumped from {current_time} to {new_time}"
+            executed_count = 0
 
-            return {
-                "current_time": new_time.isoformat(),
-                "previous_time": current_time.isoformat(),
-                "skipped_events": len(skipped_events),
-                "executed_events": executed_count,
-            }
+        # Jump time
+        self.environment.time_state.set_time(new_time)
+
+        logger.info(
+            f"Jumped time from {current_time} to {new_time}, "
+            f"{'executed' if execute_skipped else 'skipped'} {len(skipped_events)} events"
+        )
+
+        return {
+            "current_time": new_time.isoformat(),
+            "previous_time": current_time.isoformat(),
+            "skipped_events": len(skipped_events),
+            "executed_events": executed_count,
+        }
 
     def skip_to_next_event(self) -> dict:
         """Jump to next scheduled event and execute it.

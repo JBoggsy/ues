@@ -475,14 +475,11 @@ See `docs/WEB_UI_IMPLEMENTATION_PLAN.md` for detailed implementation plan.
 - [ ] **Scenario Templates**: Pre-built scenarios for common testing patterns
 
 ### UI Improvements
+- [ ] Add New Scenario menu option which clears everything
 - [ ] Add "Receive Email" compose button to UI Email view to allow simulating receiving emails
 - [ ] Add "Receive Text" compose button to UI SMS view to allow simulating receiving texts
 - [ ] Implement calendar event invites and accepting/rejection them
 - [ ] Implement backend storage/handling of named locations/saved addresses
-- [ ] Fix real weather timestamping and sunrise/sunset times
-- [ ] Rethink weather modality to some extent
-  - I actually think I should remove the real weather updates from the backend code, have clients
-    supply it if desired
 - [ ] Fix mismatch between `/{modality}/state` and `/environment/modalities/{modality}` endpoint responses
   - **Issue discovered**: Weather history field name mismatch:
     - `/weather/state` uses custom `to_dict()` method → returns `"history": [...]`
@@ -497,8 +494,14 @@ See `docs/WEB_UI_IMPLEMENTATION_PLAN.md` for detailed implementation plan.
   - **Audit other modalities**: Check if Location, Email, SMS, Calendar, Chat have similar
     mismatches between their `/{modality}/state` and `/environment/modalities/{modality}` responses
 - [x] Double check timestamp formatting re: "Z"/"+00:00". Make consistent
-- [ ] Allow setting Simulator time to arbitrary time, roll back events to pending + undo effects
 - [ ] Fix web UI to work well on mobile?
+
+### Simulator Improvements
+- [x] Allow setting Simulator time to arbitrary time, roll back events to pending + undo effects
+- [ ] Fix real weather timestamping and sunrise/sunset times
+- [ ] Rethink weather modality to some extent
+  - I actually think I should remove the real weather updates from the backend code, have clients
+    supply it if desired
 
 ## Notes
 - All models should use Pydantic for validation

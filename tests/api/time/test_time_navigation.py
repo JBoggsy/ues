@@ -48,24 +48,27 @@ class TestPostTimeSet:
         assert abs((current_time - target_time).total_seconds()) < 1
         assert abs((previous_time - initial_time).total_seconds()) < 1
     
-    def test_set_rejects_past_time(self, client_with_engine):
-        """Test that POST /simulator/time/set rejects attempts to go backwards."""
+    def test_set_allows_backwards_time_jump(self, client_with_engine):
+        """Test that POST /simulator/time/set allows backwards time jumps."""
         client, _ = client_with_engine
         
         # Get initial time
         initial_response = client.get("/simulator/time")
         initial_time = datetime.fromisoformat(initial_response.json()["current_time"])
         
-        # Try to set time to 1 hour in the past
+        # Set time to 1 hour in the past
         past_time = initial_time - timedelta(hours=1)
         response = client.post(
             "/simulator/time/set",
             json={"target_time": past_time.isoformat()}
         )
         
-        # Should reject with 400 error
-        assert response.status_code == 400
-        assert "backwards" in response.json()["detail"].lower()
+        # Backwards time jumps are now supported
+        assert response.status_code == 200
+        data = response.json()
+        assert "current_time" in data
+        assert "rolled_back_events" in data
+        assert data["rolled_back_events"] == 0  # No executed events to roll back
     
     def test_set_marks_events_as_skipped(self, client_with_engine):
         """Test that POST /simulator/time/set marks skipped events appropriately."""
@@ -408,3 +411,308 @@ class TestPostTimeSkipToNext:
         
         # Should indicate no more events
         assert skip_response2.json()["next_event_time"] is None
+
+
+class TestBackwardsTimeJump:
+    """Tests for backwards time jump functionality (time travel to past)."""
+    
+    def test_backwards_jump_updates_time(self, client_with_engine):
+        """Test that backwards time jump correctly updates simulator time."""
+        client, _ = client_with_engine
+        
+        # Get initial time
+        initial_response = client.get("/simulator/time")
+        initial_time = datetime.fromisoformat(initial_response.json()["current_time"])
+        
+        # Jump backwards by 2 hours
+        past_time = initial_time - timedelta(hours=2)
+        response = client.post(
+            "/simulator/time/set",
+            json={"target_time": past_time.isoformat()}
+        )
+        
+        assert response.status_code == 200
+        data = response.json()
+        
+        # Verify time was set correctly
+        current_time = datetime.fromisoformat(data["current_time"])
+        assert abs((current_time - past_time).total_seconds()) < 1
+        
+        # Verify response includes backwards-specific fields
+        assert "rolled_back_events" in data
+        assert "previous_time" in data
+        
+    def test_backwards_jump_rolls_back_executed_events(self, client_with_engine):
+        """Test that backwards jump undoes events that occurred after target time."""
+        client, engine = client_with_engine
+        
+        # Get initial time
+        initial_response = client.get("/simulator/time")
+        initial_time = datetime.fromisoformat(initial_response.json()["current_time"])
+        
+        # Create an event in the near future
+        event_time = initial_time + timedelta(minutes=30)
+        event_request = make_event_request(
+            event_time,
+            "location",
+            location_event_data(latitude=37.7749, longitude=-122.4194),
+        )
+        create_response = client.post("/events", json=event_request)
+        assert create_response.status_code == 200
+        event_id = create_response.json()["event_id"]
+        
+        # Advance time past the event to execute it
+        advance_response = client.post(
+            "/simulator/time/advance",
+            json={"seconds": 3600}  # 1 hour
+        )
+        assert advance_response.status_code == 200
+        
+        # Verify event was executed
+        event_check = client.get(f"/events/{event_id}")
+        assert event_check.json()["status"] == "executed"
+        
+        # Verify location was updated
+        location_state = client.get("/location/state")
+        assert location_state.json()["current"]["latitude"] == 37.7749
+        
+        # Now jump backwards to before the event was executed
+        backwards_response = client.post(
+            "/simulator/time/set",
+            json={"target_time": initial_time.isoformat()}
+        )
+        
+        assert backwards_response.status_code == 200
+        data = backwards_response.json()
+        
+        # Verify event was rolled back
+        assert data["rolled_back_events"] == 1
+        
+        # Verify event is back to pending
+        event_check_after = client.get(f"/events/{event_id}")
+        assert event_check_after.json()["status"] == "pending"
+        
+    def test_backwards_jump_undoes_location_change(self, client_with_engine):
+        """Test that backwards jump reverts location state changes."""
+        client, engine = client_with_engine
+        
+        # Get initial location state
+        initial_location = client.get("/location/state")
+        initial_location_data = initial_location.json()
+        
+        # Get initial time
+        initial_response = client.get("/simulator/time")
+        initial_time = datetime.fromisoformat(initial_response.json()["current_time"])
+        
+        # Create and execute a location update event
+        event_time = initial_time + timedelta(minutes=10)
+        event_request = make_event_request(
+            event_time,
+            "location",
+            location_event_data(latitude=40.7128, longitude=-74.0060),  # New York
+        )
+        create_response = client.post("/events", json=event_request)
+        assert create_response.status_code == 200
+        
+        # Advance time to execute the event
+        client.post("/simulator/time/advance", json={"seconds": 1800})
+        
+        # Verify location changed
+        new_location = client.get("/location/state")
+        assert new_location.json()["current"]["latitude"] == 40.7128
+        
+        # Jump backwards to before the event
+        client.post(
+            "/simulator/time/set",
+            json={"target_time": initial_time.isoformat()}
+        )
+        
+        # Verify location reverted
+        reverted_location = client.get("/location/state")
+        # If there was no initial location, it should be None
+        if initial_location_data["current"] is None:
+            assert reverted_location.json()["current"] is None
+        else:
+            assert reverted_location.json()["current"]["latitude"] == initial_location_data["current"]["latitude"]
+        
+    def test_backwards_jump_resets_skipped_events_to_pending(self, client_with_engine):
+        """Test that backwards jump resets skipped events to pending."""
+        client, _ = client_with_engine
+        
+        # Get initial time
+        initial_response = client.get("/simulator/time")
+        initial_time = datetime.fromisoformat(initial_response.json()["current_time"])
+        
+        # Create an event
+        event_time = initial_time + timedelta(hours=1)
+        event_request = make_event_request(
+            event_time,
+            "location",
+            location_event_data(latitude=37.7749, longitude=-122.4194),
+        )
+        create_response = client.post("/events", json=event_request)
+        event_id = create_response.json()["event_id"]
+        
+        # Jump forward past the event (without executing)
+        future_time = initial_time + timedelta(hours=2)
+        client.post(
+            "/simulator/time/set",
+            json={"target_time": future_time.isoformat()}
+        )
+        
+        # Verify event is skipped
+        event_check = client.get(f"/events/{event_id}")
+        assert event_check.json()["status"] == "skipped"
+        
+        # Jump backwards to before the event
+        client.post(
+            "/simulator/time/set",
+            json={"target_time": initial_time.isoformat()}
+        )
+        
+        # Verify event is back to pending
+        event_check_after = client.get(f"/events/{event_id}")
+        assert event_check_after.json()["status"] == "pending"
+        
+    def test_backwards_jump_multiple_events(self, client_with_engine):
+        """Test that backwards jump correctly rolls back multiple events."""
+        client, _ = client_with_engine
+        
+        # Get initial time
+        initial_response = client.get("/simulator/time")
+        initial_time = datetime.fromisoformat(initial_response.json()["current_time"])
+        
+        # Create multiple events at different times
+        event_times = [
+            initial_time + timedelta(minutes=10),
+            initial_time + timedelta(minutes=20),
+            initial_time + timedelta(minutes=30),
+        ]
+        
+        event_ids = []
+        for i, event_time in enumerate(event_times):
+            event_request = make_event_request(
+                event_time,
+                "location",
+                location_event_data(latitude=37.0 + i, longitude=-122.0),
+            )
+            create_response = client.post("/events", json=event_request)
+            event_ids.append(create_response.json()["event_id"])
+        
+        # Advance time to execute all events
+        client.post("/simulator/time/advance", json={"seconds": 3600})
+        
+        # Verify all events executed
+        for event_id in event_ids:
+            event_check = client.get(f"/events/{event_id}")
+            assert event_check.json()["status"] == "executed"
+        
+        # Jump backwards to before all events
+        backwards_response = client.post(
+            "/simulator/time/set",
+            json={"target_time": initial_time.isoformat()}
+        )
+        
+        assert backwards_response.status_code == 200
+        assert backwards_response.json()["rolled_back_events"] == 3
+        
+        # Verify all events are back to pending
+        for event_id in event_ids:
+            event_check = client.get(f"/events/{event_id}")
+            assert event_check.json()["status"] == "pending"
+        
+    def test_backwards_jump_partial_rollback(self, client_with_engine):
+        """Test backwards jump to middle time rolls back only later events."""
+        client, _ = client_with_engine
+        
+        # Get initial time
+        initial_response = client.get("/simulator/time")
+        initial_time = datetime.fromisoformat(initial_response.json()["current_time"])
+        
+        # Create two events
+        event_time_1 = initial_time + timedelta(minutes=10)
+        event_time_2 = initial_time + timedelta(minutes=30)
+        
+        event_request_1 = make_event_request(
+            event_time_1,
+            "location",
+            location_event_data(latitude=37.0, longitude=-122.0),
+        )
+        event_request_2 = make_event_request(
+            event_time_2,
+            "location",
+            location_event_data(latitude=38.0, longitude=-121.0),
+        )
+        
+        response_1 = client.post("/events", json=event_request_1)
+        response_2 = client.post("/events", json=event_request_2)
+        event_id_1 = response_1.json()["event_id"]
+        event_id_2 = response_2.json()["event_id"]
+        
+        # Advance time to execute both events
+        client.post("/simulator/time/advance", json={"seconds": 3600})
+        
+        # Jump backwards to between the two events (after first, before second)
+        middle_time = initial_time + timedelta(minutes=20)
+        backwards_response = client.post(
+            "/simulator/time/set",
+            json={"target_time": middle_time.isoformat()}
+        )
+        
+        assert backwards_response.status_code == 200
+        # Only the second event should be rolled back
+        assert backwards_response.json()["rolled_back_events"] == 1
+        
+        # First event should still be executed
+        event_check_1 = client.get(f"/events/{event_id_1}")
+        assert event_check_1.json()["status"] == "executed"
+        
+        # Second event should be pending
+        event_check_2 = client.get(f"/events/{event_id_2}")
+        assert event_check_2.json()["status"] == "pending"
+        
+    def test_backwards_jump_can_reexecute_events(self, client_with_engine):
+        """Test that after backwards jump, events can be re-executed by advancing again."""
+        client, _ = client_with_engine
+        
+        # Get initial time
+        initial_response = client.get("/simulator/time")
+        initial_time = datetime.fromisoformat(initial_response.json()["current_time"])
+        
+        # Create an event
+        event_time = initial_time + timedelta(minutes=30)
+        event_request = make_event_request(
+            event_time,
+            "location",
+            location_event_data(latitude=37.7749, longitude=-122.4194),
+        )
+        create_response = client.post("/events", json=event_request)
+        event_id = create_response.json()["event_id"]
+        
+        # Advance time to execute the event
+        client.post("/simulator/time/advance", json={"seconds": 3600})
+        
+        # Verify executed
+        event_check = client.get(f"/events/{event_id}")
+        assert event_check.json()["status"] == "executed"
+        
+        # Jump backwards
+        client.post(
+            "/simulator/time/set",
+            json={"target_time": initial_time.isoformat()}
+        )
+        
+        # Verify pending
+        event_check = client.get(f"/events/{event_id}")
+        assert event_check.json()["status"] == "pending"
+        
+        # Advance time again to re-execute
+        client.post("/simulator/time/advance", json={"seconds": 3600})
+        
+        # Verify executed again
+        event_check = client.get(f"/events/{event_id}")
+        assert event_check.json()["status"] == "executed"
+        
+        # Verify location updated
+        location_state = client.get("/location/state")
+        assert location_state.json()["current"]["latitude"] == 37.7749

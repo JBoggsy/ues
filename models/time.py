@@ -133,17 +133,16 @@ class SimulatorTime(BaseModel):
         Used for manual time setting via API or event-driven mode.
         Updates current_time and last_wall_time_update.
 
+        Supports both forward and backward time jumps. When jumping backwards,
+        the SimulationEngine is responsible for undoing executed events that
+        occurred after the target time.
+
         Args:
-            new_time: New simulator time to set.
+            new_time: New simulator time to set (can be before or after current_time).
 
         Raises:
-            ValueError: If new_time is before current_time (no backwards jumps).
+            ValueError: If new_time is not timezone-aware.
         """
-        if new_time < self.current_time:
-            raise ValueError(
-                f"Cannot set time backwards: {new_time} < {self.current_time}"
-            )
-
         if new_time.tzinfo is None:
             raise ValueError("new_time must be timezone-aware")
 

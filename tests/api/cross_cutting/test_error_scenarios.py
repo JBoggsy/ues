@@ -440,8 +440,8 @@ class TestConflictErrors:
         data = response.json()
         assert "detail" in data or "error" in data
 
-    def test_set_time_to_past(self, client_with_engine):
-        """Setting time to the past returns 400."""
+    def test_set_time_to_past_succeeds(self, client_with_engine):
+        """Setting time to the past now succeeds with backwards time jump."""
         client, _ = client_with_engine
         
         time_response = client.get("/simulator/time")
@@ -452,9 +452,11 @@ class TestConflictErrors:
             "/simulator/time/set",
             json={"target_time": past_time.isoformat()},
         )
-        assert response.status_code == 400
+        # Backwards time jumps are now supported
+        assert response.status_code == 200
         data = response.json()
-        assert "detail" in data or "error" in data
+        assert "current_time" in data
+        assert "rolled_back_events" in data
 
     def test_conflict_errors_include_state_info(self, client_with_engine):
         """Conflict errors provide helpful context about current state."""

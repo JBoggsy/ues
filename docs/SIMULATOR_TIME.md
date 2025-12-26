@@ -163,17 +163,21 @@ def set_time(self, new_time: datetime) -> None:
     Used for manual time setting via API or event-driven mode.
     Updates current_time and last_wall_time_update.
     
+    Supports both forward and backward time jumps. When jumping backwards,
+    the SimulationEngine is responsible for undoing executed events that
+    occurred after the target time.
+    
     Args:
-        new_time: New simulator time to set
+        new_time: New simulator time to set (can be before or after current_time)
     
     Raises:
-        ValueError: If new_time is before current_time (no backwards jumps)
+        ValueError: If new_time is not timezone-aware
     """
 ```
 
 **Rationale**: Explicit time jumps for event-driven mode and manual control. Separate from `advance()` to be clear about intent.
 
-**Design Decision**: Disallow backwards time travel to prevent paradoxes and maintain event log integrity.
+**Design Decision**: Allow backwards time travel to support "what-if" scenarios. The SimulationEngine handles undoing events.
 
 #### 4. `pause() -> None`
 ```python
@@ -456,18 +460,69 @@ return {
 
 **Key Point**: Pause freezes time completely, resume resets wall time anchor.
 
+### Pattern 6: Backwards Time Jump
+
+```python
+# API endpoint: POST /simulator/time/set
+# Body: {"time": "2024-03-15T10:00:00Z"}  # Earlier than current time
+
+new_time = datetime.fromisoformat(request.json["time"])
+
+# 1. Check if this is a backwards jump
+if new_time < simulator_time.current_time:
+    # Find executed events after the target time
+    events_to_rollback = [
+        e for e in event_queue.events
+        if e.status == EventStatus.EXECUTED
+        and e.scheduled_time > new_time
+    ]
+    
+    # 2. Undo events in reverse chronological order
+    for event in sorted(events_to_rollback, key=lambda e: e.scheduled_time, reverse=True):
+        undo_entry = undo_stack.find_entry(event.event_id)
+        if undo_entry:
+            state = environment.get_state(undo_entry.modality)
+            state.apply_undo(undo_entry.undo_data)
+            undo_stack.remove(undo_entry)
+        
+        # Reset event to pending
+        event.status = EventStatus.PENDING
+        event.executed_at = None
+    
+    # 3. Also reset any skipped events after target time
+    for event in event_queue.events:
+        if event.status == EventStatus.SKIPPED and event.scheduled_time > new_time:
+            event.status = EventStatus.PENDING
+            event.error_message = None
+
+# 4. Set the new time
+simulator_time.set_time(new_time)
+
+return {
+    "current_time": simulator_time.current_time,
+    "rolled_back_events": len(events_to_rollback),
+    "reset_skipped_events": skipped_reset_count
+}
+```
+
+**Key Point**: Backwards jumps undo executed events and reset them to pending, allowing re-execution.
+
 ## Design Decisions
 
-### 1. No Backwards Time Travel
+### 1. Backwards Time Travel Supported
 
-**Decision**: `set_time()` raises an error if new_time < current_time.
+**Decision**: `set_time()` allows new_time < current_time. When jumping backwards:
+- Executed events after target time are undone using the undo stack
+- Events are reset to PENDING status so they can be re-executed
+- Skipped events after target time are also reset to PENDING
 
 **Rationale**: 
-- Prevents paradoxes (event executed before it was created)
-- Maintains event log integrity
-- Simplifies reasoning about causality
+- Enables "what-if" scenarios and replaying simulation sections
+- Uses existing undo infrastructure for state reversal
+- Events can be re-executed when time advances again
+- Useful for debugging and testing different outcomes
 
-**Alternative Considered**: Allow backwards jumps but mark all events as "unexecuted". Too complex for MVP.
+**Implementation Note**: Events are undone in reverse chronological order (most recent first) to properly reverse the state changes.
 
 ### 2. SimulatorTime Doesn't Advance Itself
 

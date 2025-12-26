@@ -350,16 +350,16 @@ class TestSetTime:
 
         assert time_obj.current_time == current
 
-    def test_set_time_rejects_backwards_jump(self):
-        """Test that backwards time jumps are rejected."""
+    def test_set_time_allows_backwards_jump(self):
+        """Test that backwards time jumps are now allowed."""
         start_time = datetime(2025, 1, 15, 14, 0, 0, tzinfo=timezone.utc)
         past_time = datetime(2025, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
         time_obj = create_simulator_time(current_time=start_time)
 
-        with pytest.raises(ValueError) as exc_info:
-            time_obj.set_time(past_time)
+        # Backwards jumps should now succeed
+        time_obj.set_time(past_time)
 
-        assert "backwards" in str(exc_info.value).lower()
+        assert time_obj.current_time == past_time
 
     def test_set_time_rejects_naive_datetime(self):
         """Test that naive datetime is rejected."""
@@ -367,10 +367,10 @@ class TestSetTime:
         time_obj = create_simulator_time(current_time=start_time)
         naive_time = datetime(2099, 1, 15, 14, 0, 0)  # no tzinfo, far future
 
-        with pytest.raises(TypeError) as exc_info:
+        with pytest.raises(ValueError) as exc_info:
             time_obj.set_time(naive_time)
 
-        assert "compare" in str(exc_info.value).lower()
+        assert "timezone-aware" in str(exc_info.value).lower()
 
     def test_set_time_large_jump(self):
         """Test setting time to far future."""

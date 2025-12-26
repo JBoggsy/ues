@@ -204,14 +204,18 @@ class SetTimeResponse(BaseModel):
     Attributes:
         current_time: The new current simulator time.
         previous_time: The time before the jump.
-        skipped_events: Number of events that were skipped.
+        skipped_events: Number of events that were skipped (forward jumps only).
         executed_events: Number of events that were executed (if execute_skipped=True).
+        rolled_back_events: Number of executed events that were undone (backward jumps only).
+        reset_skipped_events: Number of skipped events reset to pending (backward jumps only).
     """
     
     current_time: datetime
     previous_time: datetime
     skipped_events: int
     executed_events: int
+    rolled_back_events: int = 0
+    reset_skipped_events: int = 0
 
 
 class SkipToNextResponse(BaseModel):
@@ -248,8 +252,12 @@ class SetScaleRequest(BaseModel):
 async def set_time(request: SetTimeRequest, engine: SimulationEngineDep):
     """Jump to a specific simulator time.
     
-    This instantly moves the simulator to the target time. You can choose
-    whether to execute or skip events in the jumped interval.
+    This instantly moves the simulator to the target time. Supports both
+    forward and backward time jumps:
+    
+    - **Forward jumps**: Events in the skipped range are marked as SKIPPED.
+    - **Backward jumps**: Executed events after the target time are undone
+      and reset to PENDING status, allowing them to be re-executed.
     
     Args:
         request: Contains the target time to jump to.
@@ -259,7 +267,7 @@ async def set_time(request: SetTimeRequest, engine: SimulationEngineDep):
         Summary of the time jump operation.
     
     Raises:
-        HTTPException: If the target time is invalid or in the past.
+        HTTPException: If the target time is invalid.
     """
     try:
         result = engine.set_time(new_time=request.target_time, execute_skipped=False)
@@ -273,6 +281,8 @@ async def set_time(request: SetTimeRequest, engine: SimulationEngineDep):
             ),
             skipped_events=result["skipped_events"],
             executed_events=result["executed_events"],
+            rolled_back_events=result.get("rolled_back_events", 0),
+            reset_skipped_events=result.get("reset_skipped_events", 0),
         )
     except ValueError as e:
         raise HTTPException(

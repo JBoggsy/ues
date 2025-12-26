@@ -348,14 +348,19 @@ class TestSimulationEngineTimeControl:
         assert result["executed_events"] == 1
         assert event.status == EventStatus.EXECUTED
 
-    def test_set_time_backwards_raises_error(self):
-        """SIMULATION_ENGINE-SPECIFIC: Verify cannot travel backwards in time."""
+    def test_set_time_backwards_succeeds(self):
+        """SIMULATION_ENGINE-SPECIFIC: Verify backwards time travel is now supported."""
         engine = create_simulation_engine()
         current_time = engine.environment.time_state.current_time
         engine.start(auto_advance=False)
 
-        with pytest.raises(ValueError, match="backwards"):
-            engine.set_time(current_time - timedelta(hours=1))
+        past_time = current_time - timedelta(hours=1)
+        result = engine.set_time(past_time)
+
+        # Backwards time jump should succeed
+        assert result["current_time"] == past_time.isoformat()
+        assert result["rolled_back_events"] == 0  # No executed events to roll back
+        assert engine.environment.time_state.current_time == past_time
 
     def test_skip_to_next_event_basic(self):
         """SIMULATION_ENGINE-SPECIFIC: Test skipping to next event."""
