@@ -95,6 +95,10 @@ from client._weather import (
     WeatherQueryResponse,
     WeatherStateResponse,
 )
+from client._websocket import (
+    WebSocketSubscription,
+    WSEvent,
+)
 from client.exceptions import (
     APIError,
     ConflictError,
@@ -120,6 +124,9 @@ __all__ = [
     # Main clients
     "UESClient",
     "AsyncUESClient",
+    # WebSocket support
+    "WebSocketSubscription",
+    "WSEvent",
     # Sub-clients (for direct use or Phase 4 integration)
     "EmailClient",
     "AsyncEmailClient",

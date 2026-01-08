@@ -2,57 +2,38 @@
 
 ## Project Overview
 
-UES is an AI-driven testing and prototyping tool for AI personal assistants. It provides a web app-based UI that simulates multiple input modalities (email, calendar, SMS, location, weather, file system, Discord, Slack, social media, screen simulation) to test how AI agents handle realistic user environments.
+UES is an AI-driven testing tool for AI personal assistants, simulating multiple input modalities (email, calendar, SMS, location, weather, etc.) via a RESTful API.
 
-**Key Concept**: The simulator creates a controlled, replicable environment where developers can design sequences of events (new emails arriving, texts being sent, files changing) that an AI personal assistant "sees" in real-time via a RESTful API.
-
-## Architecture
-
-### Core Components (Planned)
-- **Web App UI**: Interface for designing simulated environments and event sequences
-- **RESTful API**: Exposes simulated modalities to connected AI agents
-- **Event System**: Coordinates timestamped inputs across modalities with initial simulator time
-- **Agent Integration**: Optional AI agents that generate new inputs or react to assistant responses
-
-### Current State
-The project has established core infrastructure with working data models:
-- `main.py`: Minimal placeholder entry point (to be expanded with FastAPI)
-- `pyproject.toml`: Python 3.12+ project with Pydantic dependency
-- `README.md`: Comprehensive vision document
-- `models/`: Complete data model layer with base classes and modality implementations
-  - Core infrastructure: `SimulatorEvent`, `SimulatorTime`, `EventQueue`, `Environment`, `SimulationEngine`
-  - Base classes: `ModalityInput`, `ModalityState`
-  - Modality implementations: Email, SMS, Calendar, Chat, Weather, Location, Time, Discord, Slack, Social Media, File System, Screen
-- `docs/`: Comprehensive documentation for all core components and modalities
-
-**Next Steps**: Implement FastAPI REST API layer and web UI for environment configuration.
+**For architecture details**: See `README.md`, `docs/SIMULATION_ENGINE.md`, `docs/REST_API.md`
+**For current status/roadmap**: See `TODO.md`
 
 ## Development Environment
 
-### Setup
-- **Python Version**: 3.12+ (specified in `.python-version`)
-- **Package Manager**: `uv` for dependency management
-- **Virtual Environment**: `.venv` directory (gitignored)
-- **Web Framework**: FastAPI (recommended for API-first design with auto-documentation)
-
 ### Common Commands
 ```bash
-# Install dependencies
-uv sync
-
-# Add new dependency
-uv add <package-name>
-
-# Run the application (will use FastAPI + Uvicorn)
-uv run python main.py
-# or: uv run uvicorn main:app --reload
-
-# Run any Python script or command
-uv run python script.py
-# or: uv run python -m module.name
+uv sync                              # Install dependencies
+uv run uvicorn main:app --reload     # Start API server (dev)
+uv run pytest                        # Run all tests
+uv run pytest tests/api/ -v          # Run specific tests
+cd webapp && npm run dev             # Start Web UI
 ```
 
-**IMPORTANT**: Always use `uv run python ...` (or `uv run <command>`) when executing Python code. Do NOT use plain `python ...` commands, as they will use the system Python installation which won't have access to project dependencies installed in the virtual environment.
+**IMPORTANT**: Always use `uv run python ...` or `uv run <command>`. Never use plain `python ...` commands.
+
+### Development URLs
+When the server is running (`uv run uvicorn main:app --reload`):
+- **API Server**: http://localhost:8000
+- **Swagger Docs**: http://localhost:8000/docs (interactive API testing)
+- **ReDoc**: http://localhost:8000/redoc (alternative API docs)
+- **OpenAPI Schema**: http://localhost:8000/openapi.json
+- **Web UI**: http://localhost:5173 (run `cd webapp && npm run dev`)
+
+### Environment Variables
+The project uses `python-dotenv` to load environment variables from `.env` files:
+- `CORS_ORIGINS`: Comma-separated list of allowed CORS origins (default: localhost:5173, localhost:3000)
+- `OPENWEATHER_API_KEY`: Optional API key for real weather data fetching
+
+See `webapp/.env.example` for web UI environment variables.
 
 ## Design Patterns to Follow
 
@@ -68,13 +49,20 @@ uv run python script.py
 - **General Purpose**: Design for any AI personal assistant, not specific to AIPA
 - **Modularity**: Each modality should be a separate module/component for easy extension
 
-## Tech Stack
+### Adding a New Modality
+When implementing a new modality, follow this checklist:
+1. **Models**: Create `models/modalities/<modality>_input.py` and `<modality>_state.py`
+   - Input class extends `ModalityInput` with action-specific fields
+   - State class extends `ModalityState` with `apply_input()`, `clear()`, `create_undo_data()`, `apply_undo()`
+2. **Registry**: Register in `models/registry.py` `ModalityRegistry`
+3. **API Routes**: Create `api/routes/<modality>.py` with state/query/submit endpoints
+4. **Route Registration**: Add router to `main.py`
+5. **Client Sub-client**: Create `client/_<modality>.py` with sync/async methods
+6. **Client Integration**: Add to `UESClient` and `AsyncUESClient` in `client/client.py`
+7. **Tests**: Add `tests/models/test_<modality>_input.py`, `test_<modality>_state.py`, and `tests/api/modalities/test_<modality>_routes.py`
+8. **Web UI**: Add viewer component in `webapp/src/components/modalities/<modality>/`
 
-- **Backend**: FastAPI + Uvicorn (async, auto-docs, WebSocket support) - *To be implemented*
-- **Data Models**: Pydantic ✅ (validation, serialization) - *Implemented*
-- **Package Management**: `uv` ✅ - *Active*
-- **Storage**: TBD (SQLite/PostgreSQL for events, filesystem for configs)
-- **Frontend**: TBD (React/Vue SPA or FastAPI templates)
+See `docs/MODALITY_ROUTES.md` for detailed API patterns and `docs/MODALITY_UNDO_NOTES.md` for undo implementation.
 
 ## Non-Code Documentation Imperatives
 - Ensure documentation is clear, concise, and accessible to future developers
@@ -125,7 +113,11 @@ uv run python script.py
 - Aim for a maximum of **100 characters per line**
 
 ### Testing Patterns
-- **Organize tests by modality**: Each modality has two test files: `test_<modality>_input.py` and `test_<modality>_state.py`
+- **Organize tests by layer**: Tests are organized into `tests/models/`, `tests/api/`, `tests/client/`
+- **API tests**: Integration tests in `tests/api/{modalities,time,events,simulation,environment,scenario}/`, unit tests in `tests/api/unit/`, workflow tests in `tests/api/workflows/`
+- **Model tests by modality**: Each modality has two test files: `test_<modality>_input.py` and `test_<modality>_state.py`
+- **Shared fixtures**: Use `tests/conftest.py` for shared fixtures, `tests/fixtures/` for pre-built test data
+- **API testing guidelines**: See `tests/API_TESTING_GUIDELINES.md` for conventions
 - **Distinguish general vs. specific tests**: Use docstrings and comments to clearly mark which tests apply to:
   - **General ModalityInput/ModalityState behavior**: Tests that verify the base class contract (e.g., instantiation, serialization, abstract method implementation). These patterns should be replicated for all modalities.
   - **Modality-specific behavior**: Tests that verify unique features or validation rules for that specific modality (e.g., LocationInput's lat/lon range validation, EmailState's thread management).
@@ -160,4 +152,3 @@ class SimulatorEvent(BaseModel):
     data: dict
     agent_id: Optional[str] = None
 ```
-

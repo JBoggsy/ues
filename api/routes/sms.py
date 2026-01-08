@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 from api.dependencies import SimulationEngineDep
 from api.models import ModalityActionResponse
 from api.utils import create_immediate_event
+from api.websocket import ws_manager, WSEventType
 from models.modalities.sms_input import SMSInput
 from models.modalities.sms_state import (
     GroupParticipant,
@@ -418,6 +419,13 @@ async def send_sms(
             priority=100,
         )
 
+        # Broadcast SMS sent event
+        await ws_manager.broadcast(WSEventType.SMS_SENT, {
+            "message_id": event.event_id,
+            "to": request.to_numbers,
+            "preview": request.body[:50] + "..." if len(request.body) > 50 else request.body,
+        })
+
         return ModalityActionResponse(
             event_id=event.event_id,
             scheduled_time=event.scheduled_time,
@@ -481,6 +489,13 @@ async def receive_sms(
             data=sms_input,
             priority=100,
         )
+
+        # Broadcast SMS received event
+        await ws_manager.broadcast(WSEventType.SMS_RECEIVED, {
+            "message_id": event.event_id,
+            "from": request.from_number,
+            "preview": request.body[:50] + "..." if len(request.body) > 50 else request.body,
+        })
 
         return ModalityActionResponse(
             event_id=event.event_id,

@@ -183,7 +183,7 @@ For detailed API documentation, see `docs/REST_API.md` and `docs/MODALITY_ROUTES
 
 ## Environment Design
 
-The simulated environment consists of a set of developer-created inputs for each modality, such as emails, texts, calendar events, user location, etc., each of which has a timestamp, the initial simulator time, and optionally one or more agents with developer-designed prompts which can be set up to either generate new inputs or to react to agent responses. These are all designed via the web app interface.
+The simulated environment consists of developer-created inputs for each modality—emails, texts, calendar events, user location, etc.—each with a timestamp. Scenarios define the initial state and scheduled events, which are designed via the web app interface or created programmatically through the API.
 
 ### Initial State Configuration
 
@@ -204,15 +204,42 @@ Developers define **timed event sequences** that modify states over simulator ti
 
 Each event carries a `ModalityInput` that describes the change and is applied to the appropriate `ModalityState` when executed.
 
-### Event Agent Integration (Planned)
+### External Agent Integration
 
-AI agents can be integrated to dynamically generate events:
-- **Trigger-based**: Generate email when certain conditions met
-- **Response-based**: React to personal assistant's actions
-- **Scheduled**: Periodic generation (e.g., daily weather update)
-- **Controlled**: Developer can enable/disable, seed for reproducibility
+UES is designed as an **agent-interactable simulation platform**. While the core UES framework is purely deterministic (scenarios are data, not code), it exposes a comprehensive REST API that enables powerful agent integrations:
 
-This creates realistic, dynamic environments while maintaining developer control over replicability.
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    UES Core (Pure Simulation)                   │
+│  • Deterministic scenario execution                             │
+│  • State management & event scheduling                          │
+│  • REST API + WebSocket (planned)                               │
+└───────────────────────────────┬─────────────────────────────────┘
+                                │
+         ┌──────────────────────┼──────────────────────┐
+         │                      │                      │
+   Simulator-Side         User-Side Agent         Developer
+   Agent (external)       (being tested)          (Web UI)
+         │                      │                      │
+         └──────────────────────┴──────────────────────┘
+                    All use the same REST API
+```
+
+**Key Design Principle**: Both simulator-side agents (that generate test content) and user-side agents (being tested) are external to UES. They connect via the same API, enabling:
+
+- **Framework Freedom**: Use any LLM provider, agent framework, or programming language
+- **Cost Control**: Manage your own API keys and model selection
+- **Custom Logic**: Implement reactive behaviors, triggers, or content generation as needed
+- **No UES Modifications**: Build sophisticated test environments without changing UES core
+- **Reproducibility by Default**: Export any simulation state as a deterministic scenario
+
+**Example Use Cases**:
+- **Reactive Agents**: Monitor for sent emails, automatically generate and schedule reply events
+- **Content Generation**: Use LLMs to create realistic email bodies, SMS messages, calendar descriptions
+- **Trigger-based Events**: Watch for conditions (location, time, state) and schedule events when met
+- **Character Simulation**: Maintain character personalities that respond consistently to user actions
+
+For detailed patterns and examples, see `docs/SCENARIOS.md` and `docs/simulation_agents/EVENT_GENERATION_AGENT.md`.
 
 ## Current Status
 

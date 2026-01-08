@@ -10,6 +10,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, ValidationError
 
 from api.dependencies import SimulationEngineDep
+from api.websocket import ws_manager, WSEventType
 from models.base_input import ModalityInput
 from models.event import EventStatus, SimulatorEvent
 from models.modalities.calendar_input import CalendarInput
@@ -327,6 +328,13 @@ async def create_event(request: CreateEventRequest, engine: SimulationEngineDep)
         # Add to simulation
         engine.add_event(event)
         
+        # Broadcast event scheduled event
+        await ws_manager.broadcast(WSEventType.EVENT_SCHEDULED, {
+            "event_id": event.event_id,
+            "modality": event.modality,
+            "scheduled_time": event.scheduled_time.isoformat(),
+        })
+        
         return EventResponse(
             event_id=event.event_id,
             scheduled_time=event.scheduled_time,
@@ -389,6 +397,13 @@ async def create_immediate_event(request: ImmediateEventRequest, engine: Simulat
         
         # Add to simulation
         engine.add_event(event)
+        
+        # Broadcast event scheduled event
+        await ws_manager.broadcast(WSEventType.EVENT_SCHEDULED, {
+            "event_id": event.event_id,
+            "modality": event.modality,
+            "scheduled_time": event.scheduled_time.isoformat(),
+        })
         
         return EventResponse(
             event_id=event.event_id,
@@ -577,6 +592,11 @@ async def cancel_event(event_id: str, engine: SimulationEngineDep):
     
     # Cancel the event
     event.status = EventStatus.CANCELLED
+    
+    # Broadcast event cancelled event
+    await ws_manager.broadcast(WSEventType.EVENT_CANCELLED, {
+        "event_id": event_id,
+    })
     
     return {
         "cancelled": True,

@@ -459,10 +459,39 @@ See `docs/WEB_UI_IMPLEMENTATION_PLAN.md` for detailed implementation plan.
 - [x] Phase 5: Testing (264 scenario-related tests)
 - [x] Phase 6: Documentation (SCENARIO_FORMAT.md, SCENARIO_SAVE_LOAD.md, example scenarios)
 
-## Phase 4: Event Agent Integration
-- [ ] Event Agent Configuration model (id, name, prompt_template, triggers)
-- [ ] Event Agent Response model (generat ed_events, metadata)
-- [ ] Event Agent Trigger model (event_type, conditions, frequency)
+## Phase 4: External Agent Integration Support
+
+> **Architecture Decision**: UES core is a pure simulation engine with no built-in LLM/agent 
+> dependencies. Both simulator-side agents (content generation) and user-side agents (being tested) 
+> connect externally via the REST API.
+
+### API Enhancements for Agent Integration
+- [x] WebSocket support for real-time state change notifications
+  - `api/websocket.py`: ConnectionManager, WSEventType enum, WSEvent model
+  - `api/routes/websocket.py`: WebSocket endpoint at `/ws`
+  - All modality routes broadcast events on state changes
+  - Python client: `client/_websocket.py` with WebSocketSubscription
+  - Web UI: `webapp/src/api/websocket.ts` with React hooks
+  - Documentation: `docs/WEBSOCKET.md`
+- [ ] Webhook registration for event callbacks
+- [ ] Batch event submission endpoint for efficient multi-event scheduling
+- [ ] State snapshot endpoint for efficient context gathering
+
+### Documentation & Examples
+- [x] Update SCENARIOS.md for pure-data scenarios
+- [x] Revise EVENT_GENERATION_AGENT.md as external agent pattern guide
+- [x] Update README.md agent integration section
+- [x] Update TODO.md Phase 4 (this section)
+- [ ] Create `docs/AGENT_INTEGRATION.md` comprehensive guide
+- [ ] Example: Reactive email reply agent (Python)
+- [ ] Example: LLM content generation agent
+- [ ] Example: Condition-based trigger agent
+
+### External Agent Package (Separate Repository - Future)
+- [ ] Reference implementation of simulator-side agent patterns
+- [ ] Character personality system
+- [ ] Trigger/condition framework
+- [ ] LLM provider abstraction layer
 
 ## Miscellaneous ToDos
 

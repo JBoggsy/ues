@@ -31,7 +31,7 @@ Example:
             await client.email.send(...)
 """
 
-from typing import Any
+from typing import Any, Optional
 
 from client._calendar import AsyncCalendarClient, CalendarClient
 from client._chat import AsyncChatClient, ChatClient
@@ -44,6 +44,7 @@ from client._simulation import AsyncSimulationClient, SimulationClient
 from client._sms import AsyncSMSClient, SMSClient
 from client._time import AsyncTimeClient, TimeClient
 from client._weather import AsyncWeatherClient, WeatherClient
+from client._websocket import WebSocketSubscription
 
 
 class UESClient:
@@ -638,3 +639,43 @@ class AsyncUESClient:
         if self._weather is None:
             self._weather = AsyncWeatherClient(self._http)
         return self._weather
+    
+    def subscribe(
+        self,
+        event_filters: Optional[list[str]] = None,
+    ) -> WebSocketSubscription:
+        """Create a WebSocket subscription for real-time events.
+        
+        Returns a WebSocketSubscription that can be used as an async context
+        manager to receive events in real-time.
+        
+        Args:
+            event_filters: Optional list of event type prefixes to filter.
+                Use prefix with trailing dot (e.g., "time.") to receive all
+                events in that category. None means receive all events.
+                Examples: ["time.", "email."], ["simulation.started"]
+        
+        Returns:
+            WebSocketSubscription instance for async event iteration.
+        
+        Example:
+            Subscribe to time and email events::
+            
+                async with client.subscribe(["time.", "email."]) as events:
+                    async for event in events:
+                        if event.type == "time.advanced":
+                            print(f"Time: {event.data.get('current_time')}")
+                        elif event.type == "email.received":
+                            print(f"New email!")
+            
+            Subscribe to all events::
+            
+                async with client.subscribe() as events:
+                    async for event in events:
+                        print(f"Event: {event.type}")
+        """
+        # Convert HTTP URL to WebSocket URL
+        ws_url = self._base_url.replace("http://", "ws://").replace("https://", "wss://")
+        ws_url = f"{ws_url}/ws"
+        
+        return WebSocketSubscription(url=ws_url, event_filters=event_filters)

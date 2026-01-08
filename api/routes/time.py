@@ -11,6 +11,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from api.dependencies import SimulationEngineDep
+from api.websocket import ws_manager, WSEventType
 from models.simulation import SimulationEngine
 
 
@@ -168,11 +169,22 @@ async def advance_time(request: AdvanceTimeRequest, engine: SimulationEngineDep)
             if detail["status"] == "failed"
         )
         
+        current_time = datetime.fromisoformat(
+            result["current_time"].replace("Z", "+00:00")
+        )
+        
+        # Broadcast time advanced event
+        await ws_manager.broadcast(WSEventType.TIME_ADVANCED, {
+            "current_time": current_time.isoformat(),
+            "previous_time": previous_time.isoformat(),
+            "delta_seconds": request.seconds,
+            "events_executed": result["events_executed"],
+            "events_failed": events_failed,
+        })
+        
         return AdvanceTimeResponse(
             previous_time=previous_time,
-            current_time=datetime.fromisoformat(
-                result["current_time"].replace("Z", "+00:00")
-            ),
+            current_time=current_time,
             time_advanced=result["time_advanced"],
             events_executed=result["events_executed"],
             events_failed=events_failed,
@@ -272,13 +284,24 @@ async def set_time(request: SetTimeRequest, engine: SimulationEngineDep):
     try:
         result = engine.set_time(new_time=request.target_time, execute_skipped=False)
         
+        current_time = datetime.fromisoformat(
+            result["current_time"].replace("Z", "+00:00")
+        )
+        previous_time = datetime.fromisoformat(
+            result["previous_time"].replace("Z", "+00:00")
+        )
+        
+        # Broadcast time set event
+        await ws_manager.broadcast(WSEventType.TIME_SET, {
+            "current_time": current_time.isoformat(),
+            "previous_time": previous_time.isoformat(),
+            "skipped_events": result["skipped_events"],
+            "rolled_back_events": result.get("rolled_back_events", 0),
+        })
+        
         return SetTimeResponse(
-            current_time=datetime.fromisoformat(
-                result["current_time"].replace("Z", "+00:00")
-            ),
-            previous_time=datetime.fromisoformat(
-                result["previous_time"].replace("Z", "+00:00")
-            ),
+            current_time=current_time,
+            previous_time=previous_time,
             skipped_events=result["skipped_events"],
             executed_events=result["executed_events"],
             rolled_back_events=result.get("rolled_back_events", 0),
@@ -325,19 +348,30 @@ async def skip_to_next_event(engine: SimulationEngineDep):
                 detail=result["message"],
             )
         
+        current_time = datetime.fromisoformat(
+            result["current_time"].replace("Z", "+00:00")
+        )
+        next_event_time = (
+            datetime.fromisoformat(
+                result["next_event_time"].replace("Z", "+00:00")
+            )
+            if result["next_event_time"]
+            else None
+        )
+        
+        # Broadcast time skipped event
+        await ws_manager.broadcast(WSEventType.TIME_SKIPPED, {
+            "current_time": current_time.isoformat(),
+            "previous_time": previous_time.isoformat(),
+            "events_executed": result["events_executed"],
+            "next_event_time": next_event_time.isoformat() if next_event_time else None,
+        })
+        
         return SkipToNextResponse(
             previous_time=previous_time,
-            current_time=datetime.fromisoformat(
-                result["current_time"].replace("Z", "+00:00")
-            ),
+            current_time=current_time,
             events_executed=result["events_executed"],
-            next_event_time=(
-                datetime.fromisoformat(
-                    result["next_event_time"].replace("Z", "+00:00")
-                )
-                if result["next_event_time"]
-                else None
-            ),
+            next_event_time=next_event_time,
         )
     except HTTPException:
         raise
@@ -380,6 +414,11 @@ async def set_time_scale(request: SetScaleRequest, engine: SimulationEngineDep):
         else:
             mode = "manual"
         
+        # Broadcast time scale changed event
+        await ws_manager.broadcast(WSEventType.TIME_SCALE_CHANGED, {
+            "time_scale": request.scale,
+        })
+        
         return TimeStateResponse(
             current_time=time_state.current_time,
             time_scale=time_state.time_scale,
@@ -414,9 +453,16 @@ async def pause_time(engine: SimulationEngineDep):
     """
     engine.pause()
     
+    current_time = engine.environment.time_state.current_time
+    
+    # Broadcast time paused event
+    await ws_manager.broadcast(WSEventType.TIME_PAUSED, {
+        "current_time": current_time.isoformat(),
+    })
+    
     return {
         "message": "Time paused",
-        "current_time": engine.environment.time_state.current_time,
+        "current_time": current_time,
         "is_paused": engine.environment.time_state.is_paused,
     }
 
@@ -436,8 +482,15 @@ async def resume_time(engine: SimulationEngineDep):
     """
     engine.resume()
     
+    current_time = engine.environment.time_state.current_time
+    
+    # Broadcast time resumed event
+    await ws_manager.broadcast(WSEventType.TIME_RESUMED, {
+        "current_time": current_time.isoformat(),
+    })
+    
     return {
         "message": "Time resumed",
-        "current_time": engine.environment.time_state.current_time,
+        "current_time": current_time,
         "is_paused": engine.environment.time_state.is_paused,
     }

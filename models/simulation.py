@@ -11,7 +11,7 @@ import threading
 import time
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from pydantic import BaseModel, Field
 
@@ -68,6 +68,20 @@ class SimulationEngine(BaseModel):
         # Initialize private attributes after Pydantic initialization
         self._loop: Optional[SimulationLoop] = None
         self._operation_lock = threading.Lock()
+        self._event_executed_callback: Optional[Callable[[SimulatorEvent], None]] = None
+
+    def set_event_callback(
+        self, callback: Optional[Callable[[SimulatorEvent], None]]
+    ) -> None:
+        """Set callback for event execution notifications.
+        
+        The callback will be invoked for each event after it is executed
+        (whether successful or failed). This is used for WebSocket broadcasting.
+        
+        Args:
+            callback: Function to call with the executed event, or None to clear.
+        """
+        self._event_executed_callback = callback
 
     # ===== Lifecycle Methods =====
 
@@ -658,7 +672,8 @@ class SimulationEngine(BaseModel):
         - tick() during auto-advance loop
         
         Captures undo data for each successfully executed event and pushes
-        it to the undo stack.
+        it to the undo stack. Optionally notifies via callback for WebSocket
+        broadcasting.
         
         Returns:
             List of executed events (both successful and failed).
@@ -687,6 +702,15 @@ class SimulationEngine(BaseModel):
                     f"Event {event.event_id} failed during execution: {e}",
                     exc_info=True,
                 )
+            
+            # Notify callback if registered (for WebSocket broadcasting)
+            if self._event_executed_callback is not None:
+                try:
+                    self._event_executed_callback(event)
+                except Exception as callback_error:
+                    logger.warning(
+                        f"Event callback failed for {event.event_id}: {callback_error}"
+                    )
 
         return executed
 

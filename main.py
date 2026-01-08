@@ -46,6 +46,7 @@ from api.routes import simulation as simulation_routes
 from api.routes import sms as sms_routes
 from api.routes import time as time_routes
 from api.routes import weather as weather_routes
+from api.routes import websocket as websocket_routes
 
 
 @asynccontextmanager
@@ -131,6 +132,7 @@ app.include_router(sms_routes.router)
 app.include_router(chat_routes.router)
 app.include_router(calendar_routes.router)
 app.include_router(location_routes.router)
+app.include_router(websocket_routes.router)
 
 
 @app.get("/")

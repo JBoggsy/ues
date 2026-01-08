@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field, field_validator
 from api.dependencies import SimulationEngineDep
 from api.models import ModalityActionResponse, ModalityStateResponse
 from api.utils import create_immediate_event
+from api.websocket import ws_manager, WSEventType
 from models.modalities.email_input import EmailInput
 from models.modalities.email_state import Email, EmailState, EmailSummary, EmailThread
 
@@ -472,6 +473,13 @@ async def send_email(
             priority=100,
         )
 
+        # Broadcast email sent event
+        await ws_manager.broadcast(WSEventType.EMAIL_SENT, {
+            "email_id": event.event_id,
+            "to": request.to_addresses,
+            "subject": request.subject,
+        })
+
         return ModalityActionResponse(
             event_id=event.event_id,
             scheduled_time=event.scheduled_time,
@@ -530,6 +538,13 @@ async def receive_email(
             data=email_input,
             priority=100,
         )
+
+        # Broadcast email received event
+        await ws_manager.broadcast(WSEventType.EMAIL_RECEIVED, {
+            "email_id": event.event_id,
+            "from": request.from_address,
+            "subject": request.subject,
+        })
 
         return ModalityActionResponse(
             event_id=event.event_id,

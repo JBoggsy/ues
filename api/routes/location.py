@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field, ValidationError
 from api.dependencies import SimulationEngineDep
 from api.models import ModalityActionResponse
 from api.utils import create_immediate_event
+from api.websocket import ws_manager, WSEventType
 from models.modalities.location_input import LocationInput
 from models.modalities.location_state import LocationState
 
@@ -226,6 +227,13 @@ async def update_location(request: UpdateLocationRequest, engine: SimulationEngi
             data=location_input,
             priority=100,
         )
+
+        # Broadcast location updated event
+        await ws_manager.broadcast(WSEventType.LOCATION_UPDATED, {
+            "latitude": request.latitude,
+            "longitude": request.longitude,
+            "address": request.address,
+        })
 
         return ModalityActionResponse(
             event_id=event.event_id,

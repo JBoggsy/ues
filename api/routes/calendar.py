@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field, ValidationError
 from api.dependencies import SimulationEngineDep
 from api.models import ModalityActionResponse
 from api.utils import create_immediate_event
+from api.websocket import ws_manager, WSEventType
 from models.modalities.calendar_input import (
     Attendee,
     AttendeeResponse,
@@ -532,6 +533,13 @@ async def create_calendar_event(
             priority=100,
         )
 
+        # Broadcast calendar event created
+        await ws_manager.broadcast(WSEventType.CALENDAR_EVENT_CREATED, {
+            "event_id": calendar_input.event_id,
+            "title": request.title,
+            "start_time": request.start.isoformat() if request.start else None,
+        })
+
         return ModalityActionResponse(
             event_id=event.event_id,
             scheduled_time=event.scheduled_time,
@@ -610,6 +618,12 @@ async def update_calendar_event(
             priority=100,
         )
 
+        # Broadcast calendar event updated
+        await ws_manager.broadcast(WSEventType.CALENDAR_EVENT_UPDATED, {
+            "event_id": request.event_id,
+            "title": request.title,
+        })
+
         return ModalityActionResponse(
             event_id=event.event_id,
             scheduled_time=event.scheduled_time,
@@ -672,6 +686,11 @@ async def delete_calendar_event(
             data=calendar_input,
             priority=100,
         )
+
+        # Broadcast calendar event deleted
+        await ws_manager.broadcast(WSEventType.CALENDAR_EVENT_DELETED, {
+            "event_id": request.event_id,
+        })
 
         return ModalityActionResponse(
             event_id=event.event_id,

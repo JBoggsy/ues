@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field, ValidationError
 from api.dependencies import SimulationEngineDep
 from api.models import ModalityActionResponse
 from api.utils import create_immediate_event
+from api.websocket import ws_manager, WSEventType
 from models.modalities.weather_input import WeatherInput, WeatherReport
 from models.modalities.weather_state import WeatherState
 
@@ -221,6 +222,16 @@ async def update_weather(request: UpdateWeatherRequest, engine: SimulationEngine
             modality="weather",
             data=weather_input,
             priority=100,
+        )
+
+        # Broadcast weather update via WebSocket
+        await ws_manager.broadcast(
+            WSEventType.WEATHER_UPDATED,
+            {
+                "latitude": request.latitude,
+                "longitude": request.longitude,
+                "event_id": event.event_id,
+            },
         )
 
         return ModalityActionResponse(

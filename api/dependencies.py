@@ -9,6 +9,8 @@ from typing import Annotated
 
 from fastapi import Depends
 
+from api.websocket import ws_manager, WSEventType
+from models.event import SimulatorEvent
 from models.simulation import SimulationEngine
 from models.time import SimulatorTime
 from models.environment import Environment
@@ -26,6 +28,36 @@ from models.modalities.time_state import TimeState
 # In a production app, this might be stored in a database or external service
 # For now, we'll create a single shared instance when the app starts
 _simulation_engine: SimulationEngine | None = None
+
+
+def _on_event_executed(event: SimulatorEvent) -> None:
+    """Callback for event execution notifications.
+    
+    Called by SimulationEngine after each event is executed. Broadcasts
+    the appropriate WebSocket event type based on the event status.
+    
+    Args:
+        event: The executed simulator event.
+    """
+    from models.event import EventStatus
+    
+    if event.status == EventStatus.EXECUTED:
+        event_type = WSEventType.EVENT_EXECUTED
+    else:
+        event_type = WSEventType.EVENT_FAILED
+    
+    ws_manager.schedule_broadcast(
+        event_type,
+        {
+            "event_id": event.event_id,
+            "modality": event.modality,
+            "status": event.status.value,
+            "scheduled_time": event.scheduled_time.isoformat(),
+            "executed_time": (
+                event.executed_time.isoformat() if event.executed_time else None
+            ),
+        },
+    )
 
 
 def get_simulation_engine() -> SimulationEngine:
@@ -106,6 +138,9 @@ def initialize_simulation_engine() -> SimulationEngine:
         environment=initial_environment,
         event_queue=initial_queue,
     )
+    
+    # Register callback for WebSocket event execution notifications
+    _simulation_engine.set_event_callback(_on_event_executed)
     
     return _simulation_engine
 
