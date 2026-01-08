@@ -26,7 +26,8 @@
 
 import { useEffect, useCallback, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { wsClient, WSEvent, WSConnectionState } from '../websocket';
+import { wsClient } from '../websocket';
+import type { WSEvent, WSConnectionState } from '../websocket';
 
 /**
  * Hook for managing WebSocket connection and automatic query invalidation.
