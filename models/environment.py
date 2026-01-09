@@ -132,6 +132,153 @@ class Environment(BaseModel):
             },
         }
 
+    def get_compact_snapshot(self) -> dict[str, Any]:
+        """Export a compact, LLM-context-optimized snapshot of all modalities.
+
+        Unlike get_snapshot() which returns complete state for each modality,
+        this method returns only the most relevant information for AI agent
+        context injection. Each modality provides its own compact representation
+        suitable for LLM context windows.
+
+        The result is significantly smaller than get_snapshot() output while
+        still containing actionable information for agent decision-making.
+
+        Returns:
+            Dictionary with:
+            - snapshot_time: ISO format timestamp
+            - format: "compact"
+            - modalities: Dict of modality -> compact snapshot data
+            - events: Summary of pending events (placeholder, requires engine)
+
+        Example:
+            >>> snapshot = environment.get_compact_snapshot()
+            >>> print(snapshot["modalities"]["email"]["summary"])
+            "3 unread, 15 total emails"
+        """
+        current_time = self.time_state.current_time
+
+        return {
+            "snapshot_time": current_time.isoformat(),
+            "format": "compact",
+            "modalities": {
+                modality_name: state.get_compact_snapshot(current_time)
+                for modality_name, state in self.modality_states.items()
+            },
+        }
+
+    def get_compact_snapshot_text(self) -> str:
+        """Export a plain text, LLM-ready representation of the environment.
+
+        Generates a human-readable text summary suitable for direct injection
+        into LLM prompts. Uses emoji prefixes for visual organization.
+
+        Returns:
+            Multi-line string with environment summary.
+
+        Example:
+            >>> text = environment.get_compact_snapshot_text()
+            >>> print(text)
+            === UES Environment Snapshot ===
+            Time: 2024-03-15 14:30 PST
+            ...
+        """
+        current_time = self.time_state.current_time
+        compact = self.get_compact_snapshot()
+        modalities = compact["modalities"]
+
+        lines = [
+            "=== UES Environment Snapshot ===",
+            f"Time: {current_time.strftime('%Y-%m-%d %H:%M')} ({self.time_state.model_dump().get('timezone', 'UTC')})",
+            "",
+        ]
+
+        # Location
+        if "location" in modalities:
+            loc = modalities["location"]
+            if loc.get("current"):
+                c = loc["current"]
+                addr = c.get("address") or c.get("named_location") or f"{c['latitude']:.4f}, {c['longitude']:.4f}"
+                lines.append(f"📍 LOCATION: {addr}")
+            else:
+                lines.append("📍 LOCATION: Not set")
+            lines.append("")
+
+        # Weather
+        if "weather" in modalities:
+            w = modalities["weather"]
+            if w.get("current"):
+                c = w["current"]
+                cond = c.get("condition", "Unknown")
+                temp_f = c.get("temperature_f", "?")
+                temp_c = c.get("temperature_c", "?")
+                humidity = c.get("humidity_percent", "?")
+                lines.append(f"🌤️ WEATHER: {cond}, {temp_f}°F ({temp_c}°C), {humidity}% humidity")
+            else:
+                lines.append("🌤️ WEATHER: No data")
+            lines.append("")
+
+        # Email
+        if "email" in modalities:
+            e = modalities["email"]
+            lines.append(f"📧 EMAIL: {e['summary']}")
+            if e.get("recent_unread"):
+                for email in e["recent_unread"][:3]:
+                    flag = "⭐ " if email.get("flagged") else ""
+                    lines.append(f"  • [{email['received_ago']}] {flag}\"{email['subject']}\" from {email['from']}")
+            if e.get("draft_count", 0) > 0:
+                lines.append(f"  • {e['draft_count']} drafts pending")
+            lines.append("")
+
+        # Calendar
+        if "calendar" in modalities:
+            cal = modalities["calendar"]
+            lines.append(f"📅 CALENDAR: {cal['today_count']} events today")
+            if cal.get("current_event"):
+                ce = cal["current_event"]
+                loc = f" at {ce['location']}" if ce.get("location") else ""
+                lines.append(f"  • NOW: {ce['title']}{loc} (ends in {ce['ends_in']})")
+            if cal.get("next_event"):
+                ne = cal["next_event"]
+                loc = f" at {ne['location']}" if ne.get("location") else ""
+                lines.append(f"  • NEXT: {ne['title']}{loc} (in {ne['starts_in']})")
+            if cal.get("upcoming_today"):
+                for evt in cal["upcoming_today"][:3]:
+                    if evt != cal.get("next_event"):
+                        lines.append(f"  • {evt['start_time']}: {evt['title']}")
+            lines.append("")
+
+        # SMS
+        if "sms" in modalities:
+            s = modalities["sms"]
+            lines.append(f"💬 SMS: {s['summary']}")
+            if s.get("unread_conversations"):
+                for conv in s["unread_conversations"][:3]:
+                    participant = conv.get("participant") or conv.get("group_name", "Unknown")
+                    msg = conv.get("last_message", "")[:50]
+                    lines.append(f"  • {participant} ({conv['received_ago']}): \"{msg}\"")
+            lines.append("")
+
+        # Chat
+        if "chat" in modalities:
+            ch = modalities["chat"]
+            lines.append(f"🤖 CHAT: {ch['summary']}")
+            if ch.get("last_user_message"):
+                lines.append(f"  Last exchange:")
+                user_msg = ch["last_user_message"][:80]
+                lines.append(f"    User: \"{user_msg}\"")
+                if ch.get("last_assistant_message"):
+                    asst_msg = ch["last_assistant_message"][:80]
+                    lines.append(f"    Assistant: \"{asst_msg}\"")
+            lines.append("")
+
+        # Time preferences
+        if "time" in modalities:
+            t = modalities["time"]
+            lines.append(f"🕐 TIME PREFS: {t['summary']}")
+            lines.append("")
+
+        return "\n".join(lines).rstrip()
+
     def validate(self) -> list[str]:
         """Validate environment consistency and return any issues.
 

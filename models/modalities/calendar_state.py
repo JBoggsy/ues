@@ -629,6 +629,96 @@ class CalendarState(ModalityState):
 
         return f"{events_today} events today, {events_this_week} this week"
 
+    def get_compact_snapshot(self, current_time: datetime) -> dict[str, Any]:
+        """Return a compact, LLM-context-optimized snapshot of calendar state.
+
+        Includes current event (if any), next event, and today's schedule overview.
+
+        Args:
+            current_time: The current simulator time (for calculating relative times).
+
+        Returns:
+            Dictionary with compact calendar state.
+        """
+        from datetime import timedelta
+
+        result: dict[str, Any] = {
+            "summary": self.summary,
+            "total_events": len(self.events),
+            "calendar_count": len(self.calendars),
+        }
+
+        if not self.events:
+            result["current_event"] = None
+            result["next_event"] = None
+            result["today_count"] = 0
+            return result
+
+        # Find events relative to current_time
+        today_start = current_time.replace(hour=0, minute=0, second=0, microsecond=0)
+        today_end = today_start + timedelta(days=1)
+
+        # Get today's events
+        today_events = [
+            e for e in self.events.values()
+            if e.deleted_at is None and today_start <= e.start < today_end
+        ]
+        result["today_count"] = len(today_events)
+
+        # Find current event (happening now)
+        current_event = None
+        for event in self.events.values():
+            if event.deleted_at is None and event.start <= current_time < event.end:
+                current_event = event
+                break
+
+        if current_event:
+            time_left = current_event.end - current_time
+            result["current_event"] = {
+                "title": current_event.title,
+                "ends_in": self._format_relative_time(current_event.end, current_time).replace("in ", ""),
+            }
+            if current_event.location:
+                result["current_event"]["location"] = current_event.location
+        else:
+            result["current_event"] = None
+
+        # Find next upcoming event
+        future_events = [
+            e for e in self.events.values()
+            if e.deleted_at is None and e.start > current_time
+        ]
+        if future_events:
+            next_event = min(future_events, key=lambda e: e.start)
+            result["next_event"] = {
+                "title": next_event.title,
+                "starts_in": self._format_relative_time(next_event.start, current_time).replace("in ", ""),
+                "start_time": next_event.start.isoformat(),
+            }
+            if next_event.location:
+                result["next_event"]["location"] = next_event.location
+        else:
+            result["next_event"] = None
+
+        # Add upcoming events today (up to 5, excluding current)
+        upcoming_today = [
+            e for e in today_events
+            if e.deleted_at is None and e.start > current_time
+        ]
+        upcoming_today.sort(key=lambda e: e.start)
+
+        if upcoming_today:
+            result["upcoming_today"] = [
+                {
+                    "title": e.title,
+                    "start_time": e.start.strftime("%H:%M"),
+                    "starts_in": self._format_relative_time(e.start, current_time).replace("in ", ""),
+                }
+                for e in upcoming_today[:5]
+            ]
+
+        return result
+
     def validate_state(self) -> list[str]:
         """Validate state consistency.
 

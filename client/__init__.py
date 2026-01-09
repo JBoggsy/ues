@@ -108,6 +108,14 @@ from client._weather import (
     WeatherQueryResponse,
     WeatherStateResponse,
 )
+from client._environment import (
+    AsyncEnvironmentClient,
+    CompactSnapshotResponse,
+    EnvironmentClient,
+    EnvironmentStateResponse,
+    ModalityListResponse,
+    ModalitySummary,
+)
 from client._webhooks import (
     AsyncWebhooksClient,
     WebhooksClient,
@@ -221,4 +229,11 @@ __all__ = [
     # Response models - Weather
     "WeatherStateResponse",
     "WeatherQueryResponse",
+    # Response models - Environment
+    "EnvironmentStateResponse",
+    "EnvironmentClient",
+    "AsyncEnvironmentClient",
+    "CompactSnapshotResponse",
+    "ModalityListResponse",
+    "ModalitySummary",
 ]

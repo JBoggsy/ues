@@ -215,6 +215,81 @@ class ModalityState(BaseModel):
         """
         return {"error": "get_diff not implemented for this modality"}
 
+    def get_compact_snapshot(self, current_time: datetime) -> dict[str, Any]:
+        """Return a compact, LLM-context-optimized snapshot of this modality's state.
+
+        Unlike get_snapshot() which returns complete state, this method returns
+        only the most relevant information for AI agent context injection.
+        This is used by the compact=true parameter on /environment/state.
+
+        The compact snapshot should include:
+        - A brief summary string
+        - Key statistics (counts, unread, etc.)
+        - Recent/relevant items without full content
+        - Current state essentials (location, weather conditions, etc.)
+
+        Subclasses should override this to provide meaningful compact data
+        specific to their modality. The default implementation returns just
+        the summary property for graceful degradation.
+
+        Args:
+            current_time: The current simulator time (for calculating relative times).
+
+        Returns:
+            Dictionary with compact state suitable for LLM context windows.
+            Should be significantly smaller than get_snapshot() output.
+        """
+        return {"summary": self.summary}
+
+    @staticmethod
+    def _format_relative_time(dt: datetime, current_time: datetime) -> str:
+        """Format a datetime as a human-readable relative time string.
+
+        Helper method for get_compact_snapshot() implementations.
+
+        Args:
+            dt: The datetime to format.
+            current_time: The current simulator time to calculate relative to.
+
+        Returns:
+            Human-readable string like "2 hours ago", "in 30 minutes", "just now".
+        """
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        if current_time.tzinfo is None:
+            current_time = current_time.replace(tzinfo=timezone.utc)
+
+        diff = current_time - dt
+        total_seconds = diff.total_seconds()
+        abs_seconds = abs(total_seconds)
+
+        # Future times
+        if total_seconds < 0:
+            if abs_seconds < 60:
+                return "in less than a minute"
+            elif abs_seconds < 3600:
+                minutes = int(abs_seconds / 60)
+                return f"in {minutes} minute{'s' if minutes != 1 else ''}"
+            elif abs_seconds < 86400:
+                hours = int(abs_seconds / 3600)
+                return f"in {hours} hour{'s' if hours != 1 else ''}"
+            else:
+                days = int(abs_seconds / 86400)
+                return f"in {days} day{'s' if days != 1 else ''}"
+
+        # Past times
+        if abs_seconds < 60:
+            return "just now"
+        elif abs_seconds < 3600:
+            minutes = int(abs_seconds / 60)
+            return f"{minutes} minute{'s' if minutes != 1 else ''} ago"
+        elif abs_seconds < 86400:
+            hours = int(abs_seconds / 3600)
+            return f"{hours} hour{'s' if hours != 1 else ''} ago"
+        else:
+            days = int(abs_seconds / 86400)
+            return f"{days} day{'s' if days != 1 else ''} ago"
+
     @property
     def summary(self) -> str:
         """Return a brief human-readable summary of the current state.

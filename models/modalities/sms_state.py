@@ -1089,6 +1089,75 @@ class SMSState(ModalityState):
         )
         return f"{conv_part}, {unread_count} unread"
 
+    def get_compact_snapshot(self, current_time: datetime) -> dict[str, Any]:
+        """Return a compact, LLM-context-optimized snapshot of SMS state.
+
+        Includes unread conversation count and last message preview per unread conversation.
+
+        Args:
+            current_time: The current simulator time (for calculating relative times).
+
+        Returns:
+            Dictionary with compact SMS state.
+        """
+        conversation_count = len(self.conversations)
+        unread_count = sum(conv.unread_count for conv in self.conversations.values())
+
+        result: dict[str, Any] = {
+            "summary": self.summary,
+            "conversation_count": conversation_count,
+            "total_unread": unread_count,
+        }
+
+        # Get unread conversations with their last message
+        unread_convos = [
+            conv for conv in self.conversations.values()
+            if conv.unread_count > 0
+        ]
+
+        # Sort by most recent message
+        unread_convos.sort(
+            key=lambda c: c.last_message_at,
+            reverse=True
+        )
+
+        result["unread_conversations"] = []
+        for conv in unread_convos[:5]:  # Limit to 5 most recent unread
+            # Get the last message in this conversation
+            conv_messages = [
+                m for m in self.messages.values()
+                if m.thread_id == conv.thread_id
+            ]
+            last_message = max(conv_messages, key=lambda m: m.sent_at) if conv_messages else None
+
+            conv_info: dict[str, Any] = {
+                "thread_id": conv.thread_id,
+                "unread_count": conv.unread_count,
+                "received_ago": self._format_relative_time(conv.last_message_at, current_time),
+            }
+
+            # Add participant info
+            if conv.is_group():
+                conv_info["is_group"] = True
+                conv_info["group_name"] = conv.group_name or f"Group ({len(conv.participants)} members)"
+            else:
+                # For 1:1, get the other participant
+                other_participants = [
+                    p for p in conv.participants
+                    if p.phone_number != self.user_phone_number
+                ]
+                if other_participants:
+                    conv_info["participant"] = other_participants[0].phone_number
+
+            # Add last message preview (truncated)
+            if last_message:
+                body = last_message.body or ""
+                conv_info["last_message"] = body[:100] + ("..." if len(body) > 100 else "")
+
+            result["unread_conversations"].append(conv_info)
+
+        return result
+
     def validate_state(self) -> list[str]:
         """Validate internal state consistency.
 

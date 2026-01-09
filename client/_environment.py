@@ -7,7 +7,7 @@ This is an internal module. Import from `client` instead.
 """
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal, Union, overload
 
 from pydantic import BaseModel, Field
 
@@ -46,6 +46,27 @@ class EnvironmentStateResponse(BaseModel):
         description="Full state for each modality (can be large)"
     )
     summary: list[ModalitySummary]
+
+
+class CompactSnapshotResponse(BaseModel):
+    """Compact, LLM-context-optimized environment snapshot.
+    
+    Attributes:
+        snapshot_time: The simulator time when snapshot was taken (ISO format).
+        format: Always "compact" for this response type.
+        modalities: Dictionary mapping modality names to their compact snapshots.
+        events: Summary of pending events (if available).
+    """
+
+    snapshot_time: str
+    format: Literal["compact"] = "compact"
+    modalities: dict[str, Any] = Field(
+        description="Compact state for each modality (LLM-optimized)"
+    )
+    events: dict[str, Any] | None = Field(
+        default=None,
+        description="Summary of pending events"
+    )
 
 
 class ModalityListResponse(BaseModel):
@@ -134,19 +155,82 @@ class EnvironmentClient(BaseClient):
 
     _BASE_PATH = "/environment"
 
-    def get_state(self) -> EnvironmentStateResponse:
-        """Get a complete snapshot of the current environment state.
+    @overload
+    def get_state(
+        self,
+        *,
+        compact: Literal[False] = False,
+        format: Literal["json"] = "json",
+    ) -> EnvironmentStateResponse: ...
+    
+    @overload
+    def get_state(
+        self,
+        *,
+        compact: Literal[True],
+        format: Literal["json"] = "json",
+    ) -> CompactSnapshotResponse: ...
+    
+    @overload
+    def get_state(
+        self,
+        *,
+        compact: Literal[True],
+        format: Literal["text"],
+    ) -> str: ...
+
+    def get_state(
+        self,
+        *,
+        compact: bool = False,
+        format: Literal["json", "text"] = "json",
+    ) -> Union[EnvironmentStateResponse, CompactSnapshotResponse, str]:
+        """Get a snapshot of the current environment state.
         
-        Returns the full state of all modalities plus the current simulator time.
-        This can return a large response if there's a lot of simulated data.
+        By default, returns the full state of all modalities. Use parameters
+        to get a compact, LLM-optimized representation instead.
+        
+        Args:
+            compact: If True, return compact LLM-optimized snapshot instead of full state.
+            format: Output format - 'json' for structured data, 'text' for plain text
+                (only applicable when compact=True).
         
         Returns:
-            Complete environment state including all modality states and summaries.
+            Depending on parameters:
+            - Default: EnvironmentStateResponse with full modality data
+            - compact=True, format="json": CompactSnapshotResponse with LLM-optimized data
+            - compact=True, format="text": Plain text string for direct LLM injection
         
         Raises:
             APIError: If the request fails.
+        
+        Example:
+            # Full state (default)
+            state = client.environment.get_state()
+            
+            # Compact JSON snapshot
+            snapshot = client.environment.get_state(compact=True)
+            
+            # Plain text for LLM prompt injection
+            text = client.environment.get_state(compact=True, format="text")
         """
-        data = self._get(f"{self._BASE_PATH}/state")
+        params = {}
+        if compact:
+            params["compact"] = "true"
+            params["format"] = format
+        
+        if compact and format == "text":
+            # For text format, we need to handle the plain text response
+            response = self._http_client.get(
+                f"{self._BASE_PATH}/state",
+                params=params,
+            )
+            return response.text
+        
+        data = self._get(f"{self._BASE_PATH}/state", params=params if params else None)
+        
+        if compact:
+            return CompactSnapshotResponse(**data)
         return EnvironmentStateResponse(**data)
 
     def list_modalities(self) -> ModalityListResponse:
@@ -261,19 +345,82 @@ class AsyncEnvironmentClient(AsyncBaseClient):
 
     _BASE_PATH = "/environment"
 
-    async def get_state(self) -> EnvironmentStateResponse:
-        """Get a complete snapshot of the current environment state.
+    @overload
+    async def get_state(
+        self,
+        *,
+        compact: Literal[False] = False,
+        format: Literal["json"] = "json",
+    ) -> EnvironmentStateResponse: ...
+    
+    @overload
+    async def get_state(
+        self,
+        *,
+        compact: Literal[True],
+        format: Literal["json"] = "json",
+    ) -> CompactSnapshotResponse: ...
+    
+    @overload
+    async def get_state(
+        self,
+        *,
+        compact: Literal[True],
+        format: Literal["text"],
+    ) -> str: ...
+
+    async def get_state(
+        self,
+        *,
+        compact: bool = False,
+        format: Literal["json", "text"] = "json",
+    ) -> Union[EnvironmentStateResponse, CompactSnapshotResponse, str]:
+        """Get a snapshot of the current environment state.
         
-        Returns the full state of all modalities plus the current simulator time.
-        This can return a large response if there's a lot of simulated data.
+        By default, returns the full state of all modalities. Use parameters
+        to get a compact, LLM-optimized representation instead.
+        
+        Args:
+            compact: If True, return compact LLM-optimized snapshot instead of full state.
+            format: Output format - 'json' for structured data, 'text' for plain text
+                (only applicable when compact=True).
         
         Returns:
-            Complete environment state including all modality states and summaries.
+            Depending on parameters:
+            - Default: EnvironmentStateResponse with full modality data
+            - compact=True, format="json": CompactSnapshotResponse with LLM-optimized data
+            - compact=True, format="text": Plain text string for direct LLM injection
         
         Raises:
             APIError: If the request fails.
+        
+        Example:
+            # Full state (default)
+            state = await client.environment.get_state()
+            
+            # Compact JSON snapshot
+            snapshot = await client.environment.get_state(compact=True)
+            
+            # Plain text for LLM prompt injection
+            text = await client.environment.get_state(compact=True, format="text")
         """
-        data = await self._get(f"{self._BASE_PATH}/state")
+        params = {}
+        if compact:
+            params["compact"] = "true"
+            params["format"] = format
+        
+        if compact and format == "text":
+            # For text format, we need to handle the plain text response
+            response = await self._http_client.get(
+                f"{self._BASE_PATH}/state",
+                params=params,
+            )
+            return response.text
+        
+        data = await self._get(f"{self._BASE_PATH}/state", params=params if params else None)
+        
+        if compact:
+            return CompactSnapshotResponse(**data)
         return EnvironmentStateResponse(**data)
 
     async def list_modalities(self) -> ModalityListResponse:

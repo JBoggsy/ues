@@ -5,9 +5,10 @@ including all modality states.
 """
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 
 from api.dependencies import SimulationEngineDep
@@ -51,6 +52,27 @@ class EnvironmentStateResponse(BaseModel):
     summary: list[ModalitySummary]
 
 
+class CompactSnapshotResponse(BaseModel):
+    """Compact, LLM-context-optimized environment snapshot.
+    
+    Attributes:
+        snapshot_time: The simulator time when snapshot was taken.
+        format: Always "compact" for this response type.
+        modalities: Dictionary mapping modality names to their compact snapshots.
+        events: Summary of pending events (if available).
+    """
+
+    snapshot_time: str
+    format: Literal["compact"] = "compact"
+    modalities: dict[str, Any] = Field(
+        description="Compact state for each modality (LLM-optimized)"
+    )
+    events: dict[str, Any] | None = Field(
+        default=None,
+        description="Summary of pending events"
+    )
+
+
 class ModalityListResponse(BaseModel):
     """List of available modalities.
     
@@ -66,27 +88,85 @@ class ModalityListResponse(BaseModel):
 # Route Handlers
 
 
-@router.get("/state", response_model=EnvironmentStateResponse)
-async def get_environment_state(engine: SimulationEngineDep):
-    """Get a complete snapshot of the current environment state.
+@router.get("/state")
+async def get_environment_state(
+    engine: SimulationEngineDep,
+    compact: bool = Query(
+        False,
+        description="Return compact LLM-optimized snapshot instead of full state"
+    ),
+    format: Literal["json", "text"] = Query(
+        "json",
+        description="Output format: 'json' for structured data, 'text' for LLM-ready plain text"
+    ),
+):
+    """Get a snapshot of the current environment state.
     
-    Returns the full state of all modalities plus the current simulator time.
-    This can return a large response if there's a lot of simulated data.
+    By default, returns the full state of all modalities. Use query parameters
+    to get a compact, LLM-optimized representation instead.
     
     Args:
         engine: The SimulationEngine instance (injected by FastAPI).
+        compact: If True, return compact LLM-optimized snapshot instead of full state.
+        format: Output format - 'json' for structured data, 'text' for plain text.
     
     Returns:
-        Complete environment state including all modality states.
+        Full or compact environment state depending on parameters:
+        - Default: Full EnvironmentStateResponse with all modality data
+        - compact=true, format=json: CompactSnapshotResponse with LLM-optimized data
+        - compact=true, format=text: Plain text representation for direct LLM injection
+    
+    Examples:
+        GET /environment/state
+            Returns full state (potentially large)
+        
+        GET /environment/state?compact=true
+            Returns compact JSON snapshot (~2KB vs 50KB+)
+        
+        GET /environment/state?compact=true&format=text
+            Returns plain text suitable for LLM prompts
     """
     env = engine.environment
     
-    # Build full modality states dict
+    # Handle compact snapshot requests
+    if compact:
+        if format == "text":
+            # Return plain text for LLM injection
+            text_content = env.get_compact_snapshot_text()
+            return PlainTextResponse(content=text_content)
+        else:
+            # Return compact JSON
+            snapshot = env.get_compact_snapshot()
+            
+            # Add event queue summary from engine
+            event_summary = None
+            if hasattr(engine, 'event_queue'):
+                pending_events = [
+                    e for e in engine.event_queue.events
+                    if e.status.value == "pending"
+                ]
+                if pending_events:
+                    next_event = min(pending_events, key=lambda e: e.scheduled_time)
+                    event_summary = {
+                        "pending_count": len(pending_events),
+                        "next_event_time": next_event.scheduled_time.isoformat(),
+                        "next_event_modality": next_event.modality,
+                    }
+                else:
+                    event_summary = {
+                        "pending_count": 0,
+                        "next_event_time": None,
+                        "next_event_modality": None,
+                    }
+            
+            snapshot["events"] = event_summary
+            return CompactSnapshotResponse(**snapshot)
+    
+    # Default: Full state response
     modalities_dict = {
         name: state.model_dump() for name, state in env.modality_states.items()
     }
     
-    # Build summary list using each state's summary property
     summaries = [
         ModalitySummary(
             modality_type=name,

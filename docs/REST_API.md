@@ -60,14 +60,89 @@ Control the flow of simulator time:
 Query the current state of the simulated environment:
 
 - `GET /environment/state` - Complete snapshot (all modalities + time)
+  - `?compact=true` - Return LLM-optimized compact snapshot (~2KB vs 50KB+)
+  - `?format=text` - Return plain text (only with `compact=true`)
 - `GET /environment/modalities` - List available modalities
 - `GET /environment/modalities/{modality}` - Get specific modality state
 - `POST /environment/validate` - Validate environment consistency
 
-**Use Cases:**
-- Get complete simulation state for debugging
-- Check which modalities are initialized
-- Validate state integrity
+**Compact Snapshot (`GET /environment/state?compact=true`):**
+
+Returns a compact, LLM-context-optimized snapshot ideal for AI agent integration. This provides a middle ground between the full state dump (too verbose for LLM context windows) and brief summaries (insufficient for decision-making).
+
+**Query Parameters:**
+| Parameter | Values | Description |
+|-----------|--------|-------------|
+| `compact` | `true`/`false` | Enable compact snapshot mode (default: false) |
+| `format` | `json`/`text` | Output format (default: json, text only with compact) |
+
+**What's Included in Compact vs Full State:**
+
+| Modality | Full State | Compact Snapshot |
+|----------|------------|------------------|
+| **Email** | All emails with full bodies, all metadata | Unread count, recent subjects (no bodies), flagged items |
+| **SMS** | All messages, full conversation histories | Unread conversations, last message preview per conversation |
+| **Chat** | Complete message history | Recent message count, last user/assistant exchange |
+| **Calendar** | All events with full details | Current/next event, today's event count |
+| **Location** | Current + full history | Current location only (with address if available) |
+| **Weather** | All tracked locations, full forecast data | Current conditions at tracked locations |
+| **Time** | Full state | Current timezone, time format preferences |
+
+**Example Use Cases:**
+
+1. **LLM Context Injection** - Inject current world state into an LLM system prompt:
+   ```python
+   snapshot = client.environment.get_state(compact=True, format="text")
+   response = llm.complete(
+       system_prompt=f"You are an assistant. Current context:\n{snapshot}",
+       user_prompt=user_message
+   )
+   ```
+
+2. **Reactive Agent Decision-Making** - Quickly assess context after a webhook notification:
+   ```python
+   async def on_email_received(webhook_event):
+       snapshot = await client.environment.get_state(compact=True)
+       # Feed to LLM with the new email details for decision-making
+   ```
+
+3. **Test Assertions** - Capture compact state for before/after comparisons:
+   ```python
+   before = client.environment.get_state(compact=True)
+   await agent.handle_request("Schedule a meeting")
+   after = client.environment.get_state(compact=True)
+   assert after.modalities["calendar"]["today_count"] > before.modalities["calendar"]["today_count"]
+   ```
+
+**Example Compact JSON Response:**
+```json
+{
+  "snapshot_time": "2024-01-15T10:00:00Z",
+  "format": "compact",
+  "modalities": {
+    "email": {"unread_count": 3, "recent_unread": [...]},
+    "calendar": {"today_count": 2, "current_event": {...}},
+    "location": {"current": {"latitude": 37.7749, "longitude": -122.4194}}
+  },
+  "events": {"pending_count": 5, "next_event_time": "2024-01-15T12:00:00Z"}
+}
+```
+
+**Example Text Format Output:**
+```
+=== UES Environment Snapshot ===
+Time: 2024-03-15 14:30 PST (America/Los_Angeles)
+
+📍 LOCATION: San Francisco, CA (37.7749, -122.4194)
+🌤️ WEATHER: Partly cloudy, 68°F (20°C)
+📧 EMAIL: 5 unread, 23 total
+  • [2h ago] "Re: Project Update" from alice@work.com
+📅 CALENDAR: 2 events today
+  • NOW: Team Standup (ends in 15 min)
+  • 3:00 PM: 1:1 with Manager
+💬 SMS: 2 unread conversations
+⏳ PENDING EVENTS: 3 scheduled
+```
 
 ---
 

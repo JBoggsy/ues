@@ -487,7 +487,14 @@ See `docs/WEB_UI_IMPLEMENTATION_PLAN.md` for detailed implementation plan.
   - Python client: `EventsClient.create_batch()` and `AsyncEventsClient.create_batch()`
   - Tests: 25 API integration tests + 18 client unit tests
   - Documentation: `docs/REST_API.md`, `docs/API_CLIENT.md`
-- [ ] State snapshot endpoint for efficient context gathering
+- [x] State snapshot endpoint for efficient context gathering
+  - `GET /environment/state?compact=true` returns LLM-optimized snapshot (~2KB vs 50KB+)
+  - `GET /environment/state?compact=true&format=text` returns plain text for direct LLM injection
+  - Models: `CompactSnapshotResponse` with modality summaries
+  - Each modality implements `get_compact_snapshot()` method
+  - Python client: `EnvironmentClient.get_state(compact=True, format="json"|"text")`
+  - Tests: 19 unit tests (all modalities) + 11 API integration tests
+  - Documentation: `docs/REST_API.md`, `docs/API_CLIENT.md`
 - [ ] Look into Model Context Protocol server/host?
 
 ### Documentation & Examples

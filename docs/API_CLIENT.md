@@ -824,11 +824,42 @@ client.weather.update(
 ### Getting Complete State
 
 ```python
-# Get all modality states
+# Get all modality states (full details)
 state = client.environment.get_state()
 print(f"Current time: {state.current_time}")
 print(f"Available modalities: {list(state.modalities.keys())}")
 ```
+
+### Getting Compact Snapshot (LLM-Optimized)
+
+The compact snapshot endpoint returns an LLM-context-optimized representation of the environment state. It's ~2KB vs 50KB+ for full state, making it ideal for AI agent integration.
+
+```python
+# Get compact JSON snapshot
+snapshot = client.environment.get_state(compact=True)
+print(f"Snapshot time: {snapshot.snapshot_time}")
+print(f"Unread emails: {snapshot.modalities['email']['unread_count']}")
+
+# Get compact plain text (for direct LLM injection)
+text_snapshot = client.environment.get_state(compact=True, format="text")
+print(text_snapshot)  # Human-readable text with emoji indicators
+```
+
+**Compact Snapshot Contents:**
+- **Email**: Unread count + 5 most recent unread (subject, sender, time)
+- **SMS**: Unread count + 5 most recent conversations with last message
+- **Chat**: Unread count + last exchange preview
+- **Calendar**: Today's event count + current/next event
+- **Location**: Current coordinates and address (no history)
+- **Weather**: Current conditions for tracked locations
+- **Time**: Current simulator time and preferences
+
+**Return Types:**
+| Parameters | Return Type |
+|------------|-------------|
+| `compact=False` | `EnvironmentStateResponse` (full state) |
+| `compact=True` | `CompactSnapshotResponse` (JSON snapshot) |
+| `compact=True, format="text"` | `str` (plain text) |
 
 ### Getting Specific Modality State
 

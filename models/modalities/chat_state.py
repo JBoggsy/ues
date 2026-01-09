@@ -312,6 +312,63 @@ class ChatState(ModalityState):
         )
         return f"{msg_part} in {conv_part}"
 
+    def get_compact_snapshot(self, current_time: datetime) -> dict[str, Any]:
+        """Return a compact, LLM-context-optimized snapshot of chat state.
+
+        Includes recent message count and the last user/assistant exchange.
+
+        Args:
+            current_time: The current simulator time (for calculating relative times).
+
+        Returns:
+            Dictionary with compact chat state.
+        """
+        message_count = len(self.messages)
+        conversation_count = len(self.conversations)
+
+        result: dict[str, Any] = {
+            "summary": self.summary,
+            "message_count": message_count,
+            "conversation_count": conversation_count,
+        }
+
+        if not self.messages:
+            result["last_user_message"] = None
+            result["last_assistant_message"] = None
+            return result
+
+        # Find last user and assistant messages
+        user_messages = [m for m in self.messages if m.role == "user"]
+        assistant_messages = [m for m in self.messages if m.role == "assistant"]
+
+        # Get last user message
+        if user_messages:
+            last_user = max(user_messages, key=lambda m: m.timestamp)
+            content = last_user.content
+            if isinstance(content, list):
+                # Multimodal - extract text parts
+                text_parts = [p.get("text", "") for p in content if p.get("type") == "text"]
+                content = " ".join(text_parts) or "[multimodal content]"
+            # Truncate to 150 chars
+            content_str = str(content)
+            result["last_user_message"] = content_str[:150] + ("..." if len(content_str) > 150 else "")
+        else:
+            result["last_user_message"] = None
+
+        # Get last assistant message
+        if assistant_messages:
+            last_assistant = max(assistant_messages, key=lambda m: m.timestamp)
+            content = last_assistant.content
+            if isinstance(content, list):
+                text_parts = [p.get("text", "") for p in content if p.get("type") == "text"]
+                content = " ".join(text_parts) or "[multimodal content]"
+            content_str = str(content)
+            result["last_assistant_message"] = content_str[:150] + ("..." if len(content_str) > 150 else "")
+        else:
+            result["last_assistant_message"] = None
+
+        return result
+
     def validate_state(self) -> list[str]:
         """Validate internal state consistency and return any issues.
 

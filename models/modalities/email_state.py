@@ -879,6 +879,67 @@ class EmailState(ModalityState):
         unread_count = sum(1 for e in self.emails.values() if not e.is_read)
         return f"{unread_count} unread, {total_count} total emails"
 
+    def get_compact_snapshot(self, current_time: datetime) -> dict[str, Any]:
+        """Return a compact, LLM-context-optimized snapshot of email state.
+
+        Includes unread count, recent unread emails (subjects only), flagged items,
+        and draft count without full email bodies.
+
+        Args:
+            current_time: The current simulator time (for calculating relative times).
+
+        Returns:
+            Dictionary with compact email state.
+        """
+        total_count = len(self.emails)
+        unread_emails = [e for e in self.emails.values() if not e.is_read]
+        unread_count = len(unread_emails)
+        flagged_emails = [e for e in self.emails.values() if e.is_starred]
+        flagged_count = len(flagged_emails)
+
+        result: dict[str, Any] = {
+            "summary": self.summary,
+            "unread_count": unread_count,
+            "total_count": total_count,
+            "draft_count": len(self.drafts),
+            "flagged_count": flagged_count,
+        }
+
+        # Get recent unread emails (up to 5, most recent first)
+        recent_unread = sorted(
+            unread_emails,
+            key=lambda e: e.received_at,
+            reverse=True
+        )[:5]
+
+        result["recent_unread"] = [
+            {
+                "subject": email.subject,
+                "from": email.from_address,
+                "received_ago": self._format_relative_time(email.received_at, current_time),
+                "flagged": email.is_starred,
+            }
+            for email in recent_unread
+        ]
+
+        # Add flagged items if different from recent unread (up to 3)
+        flagged_not_in_recent = [
+            e for e in flagged_emails
+            if e.message_id not in {m.message_id for m in recent_unread}
+        ][:3]
+
+        if flagged_not_in_recent:
+            result["flagged_items"] = [
+                {
+                    "subject": email.subject,
+                    "from": email.from_address,
+                    "received_ago": self._format_relative_time(email.received_at, current_time),
+                }
+                for email in flagged_not_in_recent
+            ]
+
+        return result
+
     def get_summary_data(self) -> dict[str, Any]:
         """Return a compact summary of email state without full email contents.
 

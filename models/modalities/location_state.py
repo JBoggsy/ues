@@ -220,6 +220,39 @@ class LocationState(ModalityState):
             return f"At {self.current_address}"
         return f"At {self.current_latitude:.4f}, {self.current_longitude:.4f}"
 
+    def get_compact_snapshot(self, current_time: datetime) -> dict[str, Any]:
+        """Return a compact, LLM-context-optimized snapshot of location state.
+
+        Includes only current location without full history.
+
+        Args:
+            current_time: The current simulator time (for calculating relative times).
+
+        Returns:
+            Dictionary with compact location state.
+        """
+        result: dict[str, Any] = {
+            "summary": self.summary,
+        }
+
+        if self.current_latitude is not None and self.current_longitude is not None:
+            result["current"] = {
+                "latitude": self.current_latitude,
+                "longitude": self.current_longitude,
+            }
+            if self.current_address:
+                result["current"]["address"] = self.current_address
+            if self.current_named_location:
+                result["current"]["named_location"] = self.current_named_location
+            if self.current_accuracy is not None:
+                result["current"]["accuracy_meters"] = self.current_accuracy
+            if self.current_speed is not None:
+                result["current"]["speed_mps"] = self.current_speed
+        else:
+            result["current"] = None
+
+        return result
+
     def validate_state(self) -> list[str]:
         """Validate internal state consistency and return any issues.
 

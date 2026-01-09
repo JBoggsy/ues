@@ -174,6 +174,30 @@ class TimeState(ModalityState):
         """
         return f"{self.timezone}, {self.format_preference} format"
 
+    def get_compact_snapshot(self, current_time: datetime) -> dict[str, Any]:
+        """Return a compact, LLM-context-optimized snapshot of time preferences.
+
+        Includes current timezone and format settings.
+
+        Args:
+            current_time: The current simulator time (not used for time prefs).
+
+        Returns:
+            Dictionary with compact time preferences.
+        """
+        result: dict[str, Any] = {
+            "summary": self.summary,
+            "timezone": self.timezone,
+            "format_24h": self.format_preference == "24h",
+        }
+        if self.date_format:
+            result["date_format"] = self.date_format
+        if self.locale:
+            result["locale"] = self.locale
+        if self.week_start:
+            result["week_start"] = self.week_start
+        return result
+
     def validate_state(self) -> list[str]:
         """Validate internal state consistency and return any issues.
 

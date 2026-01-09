@@ -220,6 +220,70 @@ class WeatherState(ModalityState):
         else:
             return f"Weather data for {count} locations"
 
+    def get_compact_snapshot(self, current_time: datetime) -> dict[str, Any]:
+        """Return a compact, LLM-context-optimized snapshot of weather state.
+
+        Includes current conditions at the primary (most recently updated) location.
+
+        Args:
+            current_time: The current simulator time (for calculating relative times).
+
+        Returns:
+            Dictionary with compact weather state.
+        """
+        result: dict[str, Any] = {
+            "summary": self.summary,
+            "location_count": len(self.locations),
+        }
+
+        if not self.locations:
+            result["current"] = None
+            return result
+
+        # Find the most recently updated location as "primary"
+        primary_key = max(
+            self.locations.keys(),
+            key=lambda k: self.locations[k].last_updated
+        )
+        primary = self.locations[primary_key]
+        report = primary.current_report
+
+        # Extract weather info from the OpenWeather format
+        condition = "Unknown"
+        temperature_c = None
+        humidity_percent = None
+        wind_speed_mps = None
+        cloud_cover_percent = None
+
+        if report.current:
+            current = report.current
+            # Get condition from weather list
+            if current.weather and len(current.weather) > 0:
+                condition = current.weather[0].main
+            # Temperature is in Kelvin, convert to Celsius
+            temperature_c = round(current.temp - 273.15, 1)
+            humidity_percent = current.humidity
+            wind_speed_mps = current.wind_speed
+            cloud_cover_percent = current.clouds
+
+        result["current"] = {
+            "location": primary_key,
+            "latitude": primary.latitude,
+            "longitude": primary.longitude,
+            "condition": condition,
+            "temperature_c": temperature_c,
+            "temperature_f": round(temperature_c * 9 / 5 + 32) if temperature_c is not None else None,
+            "humidity_percent": humidity_percent,
+        }
+
+        # Add optional fields if available
+        if wind_speed_mps is not None:
+            result["current"]["wind_speed_mps"] = wind_speed_mps
+        if cloud_cover_percent is not None:
+            result["current"]["cloud_cover_percent"] = cloud_cover_percent
+
+        return result
+
     def validate_state(self) -> list[str]:
         """Validate internal state consistency and return any issues.
 
