@@ -42,6 +42,19 @@ Exports:
         ServerError: Server-side error (HTTP 5xx).
 """
 
+from client._events import (
+    AsyncEventsClient,
+    BatchCreateEventResponse,
+    BatchEventRequest,
+    BatchEventResult,
+    BatchValidationResponse,
+    BatchValidationResult,
+    CancelEventResponse,
+    EventListResponse,
+    EventResponse,
+    EventsClient,
+    EventSummaryResponse,
+)
 from client._email import (
     AsyncEmailClient,
     Email,
@@ -114,8 +127,6 @@ from client.exceptions import (
     ValidationError,
 )
 from client.models import (
-    CancelEventResponse,
-    EventSummaryResponse,
     HealthResponse,
     ModalityActionResponse,
     ModalityQueryResponse,
@@ -132,6 +143,8 @@ __all__ = [
     "WebSocketSubscription",
     "WSEvent",
     # Sub-clients (for direct use or Phase 4 integration)
+    "EventsClient",
+    "AsyncEventsClient",
     "EmailClient",
     "AsyncEmailClient",
     "SMSClient",
@@ -159,10 +172,18 @@ __all__ = [
     "ModalityStateResponse",
     "ModalityActionResponse",
     "ModalityQueryResponse",
-    "CancelEventResponse",
-    "EventSummaryResponse",
     "HealthResponse",
     "SimulationStatusResponse",
+    # Response models - Events
+    "EventResponse",
+    "EventListResponse",
+    "EventSummaryResponse",
+    "CancelEventResponse",
+    "BatchEventRequest",
+    "BatchEventResult",
+    "BatchCreateEventResponse",
+    "BatchValidationResult",
+    "BatchValidationResponse",
     # Response models - Email
     "Email",
     "EmailAttachment",

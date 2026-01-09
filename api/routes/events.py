@@ -192,6 +192,109 @@ class EventSummaryResponse(BaseModel):
     next_event_time: Optional[datetime] = None
 
 
+# Batch Event Models
+
+
+# Maximum number of events allowed in a single batch request
+MAX_BATCH_SIZE = 1000
+
+
+class BatchEventResult(BaseModel):
+    """Result for a single event in a batch operation.
+    
+    Attributes:
+        index: Position in the original request array (0-indexed).
+        success: Whether the event was created successfully.
+        event_id: The created event's ID (None if failed).
+        scheduled_time: The event's scheduled time (None if failed).
+        error: Error message if validation/creation failed.
+    """
+    
+    index: int
+    success: bool
+    event_id: Optional[str] = None
+    scheduled_time: Optional[datetime] = None
+    error: Optional[str] = None
+
+
+class BatchValidationResult(BaseModel):
+    """Result for a single event in validation-only mode.
+    
+    Attributes:
+        index: Position in the original request array (0-indexed).
+        valid: Whether the event passed validation.
+        error: Error message if validation failed.
+    """
+    
+    index: int
+    valid: bool
+    error: Optional[str] = None
+
+
+class BatchCreateEventRequest(BaseModel):
+    """Request model for batch event creation.
+    
+    Attributes:
+        events: List of event specifications to create.
+        stop_on_first_error: If True, abort entire batch on first error.
+        validate_only: If True, validate without creating events.
+    """
+    
+    events: list[CreateEventRequest]
+    stop_on_first_error: bool = False
+    validate_only: bool = False
+
+
+class BatchCreateEventResponse(BaseModel):
+    """Response model for successful batch event creation.
+    
+    Attributes:
+        total_submitted: Number of events in the request.
+        total_created: Number of events successfully created.
+        total_failed: Number of events that failed validation.
+        events: Per-event results with IDs and errors.
+    """
+    
+    total_submitted: int
+    total_created: int
+    total_failed: int
+    events: list[BatchEventResult]
+
+
+class BatchValidationResponse(BaseModel):
+    """Response model for validation-only batch request.
+    
+    Attributes:
+        total_submitted: Number of events in the request.
+        total_valid: Number of events that passed validation.
+        total_invalid: Number of events that failed validation.
+        events: Per-event validation results.
+        validation_only: Always True for this response type.
+    """
+    
+    total_submitted: int
+    total_valid: int
+    total_invalid: int
+    events: list[BatchValidationResult]
+    validation_only: bool = True
+
+
+class BatchErrorResponse(BaseModel):
+    """Response model for strict mode batch failure.
+    
+    Attributes:
+        detail: Human-readable error message.
+        failed_index: Index of the first failing event.
+        events_validated: Number of events validated before failure.
+        total_events: Total events in the request.
+    """
+    
+    detail: str
+    failed_index: int
+    events_validated: int
+    total_events: int
+
+
 # Route Handlers
 
 
@@ -428,6 +531,167 @@ async def create_immediate_event(request: ImmediateEventRequest, engine: Simulat
             status_code=500,
             detail=f"Failed to create immediate event: {str(e)}",
         )
+
+
+@router.post("/batch")
+async def create_batch_events(
+    request: BatchCreateEventRequest,
+    engine: SimulationEngineDep,
+):
+    """Create multiple events in a single batch operation.
+    
+    This endpoint enables efficient bulk event scheduling, reducing network
+    overhead when creating many events. Events are validated before creation,
+    and the response includes per-event success/failure information.
+    
+    Behavior modes:
+    - Default: Create all valid events, report failures (HTTP 207 if mixed)
+    - stop_on_first_error=True: Abort on first failure, create nothing (HTTP 400)
+    - validate_only=True: Validate without creating, return validation results
+    
+    Args:
+        request: Batch request with events and options.
+        engine: The SimulationEngine instance (injected by FastAPI).
+    
+    Returns:
+        BatchCreateEventResponse (201/207) or BatchValidationResponse (200)
+        or raises HTTPException (400) for strict mode failures.
+    
+    Raises:
+        HTTPException 400: Batch too large, empty batch, or strict mode failure.
+        HTTPException 422: Request structure invalid.
+    """
+    from fastapi.responses import JSONResponse
+    
+    # Enforce batch size limit
+    if len(request.events) > MAX_BATCH_SIZE:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Batch size {len(request.events)} exceeds maximum of {MAX_BATCH_SIZE}",
+        )
+    
+    if len(request.events) == 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Batch must contain at least one event",
+        )
+    
+    current_time = engine.environment.time_state.current_time
+    
+    # Phase 1: Validate all events and prepare SimulatorEvent objects
+    validation_results: list[tuple[int, Optional[SimulatorEvent], Optional[str]]] = []
+    
+    for idx, event_request in enumerate(request.events):
+        error: Optional[str] = None
+        event: Optional[SimulatorEvent] = None
+        
+        try:
+            # Check scheduled time is not in the past
+            if event_request.scheduled_time < current_time:
+                error = (
+                    f"Cannot schedule event in the past. "
+                    f"Current time: {current_time.isoformat()}, "
+                    f"scheduled: {event_request.scheduled_time.isoformat()}"
+                )
+            else:
+                # Deserialize and validate the modality input
+                modality_input = deserialize_modality_input(
+                    modality=event_request.modality,
+                    data=event_request.data,
+                    timestamp=event_request.scheduled_time,
+                )
+                
+                # Create the event object
+                event = SimulatorEvent(
+                    scheduled_time=event_request.scheduled_time,
+                    modality=event_request.modality,
+                    data=modality_input,
+                    priority=event_request.priority,
+                    created_at=current_time,
+                    agent_id=event_request.agent_id,
+                    metadata=event_request.metadata,
+                )
+        except HTTPException as e:
+            error = e.detail
+        except ValidationError as e:
+            error = f"Invalid data: {str(e)}"
+        except Exception as e:
+            error = f"Validation error: {str(e)}"
+        
+        validation_results.append((idx, event, error))
+        
+        # In strict mode, abort on first error
+        if request.stop_on_first_error and error is not None:
+            raise HTTPException(
+                status_code=400,
+                detail=BatchErrorResponse(
+                    detail=f"Batch validation failed at index {idx}: {error}",
+                    failed_index=idx,
+                    events_validated=idx + 1,
+                    total_events=len(request.events),
+                ).model_dump(),
+            )
+    
+    # Phase 2: Handle validate_only mode
+    if request.validate_only:
+        validation_response_events = [
+            BatchValidationResult(
+                index=idx,
+                valid=error is None,
+                error=error,
+            )
+            for idx, _, error in validation_results
+        ]
+        
+        total_valid = sum(1 for r in validation_response_events if r.valid)
+        
+        return BatchValidationResponse(
+            total_submitted=len(request.events),
+            total_valid=total_valid,
+            total_invalid=len(request.events) - total_valid,
+            events=validation_response_events,
+        )
+    
+    # Phase 3: Create valid events
+    valid_events = [event for _, event, error in validation_results if event is not None]
+    
+    if valid_events:
+        engine.event_queue.add_events(valid_events)
+        
+        # Broadcast batch scheduled event
+        await broadcast_event(WSEventType.BATCH_EVENTS_SCHEDULED, {
+            "count": len(valid_events),
+            "event_ids": [e.event_id for e in valid_events],
+            "modalities": list(set(e.modality for e in valid_events)),
+        })
+    
+    # Phase 4: Build response
+    response_events = [
+        BatchEventResult(
+            index=idx,
+            success=event is not None,
+            event_id=event.event_id if event else None,
+            scheduled_time=event.scheduled_time if event else None,
+            error=error,
+        )
+        for idx, event, error in validation_results
+    ]
+    
+    total_created = len(valid_events)
+    total_failed = len(request.events) - total_created
+    
+    response = BatchCreateEventResponse(
+        total_submitted=len(request.events),
+        total_created=total_created,
+        total_failed=total_failed,
+        events=response_events,
+    )
+    
+    # Return 201 if all succeeded, 207 if mixed results
+    if total_failed == 0:
+        return JSONResponse(status_code=201, content=response.model_dump(mode="json"))
+    else:
+        return JSONResponse(status_code=207, content=response.model_dump(mode="json"))
 
 
 @router.get("/next", response_model=EventResponse)

@@ -100,6 +100,97 @@ class CancelEventResponse(BaseModel):
     event_id: str
 
 
+# Batch event response models
+
+
+class BatchEventRequest(BaseModel):
+    """Request model for a single event in a batch.
+    
+    Attributes:
+        scheduled_time: When the event should execute.
+        modality: Which modality this event affects.
+        data: The ModalityInput payload for this event.
+        priority: Execution priority (0-100, higher = executed first).
+        metadata: Optional custom metadata.
+        agent_id: Optional ID of agent creating this event.
+    """
+
+    scheduled_time: datetime
+    modality: str
+    data: dict[str, Any]
+    priority: int = 50
+    metadata: dict[str, Any] | None = None
+    agent_id: str | None = None
+
+
+class BatchEventResult(BaseModel):
+    """Result for a single event in a batch response.
+    
+    Attributes:
+        index: Position of this event in the original request.
+        success: Whether this event was created successfully.
+        modality: The modality type of this event.
+        event_id: The created event's ID (if successful).
+        scheduled_time: The scheduled execution time (if successful).
+        error: Error message (if failed).
+    """
+
+    index: int
+    success: bool
+    modality: str
+    event_id: str | None = None
+    scheduled_time: datetime | None = None
+    error: str | None = None
+
+
+class BatchCreateEventResponse(BaseModel):
+    """Response model for batch event creation.
+    
+    Attributes:
+        total_submitted: Number of events submitted in the request.
+        total_created: Number of events successfully created.
+        total_failed: Number of events that failed to create.
+        events: Per-event results preserving request order.
+    """
+
+    total_submitted: int
+    total_created: int
+    total_failed: int
+    events: list[BatchEventResult]
+
+
+class BatchValidationResult(BaseModel):
+    """Validation result for a single event in validate_only mode.
+    
+    Attributes:
+        index: Position of this event in the original request.
+        valid: Whether this event passed validation.
+        modality: The modality type of this event.
+        error: Validation error message (if invalid).
+    """
+
+    index: int
+    valid: bool
+    modality: str
+    error: str | None = None
+
+
+class BatchValidationResponse(BaseModel):
+    """Response model for batch validation (validate_only=True).
+    
+    Attributes:
+        validation_only: Always True for validation responses.
+        total_valid: Number of events that passed validation.
+        total_invalid: Number of events that failed validation.
+        events: Per-event validation results.
+    """
+
+    validation_only: bool = True
+    total_valid: int
+    total_invalid: int
+    events: list[BatchValidationResult]
+
+
 def _filter_none_params(**params: Any) -> dict[str, Any]:
     """Filter out None values from parameters dict."""
     return {k: v for k, v in params.items() if v is not None}
@@ -247,6 +338,94 @@ class EventsClient(BaseClient):
         }
         response = self._post(f"{self._BASE_PATH}/immediate", json=json_body)
         return EventResponse(**response)
+
+    def create_batch(
+        self,
+        events: list[BatchEventRequest] | list[dict[str, Any]],
+        stop_on_first_error: bool = False,
+        validate_only: bool = False,
+    ) -> BatchCreateEventResponse | BatchValidationResponse:
+        """Create multiple events in a single request.
+        
+        This method efficiently schedules multiple events with a single API call.
+        Events are validated in order and added to the queue atomically (all or
+        none) when stop_on_first_error=True.
+        
+        Args:
+            events: List of event specifications. Each can be a BatchEventRequest
+                or a dict with keys: scheduled_time, modality, data, and optional
+                priority, metadata, agent_id.
+            stop_on_first_error: If True, abort on the first validation error
+                without creating any events (strict mode). Returns 400 error.
+            validate_only: If True, only validate events without creating them.
+                Returns validation results without modifying the queue.
+        
+        Returns:
+            If validate_only=False: BatchCreateEventResponse with per-event results.
+            If validate_only=True: BatchValidationResponse with validation results.
+        
+        Raises:
+            ValidationError: If events list is empty, exceeds max size, or (with
+                stop_on_first_error=True) contains any invalid event.
+            APIError: If the request fails.
+        
+        Example:
+            # Create multiple events at once
+            from datetime import datetime, timedelta, timezone
+            
+            base_time = datetime(2024, 3, 15, 10, 0, tzinfo=timezone.utc)
+            
+            result = client.events.create_batch([
+                {
+                    "scheduled_time": base_time,
+                    "modality": "email",
+                    "data": {"action": "receive", "from_address": "a@example.com", ...},
+                },
+                {
+                    "scheduled_time": base_time + timedelta(hours=1),
+                    "modality": "sms",
+                    "data": {"action": "receive_message", ...},
+                },
+            ])
+            
+            print(f"Created {result.total_created} of {result.total_submitted}")
+            
+            # Validate without creating
+            validation = client.events.create_batch(events, validate_only=True)
+            print(f"Valid: {validation.total_valid}, Invalid: {validation.total_invalid}")
+        """
+        # Convert to dicts if BatchEventRequest objects
+        event_dicts = []
+        for event in events:
+            if isinstance(event, BatchEventRequest):
+                event_dict: dict[str, Any] = {
+                    "scheduled_time": event.scheduled_time.isoformat(),
+                    "modality": event.modality,
+                    "data": event.data,
+                    "priority": event.priority,
+                }
+                if event.metadata is not None:
+                    event_dict["metadata"] = event.metadata
+                if event.agent_id is not None:
+                    event_dict["agent_id"] = event.agent_id
+            else:
+                # Handle dict input - convert datetime if needed
+                event_dict = dict(event)
+                if isinstance(event_dict.get("scheduled_time"), datetime):
+                    event_dict["scheduled_time"] = event_dict["scheduled_time"].isoformat()
+            event_dicts.append(event_dict)
+        
+        json_body: dict[str, Any] = {"events": event_dicts}
+        if stop_on_first_error:
+            json_body["stop_on_first_error"] = True
+        if validate_only:
+            json_body["validate_only"] = True
+        
+        response = self._post(f"{self._BASE_PATH}/batch", json=json_body)
+        
+        if validate_only:
+            return BatchValidationResponse(**response)
+        return BatchCreateEventResponse(**response)
 
     def get(self, event_id: str) -> EventResponse:
         """Get details for a specific event.
@@ -460,6 +639,94 @@ class AsyncEventsClient(AsyncBaseClient):
         }
         response = await self._post(f"{self._BASE_PATH}/immediate", json=json_body)
         return EventResponse(**response)
+
+    async def create_batch(
+        self,
+        events: list[BatchEventRequest] | list[dict[str, Any]],
+        stop_on_first_error: bool = False,
+        validate_only: bool = False,
+    ) -> BatchCreateEventResponse | BatchValidationResponse:
+        """Create multiple events in a single request.
+        
+        This method efficiently schedules multiple events with a single API call.
+        Events are validated in order and added to the queue atomically (all or
+        none) when stop_on_first_error=True.
+        
+        Args:
+            events: List of event specifications. Each can be a BatchEventRequest
+                or a dict with keys: scheduled_time, modality, data, and optional
+                priority, metadata, agent_id.
+            stop_on_first_error: If True, abort on the first validation error
+                without creating any events (strict mode). Returns 400 error.
+            validate_only: If True, only validate events without creating them.
+                Returns validation results without modifying the queue.
+        
+        Returns:
+            If validate_only=False: BatchCreateEventResponse with per-event results.
+            If validate_only=True: BatchValidationResponse with validation results.
+        
+        Raises:
+            ValidationError: If events list is empty, exceeds max size, or (with
+                stop_on_first_error=True) contains any invalid event.
+            APIError: If the request fails.
+        
+        Example:
+            # Create multiple events at once
+            from datetime import datetime, timedelta, timezone
+            
+            base_time = datetime(2024, 3, 15, 10, 0, tzinfo=timezone.utc)
+            
+            result = await client.events.create_batch([
+                {
+                    "scheduled_time": base_time,
+                    "modality": "email",
+                    "data": {"action": "receive", "from_address": "a@example.com", ...},
+                },
+                {
+                    "scheduled_time": base_time + timedelta(hours=1),
+                    "modality": "sms",
+                    "data": {"action": "receive_message", ...},
+                },
+            ])
+            
+            print(f"Created {result.total_created} of {result.total_submitted}")
+            
+            # Validate without creating
+            validation = await client.events.create_batch(events, validate_only=True)
+            print(f"Valid: {validation.total_valid}, Invalid: {validation.total_invalid}")
+        """
+        # Convert to dicts if BatchEventRequest objects
+        event_dicts = []
+        for event in events:
+            if isinstance(event, BatchEventRequest):
+                event_dict: dict[str, Any] = {
+                    "scheduled_time": event.scheduled_time.isoformat(),
+                    "modality": event.modality,
+                    "data": event.data,
+                    "priority": event.priority,
+                }
+                if event.metadata is not None:
+                    event_dict["metadata"] = event.metadata
+                if event.agent_id is not None:
+                    event_dict["agent_id"] = event.agent_id
+            else:
+                # Handle dict input - convert datetime if needed
+                event_dict = dict(event)
+                if isinstance(event_dict.get("scheduled_time"), datetime):
+                    event_dict["scheduled_time"] = event_dict["scheduled_time"].isoformat()
+            event_dicts.append(event_dict)
+        
+        json_body: dict[str, Any] = {"events": event_dicts}
+        if stop_on_first_error:
+            json_body["stop_on_first_error"] = True
+        if validate_only:
+            json_body["validate_only"] = True
+        
+        response = await self._post(f"{self._BASE_PATH}/batch", json=json_body)
+        
+        if validate_only:
+            return BatchValidationResponse(**response)
+        return BatchCreateEventResponse(**response)
 
     async def get(self, event_id: str) -> EventResponse:
         """Get details for a specific event.

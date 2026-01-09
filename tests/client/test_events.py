@@ -11,6 +11,11 @@ import pytest
 
 from client._events import (
     AsyncEventsClient,
+    BatchCreateEventResponse,
+    BatchEventRequest,
+    BatchEventResult,
+    BatchValidationResponse,
+    BatchValidationResult,
     CancelEventResponse,
     EventListResponse,
     EventResponse,
@@ -907,3 +912,470 @@ class TestAsyncEventsClientSummary:
         mock_http.get.assert_called_once_with("/events/summary", params=None)
         assert isinstance(result, EventSummaryResponse)
         assert result.total == 200
+
+
+# =============================================================================
+# Batch Event Model Tests
+# =============================================================================
+
+
+class TestBatchEventRequest:
+    """Tests for the BatchEventRequest model."""
+
+    def test_instantiation_with_all_fields(self):
+        """Test creating a BatchEventRequest with all fields."""
+        request = BatchEventRequest(
+            scheduled_time=datetime(2025, 1, 15, 10, 0, tzinfo=timezone.utc),
+            modality="email",
+            data={"action": "receive", "from_address": "test@example.com"},
+            priority=75,
+            metadata={"source": "test"},
+            agent_id="agent-001",
+        )
+        assert request.scheduled_time == datetime(2025, 1, 15, 10, 0, tzinfo=timezone.utc)
+        assert request.modality == "email"
+        assert request.data == {"action": "receive", "from_address": "test@example.com"}
+        assert request.priority == 75
+        assert request.metadata == {"source": "test"}
+        assert request.agent_id == "agent-001"
+
+    def test_instantiation_with_required_fields_only(self):
+        """Test BatchEventRequest with only required fields uses defaults."""
+        request = BatchEventRequest(
+            scheduled_time=datetime(2025, 1, 15, 10, 0, tzinfo=timezone.utc),
+            modality="location",
+            data={"action": "update", "latitude": 40.0, "longitude": -74.0},
+        )
+        assert request.priority == 50  # Default
+        assert request.metadata is None
+        assert request.agent_id is None
+
+
+class TestBatchEventResult:
+    """Tests for the BatchEventResult model."""
+
+    def test_successful_result(self):
+        """Test BatchEventResult for a successful event."""
+        result = BatchEventResult(
+            index=0,
+            success=True,
+            modality="email",
+            event_id="evt-123",
+            scheduled_time=datetime(2025, 1, 15, 10, 0, tzinfo=timezone.utc),
+            error=None,
+        )
+        assert result.index == 0
+        assert result.success is True
+        assert result.modality == "email"
+        assert result.event_id == "evt-123"
+        assert result.scheduled_time is not None
+        assert result.error is None
+
+    def test_failed_result(self):
+        """Test BatchEventResult for a failed event."""
+        result = BatchEventResult(
+            index=1,
+            success=False,
+            modality="location",
+            event_id=None,
+            scheduled_time=None,
+            error="Scheduled time is in the past",
+        )
+        assert result.index == 1
+        assert result.success is False
+        assert result.event_id is None
+        assert result.scheduled_time is None
+        assert result.error == "Scheduled time is in the past"
+
+
+class TestBatchCreateEventResponse:
+    """Tests for the BatchCreateEventResponse model."""
+
+    def test_all_successful(self):
+        """Test BatchCreateEventResponse when all events succeed."""
+        response = BatchCreateEventResponse(
+            total_submitted=3,
+            total_created=3,
+            total_failed=0,
+            events=[
+                BatchEventResult(index=0, success=True, modality="email", event_id="evt-1"),
+                BatchEventResult(index=1, success=True, modality="sms", event_id="evt-2"),
+                BatchEventResult(index=2, success=True, modality="location", event_id="evt-3"),
+            ],
+        )
+        assert response.total_submitted == 3
+        assert response.total_created == 3
+        assert response.total_failed == 0
+        assert len(response.events) == 3
+        assert all(e.success for e in response.events)
+
+    def test_partial_success(self):
+        """Test BatchCreateEventResponse with partial success."""
+        response = BatchCreateEventResponse(
+            total_submitted=3,
+            total_created=2,
+            total_failed=1,
+            events=[
+                BatchEventResult(index=0, success=True, modality="email", event_id="evt-1"),
+                BatchEventResult(index=1, success=False, modality="sms", error="Invalid data"),
+                BatchEventResult(index=2, success=True, modality="location", event_id="evt-2"),
+            ],
+        )
+        assert response.total_created == 2
+        assert response.total_failed == 1
+        assert response.events[1].success is False
+        assert response.events[1].error == "Invalid data"
+
+
+class TestBatchValidationResult:
+    """Tests for the BatchValidationResult model."""
+
+    def test_valid_result(self):
+        """Test BatchValidationResult for valid event."""
+        result = BatchValidationResult(
+            index=0,
+            valid=True,
+            modality="email",
+            error=None,
+        )
+        assert result.valid is True
+        assert result.error is None
+
+    def test_invalid_result(self):
+        """Test BatchValidationResult for invalid event."""
+        result = BatchValidationResult(
+            index=0,
+            valid=False,
+            modality="location",
+            error="Invalid latitude: 999",
+        )
+        assert result.valid is False
+        assert result.error == "Invalid latitude: 999"
+
+
+class TestBatchValidationResponse:
+    """Tests for the BatchValidationResponse model."""
+
+    def test_all_valid(self):
+        """Test BatchValidationResponse when all events valid."""
+        response = BatchValidationResponse(
+            validation_only=True,
+            total_valid=2,
+            total_invalid=0,
+            events=[
+                BatchValidationResult(index=0, valid=True, modality="email"),
+                BatchValidationResult(index=1, valid=True, modality="sms"),
+            ],
+        )
+        assert response.validation_only is True
+        assert response.total_valid == 2
+        assert response.total_invalid == 0
+
+    def test_with_invalid_events(self):
+        """Test BatchValidationResponse with invalid events."""
+        response = BatchValidationResponse(
+            validation_only=True,
+            total_valid=1,
+            total_invalid=2,
+            events=[
+                BatchValidationResult(index=0, valid=True, modality="email"),
+                BatchValidationResult(index=1, valid=False, modality="sms", error="Invalid"),
+                BatchValidationResult(index=2, valid=False, modality="location", error="Past time"),
+            ],
+        )
+        assert response.total_valid == 1
+        assert response.total_invalid == 2
+
+
+# =============================================================================
+# EventsClient.create_batch Tests
+# =============================================================================
+
+
+class TestEventsClientCreateBatch:
+    """Tests for EventsClient.create_batch() method."""
+
+    def test_create_batch_all_valid(self):
+        """Test creating batch with all valid events."""
+        mock_http = MagicMock()
+        mock_http.post.return_value = {
+            "total_submitted": 2,
+            "total_created": 2,
+            "total_failed": 0,
+            "events": [
+                {
+                    "index": 0,
+                    "success": True,
+                    "modality": "email",
+                    "event_id": "evt-1",
+                    "scheduled_time": "2025-01-15T10:00:00+00:00",
+                },
+                {
+                    "index": 1,
+                    "success": True,
+                    "modality": "sms",
+                    "event_id": "evt-2",
+                    "scheduled_time": "2025-01-15T11:00:00+00:00",
+                },
+            ],
+        }
+
+        client = EventsClient(mock_http)
+        result = client.create_batch([
+            {
+                "scheduled_time": datetime(2025, 1, 15, 10, 0, tzinfo=timezone.utc),
+                "modality": "email",
+                "data": {"action": "receive"},
+            },
+            {
+                "scheduled_time": datetime(2025, 1, 15, 11, 0, tzinfo=timezone.utc),
+                "modality": "sms",
+                "data": {"action": "receive_message"},
+            },
+        ])
+
+        assert isinstance(result, BatchCreateEventResponse)
+        assert result.total_created == 2
+        assert result.total_failed == 0
+
+    def test_create_batch_with_typed_requests(self):
+        """Test creating batch with BatchEventRequest objects."""
+        mock_http = MagicMock()
+        mock_http.post.return_value = {
+            "total_submitted": 1,
+            "total_created": 1,
+            "total_failed": 0,
+            "events": [
+                {
+                    "index": 0,
+                    "success": True,
+                    "modality": "location",
+                    "event_id": "evt-loc",
+                    "scheduled_time": "2025-01-15T10:00:00+00:00",
+                },
+            ],
+        }
+
+        client = EventsClient(mock_http)
+        result = client.create_batch([
+            BatchEventRequest(
+                scheduled_time=datetime(2025, 1, 15, 10, 0, tzinfo=timezone.utc),
+                modality="location",
+                data={"action": "update", "latitude": 40.0, "longitude": -74.0},
+                priority=80,
+                metadata={"source": "test"},
+                agent_id="agent-001",
+            ),
+        ])
+
+        assert isinstance(result, BatchCreateEventResponse)
+        assert result.total_created == 1
+        # Verify the request was properly serialized
+        call_args = mock_http.post.call_args
+        json_data = call_args.kwargs["json"]
+        assert json_data["events"][0]["priority"] == 80
+        assert json_data["events"][0]["metadata"] == {"source": "test"}
+        assert json_data["events"][0]["agent_id"] == "agent-001"
+
+    def test_create_batch_validate_only(self):
+        """Test validation-only mode returns BatchValidationResponse."""
+        mock_http = MagicMock()
+        mock_http.post.return_value = {
+            "validation_only": True,
+            "total_valid": 2,
+            "total_invalid": 0,
+            "events": [
+                {"index": 0, "valid": True, "modality": "email"},
+                {"index": 1, "valid": True, "modality": "sms"},
+            ],
+        }
+
+        client = EventsClient(mock_http)
+        result = client.create_batch(
+            [
+                {
+                    "scheduled_time": datetime(2025, 1, 15, 10, 0, tzinfo=timezone.utc),
+                    "modality": "email",
+                    "data": {"action": "receive"},
+                },
+                {
+                    "scheduled_time": datetime(2025, 1, 15, 11, 0, tzinfo=timezone.utc),
+                    "modality": "sms",
+                    "data": {"action": "receive_message"},
+                },
+            ],
+            validate_only=True,
+        )
+
+        assert isinstance(result, BatchValidationResponse)
+        assert result.validation_only is True
+        assert result.total_valid == 2
+        # Verify validate_only was sent in request
+        call_args = mock_http.post.call_args
+        assert call_args.kwargs["json"]["validate_only"] is True
+
+    def test_create_batch_stop_on_first_error(self):
+        """Test stop_on_first_error flag is sent in request."""
+        mock_http = MagicMock()
+        mock_http.post.return_value = {
+            "total_submitted": 2,
+            "total_created": 2,
+            "total_failed": 0,
+            "events": [
+                {"index": 0, "success": True, "modality": "email", "event_id": "evt-1"},
+                {"index": 1, "success": True, "modality": "sms", "event_id": "evt-2"},
+            ],
+        }
+
+        client = EventsClient(mock_http)
+        client.create_batch(
+            [
+                {
+                    "scheduled_time": datetime(2025, 1, 15, 10, 0, tzinfo=timezone.utc),
+                    "modality": "email",
+                    "data": {"action": "receive"},
+                },
+            ],
+            stop_on_first_error=True,
+        )
+
+        call_args = mock_http.post.call_args
+        assert call_args.kwargs["json"]["stop_on_first_error"] is True
+
+    def test_create_batch_endpoint_path(self):
+        """Test create_batch calls correct endpoint."""
+        mock_http = MagicMock()
+        mock_http.post.return_value = {
+            "total_submitted": 1,
+            "total_created": 1,
+            "total_failed": 0,
+            "events": [{"index": 0, "success": True, "modality": "email", "event_id": "evt-1"}],
+        }
+
+        client = EventsClient(mock_http)
+        client.create_batch([
+            {
+                "scheduled_time": datetime(2025, 1, 15, 10, 0, tzinfo=timezone.utc),
+                "modality": "email",
+                "data": {"action": "receive"},
+            },
+        ])
+
+        mock_http.post.assert_called_once()
+        call_args = mock_http.post.call_args
+        assert call_args.args[0] == "/events/batch"
+
+
+# =============================================================================
+# AsyncEventsClient.create_batch Tests
+# =============================================================================
+
+
+class TestAsyncEventsClientCreateBatch:
+    """Tests for AsyncEventsClient.create_batch() method."""
+
+    async def test_create_batch_all_valid(self):
+        """Test async creating batch with all valid events."""
+        mock_http = AsyncMock()
+        mock_http.post.return_value = {
+            "total_submitted": 2,
+            "total_created": 2,
+            "total_failed": 0,
+            "events": [
+                {
+                    "index": 0,
+                    "success": True,
+                    "modality": "email",
+                    "event_id": "evt-1",
+                    "scheduled_time": "2025-01-15T10:00:00+00:00",
+                },
+                {
+                    "index": 1,
+                    "success": True,
+                    "modality": "sms",
+                    "event_id": "evt-2",
+                    "scheduled_time": "2025-01-15T11:00:00+00:00",
+                },
+            ],
+        }
+
+        client = AsyncEventsClient(mock_http)
+        result = await client.create_batch([
+            {
+                "scheduled_time": datetime(2025, 1, 15, 10, 0, tzinfo=timezone.utc),
+                "modality": "email",
+                "data": {"action": "receive"},
+            },
+            {
+                "scheduled_time": datetime(2025, 1, 15, 11, 0, tzinfo=timezone.utc),
+                "modality": "sms",
+                "data": {"action": "receive_message"},
+            },
+        ])
+
+        assert isinstance(result, BatchCreateEventResponse)
+        assert result.total_created == 2
+        assert result.total_failed == 0
+
+    async def test_create_batch_validate_only(self):
+        """Test async validation-only mode returns BatchValidationResponse."""
+        mock_http = AsyncMock()
+        mock_http.post.return_value = {
+            "validation_only": True,
+            "total_valid": 1,
+            "total_invalid": 1,
+            "events": [
+                {"index": 0, "valid": True, "modality": "email"},
+                {"index": 1, "valid": False, "modality": "sms", "error": "Invalid data"},
+            ],
+        }
+
+        client = AsyncEventsClient(mock_http)
+        result = await client.create_batch(
+            [
+                {
+                    "scheduled_time": datetime(2025, 1, 15, 10, 0, tzinfo=timezone.utc),
+                    "modality": "email",
+                    "data": {"action": "receive"},
+                },
+                {
+                    "scheduled_time": datetime(2025, 1, 15, 11, 0, tzinfo=timezone.utc),
+                    "modality": "sms",
+                    "data": {},  # Invalid
+                },
+            ],
+            validate_only=True,
+        )
+
+        assert isinstance(result, BatchValidationResponse)
+        assert result.total_valid == 1
+        assert result.total_invalid == 1
+
+    async def test_create_batch_with_typed_requests(self):
+        """Test async creating batch with BatchEventRequest objects."""
+        mock_http = AsyncMock()
+        mock_http.post.return_value = {
+            "total_submitted": 1,
+            "total_created": 1,
+            "total_failed": 0,
+            "events": [
+                {
+                    "index": 0,
+                    "success": True,
+                    "modality": "location",
+                    "event_id": "evt-loc",
+                },
+            ],
+        }
+
+        client = AsyncEventsClient(mock_http)
+        result = await client.create_batch([
+            BatchEventRequest(
+                scheduled_time=datetime(2025, 1, 15, 10, 0, tzinfo=timezone.utc),
+                modality="location",
+                data={"action": "update", "latitude": 40.0, "longitude": -74.0},
+            ),
+        ])
+
+        assert isinstance(result, BatchCreateEventResponse)
+        assert result.total_created == 1

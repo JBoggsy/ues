@@ -57,6 +57,7 @@ class WSEventType(str, Enum):
     EVENT_EXECUTED = "event.executed"
     EVENT_FAILED = "event.failed"
     EVENT_CANCELLED = "event.cancelled"
+    BATCH_EVENTS_SCHEDULED = "event.batch_scheduled"
     
     # Modality updates (generic and specific)
     MODALITY_UPDATED = "modality.updated"

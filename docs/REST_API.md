@@ -77,14 +77,28 @@ Create and manage simulation events:
 
 - `GET /events` - List events with filters (status, time range, modality)
 - `POST /events` - Create new scheduled event
+- `POST /events/batch` - Create multiple events in one request (up to 1000)
 - `POST /events/immediate` - Execute event at current time
 - `GET /events/{event_id}` - Get event details
 - `DELETE /events/{event_id}` - Cancel pending event
 - `GET /events/next` - Preview next pending event
 - `GET /events/summary` - Get execution statistics
 
+**Batch Event Submission (`POST /events/batch`):**
+
+Create multiple events efficiently in a single request. Supports three modes:
+
+| Mode | Behavior | HTTP Status |
+|------|----------|-------------|
+| Default | Create valid events, skip invalid ones | 201 (all pass) or 207 (partial) |
+| `stop_on_first_error=true` | Reject all if any invalid | 201 (pass) or 400 (fail) |
+| `validate_only=true` | Dry-run validation only | 200 |
+
+Response includes per-event results with `index`, `success`, `event_id`, and `error` fields.
+
 **Use Cases:**
 - Schedule future modality changes
+- Batch schedule multiple events efficiently (scenario setup, agent responses)
 - Query event history
 - Execute immediate actions
 - Track event execution

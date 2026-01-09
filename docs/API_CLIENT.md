@@ -289,6 +289,94 @@ result = client.events.create(
 )
 ```
 
+### Creating Events in Batch
+
+Create multiple events efficiently with a single API call:
+
+```python
+from datetime import datetime, timedelta, timezone
+
+# Get current simulator time
+current_time = client.time.get_state().current_time
+
+# Create multiple events at once
+result = client.events.create_batch([
+    {
+        "scheduled_time": current_time + timedelta(hours=1),
+        "modality": "email",
+        "data": {
+            "action": "receive",
+            "from_address": "sender@example.com",
+            "to_addresses": ["user@example.com"],
+            "subject": "First Email",
+            "body_text": "Message 1",
+        },
+    },
+    {
+        "scheduled_time": current_time + timedelta(hours=2),
+        "modality": "sms",
+        "data": {
+            "action": "receive_message",
+            "from_number": "+1234567890",
+            "to_numbers": ["+0987654321"],
+            "body": "Hello!",
+        },
+    },
+    {
+        "scheduled_time": current_time + timedelta(hours=3),
+        "modality": "location",
+        "data": {
+            "action": "update",
+            "latitude": 40.7128,
+            "longitude": -74.0060,
+        },
+    },
+])
+
+print(f"Created {result.total_created}/{result.total_submitted} events")
+if result.total_failed > 0:
+    for event in result.events:
+        if not event.success:
+            print(f"  Event {event.index} failed: {event.error}")
+```
+
+#### Batch Options
+
+```python
+# Strict mode: abort all if any event is invalid
+try:
+    result = client.events.create_batch(events, stop_on_first_error=True)
+except ValidationError as e:
+    print(f"Batch rejected: {e}")
+
+# Validation only: check events without creating
+validation = client.events.create_batch(events, validate_only=True)
+print(f"Valid: {validation.total_valid}, Invalid: {validation.total_invalid}")
+for event in validation.events:
+    if not event.valid:
+        print(f"  Event {event.index}: {event.error}")
+```
+
+#### Using BatchEventRequest Objects
+
+For type-safe event creation:
+
+```python
+from client import BatchEventRequest
+
+events = [
+    BatchEventRequest(
+        scheduled_time=current_time + timedelta(hours=1),
+        modality="location",
+        data={"action": "update", "latitude": 40.7128, "longitude": -74.0060},
+        priority=80,  # Higher priority
+        metadata={"source": "daily_routine"},
+        agent_id="scheduler-001",
+    ),
+]
+result = client.events.create_batch(events)
+```
+
 ### Getting Event Details
 
 ```python

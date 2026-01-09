@@ -2,18 +2,18 @@
 
 ## Test Suite Summary
 
-**Total Tests: 3,113 passing**
+**Total Tests: 3,156 passing**
 
 | Category | Test Count | Location |
 |----------|------------|----------|
 | Core Infrastructure Models | 673 | `tests/models/` (includes 61 undo + 22 simulation undo + 181 scenario/serialization tests) |
 | Priority 1 Modality Models | 290 | `tests/models/` |
 | Priority 2 Modality Models | 493 | `tests/models/` (includes 192 modality undo tests) |
-| API Integration Tests | 633 | `tests/api/{events,time,environment,simulation,modalities,scenario,webhooks}/` (includes 40 undo/redo + 20 reset + 40 scenario + 46 webhook tests) |
+| API Integration Tests | 658 | `tests/api/{events,time,environment,simulation,modalities,scenario,webhooks}/` (includes 40 undo/redo + 20 reset + 40 scenario + 46 webhook + 25 batch event tests) |
 | API Unit Tests | 408 | `tests/api/unit/` (includes 43 scenario model tests + 80 webhook tests) |
 | API Workflow Tests | 47 | `tests/api/workflows/` |
 | Cross-Cutting Tests | 105 | `tests/api/cross_cutting/` |
-| API Client Library Tests | 512 | `tests/client/` (437 unit tests + 54 integration tests + 21 webhook tests) |
+| API Client Library Tests | 530 | `tests/client/` (455 unit tests + 54 integration tests + 21 webhook tests) |
 
 Run all tests: `uv run pytest`
 
@@ -480,8 +480,15 @@ See `docs/WEB_UI_IMPLEMENTATION_PLAN.md` for detailed implementation plan.
   - Python client: `client/_webhooks.py` with WebhooksClient, AsyncWebhooksClient
   - Tests: 80 unit tests + 46 integration tests + 21 client tests
   - Documentation: `docs/WEBHOOKS.md`
-- [ ] Batch event submission endpoint for efficient multi-event scheduling
+- [x] Batch event submission endpoint for efficient multi-event scheduling
+  - `POST /events/batch`: Create multiple events in one request (up to 1000)
+  - Features: partial success (207), strict mode (stop_on_first_error), validate_only mode
+  - Models: `BatchCreateEventRequest`, `BatchCreateEventResponse`, `BatchValidationResponse`
+  - Python client: `EventsClient.create_batch()` and `AsyncEventsClient.create_batch()`
+  - Tests: 25 API integration tests + 18 client unit tests
+  - Documentation: `docs/REST_API.md`, `docs/API_CLIENT.md`
 - [ ] State snapshot endpoint for efficient context gathering
+- [ ] Look into Model Context Protocol server/host?
 
 ### Documentation & Examples
 - [x] Update SCENARIOS.md for pure-data scenarios
