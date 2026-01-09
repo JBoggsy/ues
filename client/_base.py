@@ -80,6 +80,24 @@ class BaseClient:
         """
         return self._http.put(path, json=json, params=params)
     
+    def _patch(
+        self,
+        path: str,
+        json: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
+    ) -> Any:
+        """Make a PATCH request.
+        
+        Args:
+            path: The URL path.
+            json: JSON body to send.
+            params: Query parameters.
+        
+        Returns:
+            The parsed JSON response.
+        """
+        return self._http.patch(path, json=json, params=params)
+    
     def _delete(self, path: str, params: dict[str, Any] | None = None) -> Any:
         """Make a DELETE request.
         
@@ -159,6 +177,24 @@ class AsyncBaseClient:
             The parsed JSON response.
         """
         return await self._http.put(path, json=json, params=params)
+    
+    async def _patch(
+        self,
+        path: str,
+        json: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
+    ) -> Any:
+        """Make an async PATCH request.
+        
+        Args:
+            path: The URL path.
+            json: JSON body to send.
+            params: Query parameters.
+        
+        Returns:
+            The parsed JSON response.
+        """
+        return await self._http.patch(path, json=json, params=params)
     
     async def _delete(self, path: str, params: dict[str, Any] | None = None) -> Any:
         """Make an async DELETE request.

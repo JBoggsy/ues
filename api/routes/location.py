@@ -10,10 +10,11 @@ from typing import Any, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, ValidationError
 
+from api.broadcast import broadcast_event
 from api.dependencies import SimulationEngineDep
 from api.models import ModalityActionResponse
 from api.utils import create_immediate_event
-from api.websocket import ws_manager, WSEventType
+from api.websocket import WSEventType
 from models.modalities.location_input import LocationInput
 from models.modalities.location_state import LocationState
 
@@ -229,7 +230,7 @@ async def update_location(request: UpdateLocationRequest, engine: SimulationEngi
         )
 
         # Broadcast location updated event
-        await ws_manager.broadcast(WSEventType.LOCATION_UPDATED, {
+        await broadcast_event(WSEventType.LOCATION_UPDATED, {
             "latitude": request.latitude,
             "longitude": request.longitude,
             "address": request.address,

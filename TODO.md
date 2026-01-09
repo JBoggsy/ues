@@ -2,18 +2,18 @@
 
 ## Test Suite Summary
 
-**Total Tests: 2,935 passing**
+**Total Tests: 3,113 passing**
 
 | Category | Test Count | Location |
 |----------|------------|----------|
 | Core Infrastructure Models | 673 | `tests/models/` (includes 61 undo + 22 simulation undo + 181 scenario/serialization tests) |
 | Priority 1 Modality Models | 290 | `tests/models/` |
 | Priority 2 Modality Models | 493 | `tests/models/` (includes 192 modality undo tests) |
-| API Integration Tests | 587 | `tests/api/{events,time,environment,simulation,modalities,scenario}/` (includes 40 undo/redo + 20 reset + 40 scenario tests) |
-| API Unit Tests | 328 | `tests/api/unit/` (includes 43 scenario model tests) |
+| API Integration Tests | 633 | `tests/api/{events,time,environment,simulation,modalities,scenario,webhooks}/` (includes 40 undo/redo + 20 reset + 40 scenario + 46 webhook tests) |
+| API Unit Tests | 408 | `tests/api/unit/` (includes 43 scenario model tests + 80 webhook tests) |
 | API Workflow Tests | 47 | `tests/api/workflows/` |
 | Cross-Cutting Tests | 105 | `tests/api/cross_cutting/` |
-| API Client Library Tests | 491 | `tests/client/` (437 unit tests + 54 integration tests) |
+| API Client Library Tests | 512 | `tests/client/` (437 unit tests + 54 integration tests + 21 webhook tests) |
 
 Run all tests: `uv run pytest`
 
@@ -473,7 +473,13 @@ See `docs/WEB_UI_IMPLEMENTATION_PLAN.md` for detailed implementation plan.
   - Python client: `client/_websocket.py` with WebSocketSubscription
   - Web UI: `webapp/src/api/websocket.ts` with React hooks
   - Documentation: `docs/WEBSOCKET.md`
-- [ ] Webhook registration for event callbacks
+- [x] Webhook registration for event callbacks
+  - `api/webhooks.py`: WebhookRegistration, WebhookRegistry, WebhookDispatcher
+  - `api/routes/webhooks.py`: 9 REST endpoints for webhook management
+  - `api/broadcast.py`: Unified broadcast helper for WebSocket + Webhook
+  - Python client: `client/_webhooks.py` with WebhooksClient, AsyncWebhooksClient
+  - Tests: 80 unit tests + 46 integration tests + 21 client tests
+  - Documentation: `docs/WEBHOOKS.md`
 - [ ] Batch event submission endpoint for efficient multi-event scheduling
 - [ ] State snapshot endpoint for efficient context gathering
 

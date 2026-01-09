@@ -176,7 +176,7 @@ All endpoints return JSON responses with appropriate HTTP status codes. The API 
 - **Simplicity**: Action-specific endpoints (e.g., `/email/send`) are more intuitive than generic submission
 - **Completeness**: Full control over all simulation operations
 - **Documentation**: FastAPI auto-generates OpenAPI docs from typed models
-- **Real-time Updates**: WebSocket support planned for state streaming
+- **Real-time Updates**: WebSocket and Webhook support for event notifications
 - **Error Handling**: Comprehensive validation with detailed error messages
 
 For detailed API documentation, see `docs/REST_API.md` and `docs/MODALITY_ROUTES.md`.
@@ -259,8 +259,9 @@ For detailed patterns and examples, see `docs/SCENARIOS.md` and `docs/simulation
 - ✅ Modality-specific typed endpoints (Email, SMS, Chat, Calendar, Location, Weather)
 - ✅ Event management and time control endpoints
 - ✅ Shared base models and utilities
+- ✅ WebSocket support for real-time updates
+- ✅ Webhook support for HTTP callback notifications
 - 🚧 Integration tests for all routes
-- 📋 WebSocket support for real-time updates
 
 **Phase 4: Web UI** - 📋 Planned
 - Environment designer interface

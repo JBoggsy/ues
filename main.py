@@ -46,7 +46,9 @@ from api.routes import simulation as simulation_routes
 from api.routes import sms as sms_routes
 from api.routes import time as time_routes
 from api.routes import weather as weather_routes
+from api.routes import webhooks as webhooks_routes
 from api.routes import websocket as websocket_routes
+from api.webhooks import webhook_dispatcher
 
 
 @asynccontextmanager
@@ -70,7 +72,8 @@ async def lifespan(app: FastAPI):
     yield  # App runs and handles requests here
     
     # Shutdown: Clean up resources
-    print("🛑 Shutting down UES - Cleaning up SimulationEngine...")
+    print("🛑 Shutting down UES - Cleaning up...")
+    await webhook_dispatcher.close()
     shutdown_simulation_engine()
     print("✅ Shutdown complete")
 
@@ -132,6 +135,7 @@ app.include_router(sms_routes.router)
 app.include_router(chat_routes.router)
 app.include_router(calendar_routes.router)
 app.include_router(location_routes.router)
+app.include_router(webhooks_routes.router)
 app.include_router(websocket_routes.router)
 
 

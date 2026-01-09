@@ -11,10 +11,11 @@ from typing import Literal
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
+from api.broadcast import broadcast_event
 from api.dependencies import SimulationEngineDep
 from api.models import ModalityActionResponse
 from api.utils import create_immediate_event
-from api.websocket import ws_manager, WSEventType
+from api.websocket import WSEventType
 from models.modalities.chat_input import ChatInput
 from models.modalities.chat_state import ChatMessage, ConversationMetadata, ChatState
 
@@ -309,7 +310,7 @@ async def send_chat_message(
         if len(content_preview) > 50:
             content_preview = content_preview[:50] + "..."
         
-        await ws_manager.broadcast(WSEventType.CHAT_MESSAGE, {
+        await broadcast_event(WSEventType.CHAT_MESSAGE, {
             "conversation_id": request.conversation_id,
             "role": request.role,
             "preview": content_preview,

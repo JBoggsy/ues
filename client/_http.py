@@ -357,6 +357,24 @@ class HTTPClient:
         """
         return self.request("PUT", path, params=params, json=json)
     
+    def patch(
+        self,
+        path: str,
+        json: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
+    ) -> Any:
+        """Make a PATCH request.
+        
+        Args:
+            path: The URL path.
+            json: JSON body to send.
+            params: Query parameters.
+        
+        Returns:
+            The parsed JSON response.
+        """
+        return self.request("PATCH", path, params=params, json=json)
+    
     def delete(self, path: str, params: dict[str, Any] | None = None) -> Any:
         """Make a DELETE request.
         
@@ -560,6 +578,24 @@ class AsyncHTTPClient:
             The parsed JSON response.
         """
         return await self.request("PUT", path, params=params, json=json)
+    
+    async def patch(
+        self,
+        path: str,
+        json: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
+    ) -> Any:
+        """Make an async PATCH request.
+        
+        Args:
+            path: The URL path.
+            json: JSON body to send.
+            params: Query parameters.
+        
+        Returns:
+            The parsed JSON response.
+        """
+        return await self.request("PATCH", path, params=params, json=json)
     
     async def delete(self, path: str, params: dict[str, Any] | None = None) -> Any:
         """Make an async DELETE request.

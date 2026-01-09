@@ -9,8 +9,9 @@ from typing import Any, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
+from api.broadcast import broadcast_event
 from api.dependencies import SimulationEngineDep
-from api.websocket import ws_manager, WSEventType
+from api.websocket import WSEventType
 from models.event import EventStatus
 
 # Create router for simulation control endpoints
@@ -144,7 +145,7 @@ async def start_simulation(request: StartSimulationRequest, engine: SimulationEn
         print("Simulation started:", result)
         
         # Broadcast simulation started event
-        await ws_manager.broadcast(WSEventType.SIMULATION_STARTED, {
+        await broadcast_event(WSEventType.SIMULATION_STARTED, {
             "simulation_id": result["simulation_id"],
             "mode": "auto" if request.auto_advance else "manual",
             "current_time": result["current_time"],
@@ -193,7 +194,7 @@ async def stop_simulation(engine: SimulationEngineDep):
         result = engine.stop()
         
         # Broadcast simulation stopped event
-        await ws_manager.broadcast(WSEventType.SIMULATION_STOPPED, {
+        await broadcast_event(WSEventType.SIMULATION_STOPPED, {
             "simulation_id": result["simulation_id"],
             "final_time": result["final_time"],
             "events_executed": result["events_executed"],
@@ -299,7 +300,7 @@ async def reset_simulation(engine: SimulationEngineDep):
         message += f" Warning: {len(result['undo_errors'])} undo errors occurred."
 
     # Broadcast simulation reset event
-    await ws_manager.broadcast(WSEventType.SIMULATION_RESET, {
+    await broadcast_event(WSEventType.SIMULATION_RESET, {
         "events_undone": result["events_undone"],
         "events_reset": result["events_reset"],
         "undo_errors_count": len(result["undo_errors"]),
@@ -454,7 +455,7 @@ async def clear_simulation(
         result = engine.clear(reset_time_to=reset_time_to)
         
         # Broadcast simulation cleared event
-        await ws_manager.broadcast(WSEventType.SIMULATION_CLEARED, {
+        await broadcast_event(WSEventType.SIMULATION_CLEARED, {
             "events_removed": result["events_removed"],
             "modalities_cleared": result["modalities_cleared"],
             "time_reset": result["time_reset"],
@@ -518,7 +519,7 @@ async def undo_simulation(
         ]
         
         # Broadcast undo performed event
-        await ws_manager.broadcast(WSEventType.UNDO_PERFORMED, {
+        await broadcast_event(WSEventType.UNDO_PERFORMED, {
             "undone_count": result["undone_count"],
             "can_undo": result["can_undo"],
             "can_redo": result["can_redo"],
@@ -591,7 +592,7 @@ async def redo_simulation(
         ]
         
         # Broadcast redo performed event
-        await ws_manager.broadcast(WSEventType.REDO_PERFORMED, {
+        await broadcast_event(WSEventType.REDO_PERFORMED, {
             "redone_count": result["redone_count"],
             "can_undo": result["can_undo"],
             "can_redo": result["can_redo"],

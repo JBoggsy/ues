@@ -119,6 +119,7 @@ The main client provides namespaced access to all API functionality through sub-
 | `client.calendar` | `CalendarClient` | `/calendar/*` |
 | `client.location` | `LocationClient` | `/location/*` |
 | `client.weather` | `WeatherClient` | `/weather/*` |
+| `client.webhooks` | `WebhooksClient` | `/webhooks/*` |
 
 ---
 
@@ -757,6 +758,94 @@ results = client.environment.query_modality(
     modality="email",
     query_params={"folder": "inbox", "is_read": False},
 )
+```
+
+---
+
+## Webhooks
+
+The webhooks sub-client provides methods for managing HTTP callback registrations. For comprehensive webhook documentation, see [WEBHOOKS.md](WEBHOOKS.md).
+
+### Registering a Webhook
+
+```python
+# Register a webhook to receive email events
+webhook = client.webhooks.register(
+    url="https://my-agent.example.com/callback",
+    events=["email.", "sms.received"],  # Event patterns
+    secret="my-secret-key",  # For HMAC signature
+    metadata={"agent": "EmailBot"}
+)
+print(f"Registered webhook: {webhook['id']}")
+```
+
+### Testing Webhooks
+
+```python
+# Send a test event to verify connectivity
+result = client.webhooks.test(webhook_id)
+if result["success"]:
+    print(f"Success! Response time: {result['response_time_ms']}ms")
+else:
+    print(f"Failed: {result['error_message']}")
+```
+
+### Managing Webhooks
+
+```python
+# List all webhooks
+webhooks = client.webhooks.list()
+for wh in webhooks["items"]:
+    print(f"- {wh['id']}: {wh['url']} ({wh['status']})")
+
+# List only active webhooks
+active = client.webhooks.list(status="active")
+
+# Get a specific webhook
+webhook = client.webhooks.get(webhook_id)
+
+# Update webhook configuration
+updated = client.webhooks.update(
+    webhook_id,
+    url="https://new-url.example.com/callback",
+    events=["email."],
+)
+
+# Pause webhook (stops receiving events)
+client.webhooks.pause(webhook_id)
+
+# Resume webhook
+client.webhooks.resume(webhook_id)
+
+# Delete webhook
+client.webhooks.delete(webhook_id)
+```
+
+### Delivery History
+
+```python
+# Get recent delivery attempts for debugging
+deliveries = client.webhooks.get_deliveries(webhook_id)
+for d in deliveries["items"]:
+    status = "✓" if d["status"] == "delivered" else "✗"
+    print(f"{status} {d['event_type']}: {d['response_time_ms']}ms")
+```
+
+### Async Usage
+
+```python
+async with AsyncUESClient() as client:
+    # Register webhook
+    webhook = await client.webhooks.register(
+        url="https://example.com/callback",
+        events=["email."]
+    )
+    
+    # Test and manage
+    result = await client.webhooks.test(webhook["id"])
+    await client.webhooks.pause(webhook["id"])
+    await client.webhooks.resume(webhook["id"])
+    await client.webhooks.delete(webhook["id"])
 ```
 
 ---

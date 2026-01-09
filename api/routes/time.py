@@ -10,8 +10,9 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
+from api.broadcast import broadcast_event
 from api.dependencies import SimulationEngineDep
-from api.websocket import ws_manager, WSEventType
+from api.websocket import WSEventType
 from models.simulation import SimulationEngine
 
 
@@ -174,7 +175,7 @@ async def advance_time(request: AdvanceTimeRequest, engine: SimulationEngineDep)
         )
         
         # Broadcast time advanced event
-        await ws_manager.broadcast(WSEventType.TIME_ADVANCED, {
+        await broadcast_event(WSEventType.TIME_ADVANCED, {
             "current_time": current_time.isoformat(),
             "previous_time": previous_time.isoformat(),
             "delta_seconds": request.seconds,
@@ -292,7 +293,7 @@ async def set_time(request: SetTimeRequest, engine: SimulationEngineDep):
         )
         
         # Broadcast time set event
-        await ws_manager.broadcast(WSEventType.TIME_SET, {
+        await broadcast_event(WSEventType.TIME_SET, {
             "current_time": current_time.isoformat(),
             "previous_time": previous_time.isoformat(),
             "skipped_events": result["skipped_events"],
@@ -360,7 +361,7 @@ async def skip_to_next_event(engine: SimulationEngineDep):
         )
         
         # Broadcast time skipped event
-        await ws_manager.broadcast(WSEventType.TIME_SKIPPED, {
+        await broadcast_event(WSEventType.TIME_SKIPPED, {
             "current_time": current_time.isoformat(),
             "previous_time": previous_time.isoformat(),
             "events_executed": result["events_executed"],
@@ -415,7 +416,7 @@ async def set_time_scale(request: SetScaleRequest, engine: SimulationEngineDep):
             mode = "manual"
         
         # Broadcast time scale changed event
-        await ws_manager.broadcast(WSEventType.TIME_SCALE_CHANGED, {
+        await broadcast_event(WSEventType.TIME_SCALE_CHANGED, {
             "time_scale": request.scale,
         })
         
@@ -456,7 +457,7 @@ async def pause_time(engine: SimulationEngineDep):
     current_time = engine.environment.time_state.current_time
     
     # Broadcast time paused event
-    await ws_manager.broadcast(WSEventType.TIME_PAUSED, {
+    await broadcast_event(WSEventType.TIME_PAUSED, {
         "current_time": current_time.isoformat(),
     })
     
@@ -485,7 +486,7 @@ async def resume_time(engine: SimulationEngineDep):
     current_time = engine.environment.time_state.current_time
     
     # Broadcast time resumed event
-    await ws_manager.broadcast(WSEventType.TIME_RESUMED, {
+    await broadcast_event(WSEventType.TIME_RESUMED, {
         "current_time": current_time.isoformat(),
     })
     

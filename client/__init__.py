@@ -95,6 +95,10 @@ from client._weather import (
     WeatherQueryResponse,
     WeatherStateResponse,
 )
+from client._webhooks import (
+    AsyncWebhooksClient,
+    WebhooksClient,
+)
 from client._websocket import (
     WebSocketSubscription,
     WSEvent,
@@ -140,6 +144,8 @@ __all__ = [
     "AsyncLocationClient",
     "WeatherClient",
     "AsyncWeatherClient",
+    "WebhooksClient",
+    "AsyncWebhooksClient",
     # Exceptions
     "UESClientError",
     "ConnectionError",

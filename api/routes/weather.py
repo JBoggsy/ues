@@ -10,10 +10,11 @@ from typing import Any, Literal, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, ValidationError
 
+from api.broadcast import broadcast_event
 from api.dependencies import SimulationEngineDep
 from api.models import ModalityActionResponse
 from api.utils import create_immediate_event
-from api.websocket import ws_manager, WSEventType
+from api.websocket import WSEventType
 from models.modalities.weather_input import WeatherInput, WeatherReport
 from models.modalities.weather_state import WeatherState
 
@@ -225,7 +226,7 @@ async def update_weather(request: UpdateWeatherRequest, engine: SimulationEngine
         )
 
         # Broadcast weather update via WebSocket
-        await ws_manager.broadcast(
+        await broadcast_event(
             WSEventType.WEATHER_UPDATED,
             {
                 "latitude": request.latitude,

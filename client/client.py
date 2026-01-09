@@ -44,6 +44,7 @@ from client._simulation import AsyncSimulationClient, SimulationClient
 from client._sms import AsyncSMSClient, SMSClient
 from client._time import AsyncTimeClient, TimeClient
 from client._weather import AsyncWeatherClient, WeatherClient
+from client._webhooks import AsyncWebhooksClient, WebhooksClient
 from client._websocket import WebSocketSubscription
 
 
@@ -137,6 +138,7 @@ class UESClient:
         self._calendar: CalendarClient | None = None
         self._location: LocationClient | None = None
         self._weather: WeatherClient | None = None
+        self._webhooks: WebhooksClient | None = None
     
     def __enter__(self) -> "UESClient":
         """Enter context manager.
@@ -339,6 +341,24 @@ class UESClient:
         if self._weather is None:
             self._weather = WeatherClient(self._http)
         return self._weather
+    
+    @property
+    def webhooks(self) -> WebhooksClient:
+        """Access webhook management endpoints (/webhooks/*).
+        
+        Provides methods for:
+        - Registering new webhooks
+        - Listing and querying webhooks
+        - Testing webhook connectivity
+        - Pausing and resuming webhooks
+        - Getting delivery history
+        
+        Returns:
+            WebhooksClient instance for webhook operations.
+        """
+        if self._webhooks is None:
+            self._webhooks = WebhooksClient(self._http)
+        return self._webhooks
 
 
 class AsyncUESClient:
@@ -437,6 +457,7 @@ class AsyncUESClient:
         self._calendar: AsyncCalendarClient | None = None
         self._location: AsyncLocationClient | None = None
         self._weather: AsyncWeatherClient | None = None
+        self._webhooks: AsyncWebhooksClient | None = None
     
     async def __aenter__(self) -> "AsyncUESClient":
         """Enter async context manager.
@@ -639,6 +660,24 @@ class AsyncUESClient:
         if self._weather is None:
             self._weather = AsyncWeatherClient(self._http)
         return self._weather
+    
+    @property
+    def webhooks(self) -> AsyncWebhooksClient:
+        """Access webhook management endpoints (/webhooks/*).
+        
+        Provides async methods for:
+        - Registering new webhooks
+        - Listing and querying webhooks
+        - Testing webhook connectivity
+        - Pausing and resuming webhooks
+        - Getting delivery history
+        
+        Returns:
+            AsyncWebhooksClient instance for webhook operations.
+        """
+        if self._webhooks is None:
+            self._webhooks = AsyncWebhooksClient(self._http)
+        return self._webhooks
     
     def subscribe(
         self,

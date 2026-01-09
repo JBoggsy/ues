@@ -11,10 +11,11 @@ from typing import Literal
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, field_validator
 
+from api.broadcast import broadcast_event
 from api.dependencies import SimulationEngineDep
 from api.models import ModalityActionResponse, ModalityStateResponse
 from api.utils import create_immediate_event
-from api.websocket import ws_manager, WSEventType
+from api.websocket import WSEventType
 from models.modalities.email_input import EmailInput
 from models.modalities.email_state import Email, EmailState, EmailSummary, EmailThread
 
@@ -474,7 +475,7 @@ async def send_email(
         )
 
         # Broadcast email sent event
-        await ws_manager.broadcast(WSEventType.EMAIL_SENT, {
+        await broadcast_event(WSEventType.EMAIL_SENT, {
             "email_id": event.event_id,
             "to": request.to_addresses,
             "subject": request.subject,
@@ -540,7 +541,7 @@ async def receive_email(
         )
 
         # Broadcast email received event
-        await ws_manager.broadcast(WSEventType.EMAIL_RECEIVED, {
+        await broadcast_event(WSEventType.EMAIL_RECEIVED, {
             "email_id": event.event_id,
             "from": request.from_address,
             "subject": request.subject,

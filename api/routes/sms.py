@@ -10,10 +10,11 @@ from typing import Literal
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
+from api.broadcast import broadcast_event
 from api.dependencies import SimulationEngineDep
 from api.models import ModalityActionResponse
 from api.utils import create_immediate_event
-from api.websocket import ws_manager, WSEventType
+from api.websocket import WSEventType
 from models.modalities.sms_input import SMSInput
 from models.modalities.sms_state import (
     GroupParticipant,
@@ -420,7 +421,7 @@ async def send_sms(
         )
 
         # Broadcast SMS sent event
-        await ws_manager.broadcast(WSEventType.SMS_SENT, {
+        await broadcast_event(WSEventType.SMS_SENT, {
             "message_id": event.event_id,
             "to": request.to_numbers,
             "preview": request.body[:50] + "..." if len(request.body) > 50 else request.body,
@@ -491,7 +492,7 @@ async def receive_sms(
         )
 
         # Broadcast SMS received event
-        await ws_manager.broadcast(WSEventType.SMS_RECEIVED, {
+        await broadcast_event(WSEventType.SMS_RECEIVED, {
             "message_id": event.event_id,
             "from": request.from_number,
             "preview": request.body[:50] + "..." if len(request.body) > 50 else request.body,
