@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from models.base_input import ModalityInput
 from models.base_state import ModalityState
@@ -116,10 +116,7 @@ class LocationState(ModalityState):
         default=100, description="Maximum number of historical locations to retain"
     )
 
-    class Config:
-        """Pydantic configuration."""
-
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     def apply_input(self, input_data: ModalityInput) -> None:
         """Apply a LocationInput to modify this state.
@@ -170,17 +167,30 @@ class LocationState(ModalityState):
         self.update_count += 1
 
     def get_snapshot(self) -> dict[str, Any]:
-        """Return a complete snapshot of current state for API responses.
+        """Return a compact snapshot of current location state.
+
+        This returns a compact view optimized for API responses and LLM context.
+        It includes current location data but excludes location history.
+
+        For complete state including history, use `model_dump(mode="json")`.
 
         Returns:
-            Dictionary representation of current location state suitable for API responses.
+            Dictionary with:
+            - modality_type: Always "location"
+            - last_updated: ISO timestamp of last update
+            - update_count: Number of location updates
+            - current: Current location details (lat, lon, address, etc.)
+            - history_count: Number of entries in location history
+
+        Note:
+            History is NOT included. Use model_dump() for full state.
         """
         snapshot: dict[str, Any] = {
             "modality_type": self.modality_type,
             "last_updated": self.last_updated.isoformat(),
             "update_count": self.update_count,
             "current": {},
-            "history": [entry.to_dict() for entry in self.location_history],
+            "history_count": len(self.location_history),
         }
 
         if self.current_latitude is not None and self.current_longitude is not None:

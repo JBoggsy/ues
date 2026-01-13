@@ -9,3 +9,27 @@ wheels/
 # Virtual environments
 .venv
 .env
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Development artifacts
+chat_logs/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Web UI build
+webapp/dist/
+webapp/node_modules/

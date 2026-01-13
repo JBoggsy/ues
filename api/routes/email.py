@@ -315,19 +315,23 @@ class EmailQueryResponse(BaseModel):
 async def get_email_state(
     engine: SimulationEngineDep,
     summary: bool = False,
+    compact: bool = False,
 ) -> EmailStateResponse | EmailSummaryStateResponse:
     """Get current email state.
 
-    Returns a complete snapshot of the email system including all messages,
+    Returns a snapshot of the email system including messages,
     threads, folders, and labels.
 
     Args:
         engine: The simulation engine dependency.
         summary: If True, return compact summaries without full email body
             content. Useful for getting an overview without large payloads.
+        compact: Alias for summary parameter (for API consistency with other modalities).
+            If either summary or compact is True, returns compact response.
 
     Returns:
-        Complete email state with all messages, or summary if summary=True.
+        EmailStateResponse: Full state with all messages (default).
+        EmailSummaryStateResponse: Compact state without body content (if summary=True or compact=True).
     """
     email_state = engine.environment.get_state("email")
 
@@ -339,8 +343,8 @@ async def get_email_state(
 
     current_time = engine.environment.time_state.current_time
 
-    # Return summary response if requested
-    if summary:
+    # Return summary response if requested (summary or compact)
+    if summary or compact:
         summary_data = email_state.get_summary_data()
         return EmailSummaryStateResponse(
             current_time=current_time,

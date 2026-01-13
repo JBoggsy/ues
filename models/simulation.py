@@ -13,7 +13,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from models.environment import Environment
 from models.event import EventStatus, SimulatorEvent
@@ -59,8 +59,7 @@ class SimulationEngine(BaseModel):
     is_running: bool = False
     undo_stack: UndoStack = Field(default_factory=UndoStack)
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     def __init__(self, **data):
         """Initialize with private attributes."""

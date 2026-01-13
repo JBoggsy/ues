@@ -5,7 +5,7 @@ deleting, and querying calendar data.
 """
 
 from datetime import datetime
-from typing import Optional
+from typing import Any, Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, ValidationError
@@ -377,6 +377,33 @@ class CalendarStateResponse(BaseModel):
     event_count: int
 
 
+class CalendarCompactStateResponse(BaseModel):
+    """Compact response model for calendar state.
+
+    Used when compact=true query parameter is set. Optimized for LLM context.
+    Returns calendar metadata without full event details.
+
+    Args:
+        modality_type: Always "calendar".
+        last_updated: When state was last modified.
+        update_count: Number of operations applied.
+        default_calendar_id: ID of default calendar.
+        user_timezone: User's default time zone.
+        calendars: Calendar metadata (id, name, event_count per calendar).
+        calendar_count: Number of calendars.
+        event_count: Total number of events.
+    """
+
+    modality_type: str
+    last_updated: str
+    update_count: int
+    default_calendar_id: str
+    user_timezone: str
+    calendars: dict[str, Any]
+    calendar_count: int
+    event_count: int
+
+
 class CalendarQueryResponse(BaseModel):
     """Response model for calendar queries.
 
@@ -396,17 +423,23 @@ class CalendarQueryResponse(BaseModel):
 # Route Handlers
 
 
-@router.get("/state", response_model=CalendarStateResponse)
-async def get_calendar_state(engine: SimulationEngineDep):
+@router.get("/state")
+async def get_calendar_state(
+    engine: SimulationEngineDep,
+    compact: bool = False,
+) -> CalendarStateResponse | CalendarCompactStateResponse:
     """Get current calendar state.
 
-    Returns a complete snapshot of all calendars and events.
+    Returns a snapshot of all calendars and events.
 
     Args:
         engine: Simulation engine dependency.
+        compact: If True, return compact state with calendar metadata only.
+            Optimized for LLM context and quick status checks.
 
     Returns:
-        Complete calendar state including all calendars and events.
+        CalendarStateResponse: Full state with all events (default).
+        CalendarCompactStateResponse: Compact state with calendar metadata (if compact=True).
 
     Raises:
         HTTPException: If calendar state not found.
@@ -418,8 +451,24 @@ async def get_calendar_state(engine: SimulationEngineDep):
                 status_code=500, detail="Calendar state not properly initialized"
             )
 
-        snapshot = calendar_state.get_snapshot()
-        return CalendarStateResponse(**snapshot)
+        # Return compact snapshot if requested
+        if compact:
+            snapshot = calendar_state.get_snapshot()
+            return CalendarCompactStateResponse(**snapshot)
+
+        # Use model_dump for complete state (includes all events)
+        state_data = calendar_state.model_dump(mode="json")
+        return CalendarStateResponse(
+            modality_type=state_data["modality_type"],
+            last_updated=state_data["last_updated"],
+            update_count=state_data["update_count"],
+            default_calendar_id=state_data["default_calendar_id"],
+            user_timezone=state_data["user_timezone"],
+            calendars=state_data["calendars"],
+            events=state_data["events"],
+            calendar_count=len(state_data["calendars"]),
+            event_count=len(state_data["events"]),
+        )
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Failed to get calendar state: {str(e)}"

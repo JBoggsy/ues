@@ -120,6 +120,26 @@ class LocationStateResponse(BaseModel):
     history: list[dict[str, Any]] = Field(description="Recent location history")
 
 
+class LocationCompactStateResponse(BaseModel):
+    """Compact response containing current location state without history.
+
+    Used when compact=true query parameter is set. Optimized for LLM context.
+
+    Args:
+        modality_type: Always "location".
+        last_updated: ISO format timestamp of last update.
+        update_count: Number of location updates.
+        current: Current location data.
+        history_count: Number of entries in location history (not included).
+    """
+
+    modality_type: str = Field(description="Modality type identifier")
+    last_updated: str = Field(description="ISO format timestamp of last update")
+    update_count: int = Field(description="Number of location updates")
+    current: dict[str, Any] = Field(description="Current location data")
+    history_count: int = Field(description="Number of history entries (history not included)")
+
+
 class LocationQueryResponse(BaseModel):
     """Response containing location query results.
 
@@ -137,16 +157,24 @@ class LocationQueryResponse(BaseModel):
 # Route Handlers
 
 
-@router.get("/state", response_model=LocationStateResponse)
-async def get_location_state(engine: SimulationEngineDep):
+@router.get("/state")
+async def get_location_state(
+    engine: SimulationEngineDep,
+    compact: bool = False,
+) -> LocationStateResponse | LocationCompactStateResponse:
     """Get current location state.
 
-    Returns a complete snapshot of the user's current location and recent
+    Returns a snapshot of the user's current location and optionally
     location history.
 
+    Args:
+        engine: The simulation engine dependency.
+        compact: If True, return compact state without history.
+            Optimized for LLM context and quick status checks.
+
     Returns:
-        LocationStateResponse: Current location state including coordinates,
-            address, metadata, and location history.
+        LocationStateResponse: Full state including history (default).
+        LocationCompactStateResponse: Compact state without history (if compact=True).
     """
     location_state = engine.environment.get_state("location")
 
@@ -156,8 +184,31 @@ async def get_location_state(engine: SimulationEngineDep):
             detail="Location state not properly initialized",
         )
 
-    snapshot = location_state.get_snapshot()
-    return LocationStateResponse(**snapshot)
+    # Return compact snapshot if requested
+    if compact:
+        snapshot = location_state.get_snapshot()
+        return LocationCompactStateResponse(**snapshot)
+
+    # Use model_dump for complete state (includes history)
+    state_data = location_state.model_dump(mode="json")
+    
+    # Transform to response format expected by LocationStateResponse
+    return LocationStateResponse(
+        modality_type=state_data["modality_type"],
+        last_updated=state_data["last_updated"],
+        update_count=state_data["update_count"],
+        current={
+            "latitude": state_data["current_latitude"],
+            "longitude": state_data["current_longitude"],
+            "address": state_data.get("current_address"),
+            "named_location": state_data.get("current_named_location"),
+            "altitude": state_data.get("current_altitude"),
+            "accuracy": state_data.get("current_accuracy"),
+            "speed": state_data.get("current_speed"),
+            "bearing": state_data.get("current_bearing"),
+        },
+        history=state_data["location_history"],
+    )
 
 
 @router.post("/query", response_model=LocationQueryResponse)

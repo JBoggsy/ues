@@ -63,8 +63,9 @@ Query the current state of the simulated environment:
   - `?compact=true` - Return LLM-optimized compact snapshot (~2KB vs 50KB+)
   - `?format=text` - Return plain text (only with `compact=true`)
 - `GET /environment/modalities` - List available modalities
-- `GET /environment/modalities/{modality}` - Get specific modality state
 - `POST /environment/validate` - Validate environment consistency
+
+> **Note**: For individual modality state, use `GET /{modality}/state` endpoints (see Section 6).
 
 **Compact Snapshot (`GET /environment/state?compact=true`):**
 
@@ -353,8 +354,22 @@ Each modality has dedicated, type-safe endpoints following a consistent pattern:
 
 Every modality implements:
 - `GET /{modality}/state` - Current state snapshot
+  - `?compact=true` - Return compact view optimized for LLM context (no history/full content)
 - `POST /{modality}/query` - Query with filters (where applicable)
 - `POST /{modality}/{action}` - Action-specific endpoints
+
+**Compact Parameter:**
+
+All `/{modality}/state` endpoints support a `compact` query parameter:
+
+| Modality | Default (full state) | `?compact=true` |
+|----------|---------------------|-----------------|
+| `location` | Includes location history | Current location + history count only |
+| `weather` | Full weather reports per location | Current conditions only |
+| `sms` | All messages and conversations | Conversation metadata (no message bodies) |
+| `chat` | Full message history | Conversation metadata (no messages) |
+| `calendar` | All events with full details | Calendar metadata (no event details) |
+| `email` | All emails with bodies | Statistics + email summaries (no bodies) |
 
 #### Email (`/email`)
 

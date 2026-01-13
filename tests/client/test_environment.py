@@ -15,11 +15,10 @@ from client._environment import (
     EnvironmentClient,
     EnvironmentStateResponse,
     ModalityListResponse,
-    ModalityQueryResponse,
-    ModalityStateResponse,
     ModalitySummary,
     ValidationResponse,
 )
+from client.models import ModalityQueryResponse, ModalityStateResponse
 
 
 # =============================================================================

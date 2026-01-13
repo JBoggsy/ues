@@ -527,13 +527,18 @@ class TestExceptionHandlerIntegration:
         assert response.status_code == 404
 
     def test_invalid_modality_returns_404_with_structure(self, client_with_engine):
-        """Invalid modality triggers ModalityNotFoundError handler."""
+        """Invalid modality endpoint returns 404.
+        
+        Note: The /environment/modalities/{modality} endpoint was removed.
+        Now each modality has its own route (e.g., /email/state, /location/state).
+        Invalid modality URLs return standard FastAPI 404 with 'detail' field.
+        """
         client, _ = client_with_engine
-        response = client.get("/environment/modalities/invalid_modality")
+        response = client.get("/invalid_modality/state")
         assert response.status_code == 404
         data = response.json()
-        assert "error" in data
-        assert "available_modalities" in data
+        # FastAPI returns standard 404 format
+        assert "detail" in data
 
     def test_validation_error_returns_422(self, client_with_engine):
         """Invalid request body triggers validation error handler."""

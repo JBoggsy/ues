@@ -108,7 +108,7 @@ class TestGetEnvironmentState:
         updated_data = updated_response.json()
         updated_location = updated_data["modalities"]["location"]
         
-        # Verify location state changed
+        # Verify location state changed (using model_dump() structure - flat field names)
         assert updated_location["current_latitude"] == new_latitude
         assert updated_location["current_longitude"] == new_longitude
         assert updated_location["current_address"] == "New York, NY"

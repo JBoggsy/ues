@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Any, Optional
 from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from models.event import EventStatus, SimulatorEvent
 
@@ -29,8 +29,7 @@ class EventQueue(BaseModel):
         description="All events in the queue, sorted by scheduled_time",
     )
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @property
     def next_event_time(self) -> Optional[datetime]:

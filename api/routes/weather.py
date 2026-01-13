@@ -99,6 +99,26 @@ class WeatherStateResponse(BaseModel):
     location_count: int = Field(description="Number of tracked locations")
 
 
+class WeatherCompactStateResponse(BaseModel):
+    """Compact response containing weather state without full history.
+
+    Used when compact=true query parameter is set. Optimized for LLM context.
+
+    Args:
+        modality_type: Always "weather".
+        last_updated: ISO format timestamp of last update.
+        update_count: Number of weather updates.
+        location_count: Number of tracked locations.
+        locations: Dict with current weather per location (no history).
+    """
+
+    modality_type: str = Field(description="Modality type identifier")
+    last_updated: str = Field(description="ISO format timestamp of last update")
+    update_count: int = Field(description="Number of weather updates")
+    location_count: int = Field(description="Number of tracked locations")
+    locations: dict[str, Any] = Field(description="Current weather per location (no history)")
+
+
 class WeatherQueryResponse(BaseModel):
     """Response containing weather query results.
 
@@ -118,15 +138,24 @@ class WeatherQueryResponse(BaseModel):
 # Route Handlers
 
 
-@router.get("/state", response_model=WeatherStateResponse)
-async def get_weather_state(engine: SimulationEngineDep):
+@router.get("/state")
+async def get_weather_state(
+    engine: SimulationEngineDep,
+    compact: bool = False,
+) -> WeatherStateResponse | WeatherCompactStateResponse:
     """Get current weather state for all tracked locations.
 
-    Returns a complete snapshot of the weather state including all tracked
+    Returns a snapshot of the weather state including all tracked
     locations and their current weather conditions.
 
+    Args:
+        engine: The simulation engine dependency.
+        compact: If True, return compact state without full history.
+            Optimized for LLM context and quick status checks.
+
     Returns:
-        WeatherStateResponse: Complete weather state with all locations.
+        WeatherStateResponse: Full state including history (default).
+        WeatherCompactStateResponse: Compact state without history (if compact=True).
     """
     weather_state = engine.environment.get_state("weather")
 
@@ -136,8 +165,20 @@ async def get_weather_state(engine: SimulationEngineDep):
             detail="Weather state not properly initialized",
         )
 
-    snapshot = weather_state.get_snapshot()
-    return WeatherStateResponse(**snapshot)
+    # Return compact snapshot if requested
+    if compact:
+        snapshot = weather_state.get_snapshot()
+        return WeatherCompactStateResponse(**snapshot)
+
+    # Use model_dump for complete state (includes history)
+    state_data = weather_state.model_dump(mode="json")
+    return WeatherStateResponse(
+        modality_type=state_data["modality_type"],
+        last_updated=state_data["last_updated"],
+        update_count=state_data["update_count"],
+        locations=state_data["locations"],
+        location_count=len(state_data["locations"]),
+    )
 
 
 @router.post("/query", response_model=WeatherQueryResponse)

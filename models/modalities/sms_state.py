@@ -1048,23 +1048,47 @@ class SMSState(ModalityState):
         return conversation.thread_id
 
     def get_snapshot(self) -> dict[str, Any]:
-        """Return complete state for API responses.
+        """Return a compact snapshot of current SMS state.
+
+        This returns a compact view optimized for API responses and LLM context.
+        It includes conversation metadata and counts but excludes full message content.
+
+        For complete state including all messages, use `model_dump(mode="json")`.
 
         Returns:
-            Dictionary representation of current SMS state.
+            Dictionary with:
+            - modality_type: Always "sms"
+            - last_updated: ISO timestamp of last update
+            - update_count: Number of SMS state changes
+            - user_phone_number: The user's phone number
+            - conversations: Conversation metadata (without full message content)
+            - total_conversations: Number of conversations
+            - total_messages: Total message count
+            - unread_total: Total unread message count
+
+        Note:
+            Full message content is NOT included. Use model_dump() for full state.
         """
+        # Build compact conversation summaries (metadata only, no messages)
+        conversations_snapshot = {}
+        for thread_id, conv in self.conversations.items():
+            conversations_snapshot[thread_id] = {
+                "thread_id": conv.thread_id,
+                "participants": conv.participants,
+                "message_count": conv.message_count,
+                "unread_count": conv.unread_count,
+                "last_message_at": conv.last_message_at.isoformat(),
+                "created_at": conv.created_at.isoformat(),
+            }
+            if conv.display_name:
+                conversations_snapshot[thread_id]["display_name"] = conv.display_name
+
         return {
             "modality_type": self.modality_type,
             "last_updated": self.last_updated.isoformat(),
             "update_count": self.update_count,
             "user_phone_number": self.user_phone_number,
-            "conversations": {
-                thread_id: conv.to_dict()
-                for thread_id, conv in self.conversations.items()
-            },
-            "messages": {
-                msg_id: msg.to_dict() for msg_id, msg in self.messages.items()
-            },
+            "conversations": conversations_snapshot,
             "total_conversations": len(self.conversations),
             "total_messages": len(self.messages),
             "unread_total": sum(

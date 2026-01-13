@@ -311,16 +311,18 @@ The simulation must expose a RESTful API for all control operations and state qu
 **GET /environment/state**
 - Get complete state snapshot
 - Response: Full environment snapshot (time + all modalities)
+- Query params: `?compact=true` for LLM-optimized view
 
 **GET /environment/modalities**
 - List available modalities
 - Response: `{modalities: ["email", "location", "weather"]}`
 
-**GET /environment/modalities/{modality}**
-- Get specific modality state
+**GET /{modality}/state**
+- Get specific modality state (use modality-specific endpoints)
+- Query params: `?compact=true` for compact view
 - Response: Modality state snapshot
 
-**POST /environment/modalities/{modality}/query**
+**POST /{modality}/query**
 - Query modality state with filters
 - Request: `{folder: "inbox", unread: true, limit: 10}`
 - Response: Query results from state.query()

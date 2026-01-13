@@ -6,7 +6,7 @@ conversation state.
 """
 
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
@@ -146,6 +146,29 @@ class ChatStateResponse(BaseModel):
     max_history_size: int
 
 
+class ChatCompactStateResponse(BaseModel):
+    """Compact response model for chat state endpoint.
+
+    Used when compact=true query parameter is set. Optimized for LLM context.
+    Returns conversation metadata without full message content.
+
+    Attributes:
+        modality_type: Always "chat".
+        last_updated: ISO timestamp of last update.
+        update_count: Number of chat state changes.
+        conversations: Conversation metadata (id, title, message_count, etc.).
+        total_message_count: Total number of messages.
+        conversation_count: Number of conversations.
+    """
+
+    modality_type: str = Field(default="chat")
+    last_updated: str
+    update_count: int
+    conversations: dict[str, Any]
+    total_message_count: int
+    conversation_count: int
+
+
 class ChatQueryResponse(BaseModel):
     """Response model for chat query endpoint.
 
@@ -169,17 +192,23 @@ class ChatQueryResponse(BaseModel):
 # ============================================================================
 
 
-@router.get("/state", response_model=ChatStateResponse)
-async def get_chat_state(engine: SimulationEngineDep) -> ChatStateResponse:
+@router.get("/state")
+async def get_chat_state(
+    engine: SimulationEngineDep,
+    compact: bool = False,
+) -> ChatStateResponse | ChatCompactStateResponse:
     """Get current chat state.
 
-    Returns a complete snapshot of all chat conversations and messages.
+    Returns a snapshot of all chat conversations and messages.
 
     Args:
         engine: The simulation engine dependency.
+        compact: If True, return compact state with conversation metadata only.
+            Optimized for LLM context and quick status checks.
 
     Returns:
-        Complete chat state with metadata.
+        ChatStateResponse: Full state with all messages (default).
+        ChatCompactStateResponse: Compact state with conversation metadata (if compact=True).
     """
     chat_state = engine.environment.get_state("chat")
 
@@ -188,6 +217,11 @@ async def get_chat_state(engine: SimulationEngineDep) -> ChatStateResponse:
             status_code=500,
             detail="Chat state not properly initialized",
         )
+
+    # Return compact snapshot if requested
+    if compact:
+        snapshot = chat_state.get_snapshot()
+        return ChatCompactStateResponse(**snapshot)
 
     return ChatStateResponse(
         current_time=engine.environment.time_state.current_time,

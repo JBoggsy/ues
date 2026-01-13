@@ -81,20 +81,6 @@ class ModalityListResponse(BaseModel):
     count: int
 
 
-class ModalityStateResponse(BaseModel):
-    """Response model for a single modality's state.
-    
-    Attributes:
-        modality_type: The type/name of the modality.
-        current_time: The current simulator time (ISO format string).
-        state: The full state of the modality.
-    """
-
-    modality_type: str
-    current_time: str
-    state: dict[str, Any]
-
-
 class ValidationResponse(BaseModel):
     """Response model for environment validation.
     
@@ -109,22 +95,6 @@ class ValidationResponse(BaseModel):
     checked_at: datetime
 
 
-class ModalityQueryResponse(BaseModel):
-    """Response model for modality query results.
-    
-    Attributes:
-        modality_type: The type/name of the modality queried.
-        query: The query parameters that were used.
-        results: The query results (modality-specific format).
-        message: Optional message (e.g., if query not supported).
-    """
-
-    modality_type: str
-    query: dict[str, Any]
-    results: dict[str, Any] | list[Any]
-    message: str | None = None
-
-
 # Synchronous EnvironmentClient
 
 
@@ -133,6 +103,10 @@ class EnvironmentClient(BaseClient):
     
     This client provides methods for querying the current state of the
     simulated environment, including all modality states.
+    
+    Note:
+        To get the state of individual modalities, use the modality-specific
+        clients (e.g., client.email.get_state(), client.location.get_state()).
     
     Example:
         with UESClient() as client:
@@ -143,10 +117,6 @@ class EnvironmentClient(BaseClient):
             # List available modalities
             modalities = client.environment.list_modalities()
             print(f"Available: {modalities.modalities}")
-            
-            # Get specific modality state
-            email_state = client.environment.get_modality("email")
-            print(f"Email state: {email_state.state}")
             
             # Validate environment
             result = client.environment.validate()
@@ -248,57 +218,6 @@ class EnvironmentClient(BaseClient):
         data = self._get(f"{self._BASE_PATH}/modalities")
         return ModalityListResponse(**data)
 
-    def get_modality(self, modality: str) -> ModalityStateResponse:
-        """Get the current state of a specific modality.
-        
-        This returns just the state for one modality, which is more efficient
-        than fetching the entire environment state.
-        
-        Args:
-            modality: The name of the modality to query (e.g., "email", "sms").
-        
-        Returns:
-            The current state of the requested modality.
-        
-        Raises:
-            NotFoundError: If the modality doesn't exist.
-            APIError: If the request fails.
-        """
-        data = self._get(f"{self._BASE_PATH}/modalities/{modality}")
-        return ModalityStateResponse(**data)
-
-    def query_modality(
-        self,
-        modality: str,
-        **query_params: Any,
-    ) -> ModalityQueryResponse:
-        """Query a modality's state with filters.
-        
-        This endpoint allows modality-specific queries with custom filter
-        parameters. The query format varies by modality type.
-        
-        Args:
-            modality: The name of the modality to query.
-            **query_params: Modality-specific query parameters.
-        
-        Returns:
-            Filtered query results from the modality.
-        
-        Raises:
-            NotFoundError: If the modality doesn't exist.
-            ValidationError: If query parameters are invalid.
-            APIError: If the request fails.
-        
-        Query Parameters by Modality:
-            See the API documentation for modality-specific query parameters.
-            Common parameters include: limit, offset, sort_by, sort_order.
-        """
-        data = self._post(
-            f"{self._BASE_PATH}/modalities/{modality}/query",
-            json=query_params,
-        )
-        return ModalityQueryResponse(**data)
-
     def validate(self) -> ValidationResponse:
         """Validate the current environment state for consistency.
         
@@ -324,6 +243,10 @@ class AsyncEnvironmentClient(AsyncBaseClient):
     This client provides async methods for querying the current state of the
     simulated environment, including all modality states.
     
+    Note:
+        To get the state of individual modalities, use the modality-specific
+        clients (e.g., await client.email.get_state(), await client.location.get_state()).
+    
     Example:
         async with AsyncUESClient() as client:
             # Get complete environment state
@@ -333,10 +256,6 @@ class AsyncEnvironmentClient(AsyncBaseClient):
             # List available modalities
             modalities = await client.environment.list_modalities()
             print(f"Available: {modalities.modalities}")
-            
-            # Get specific modality state
-            email_state = await client.environment.get_modality("email")
-            print(f"Email state: {email_state.state}")
             
             # Validate environment
             result = await client.environment.validate()
@@ -437,57 +356,6 @@ class AsyncEnvironmentClient(AsyncBaseClient):
         """
         data = await self._get(f"{self._BASE_PATH}/modalities")
         return ModalityListResponse(**data)
-
-    async def get_modality(self, modality: str) -> ModalityStateResponse:
-        """Get the current state of a specific modality.
-        
-        This returns just the state for one modality, which is more efficient
-        than fetching the entire environment state.
-        
-        Args:
-            modality: The name of the modality to query (e.g., "email", "sms").
-        
-        Returns:
-            The current state of the requested modality.
-        
-        Raises:
-            NotFoundError: If the modality doesn't exist.
-            APIError: If the request fails.
-        """
-        data = await self._get(f"{self._BASE_PATH}/modalities/{modality}")
-        return ModalityStateResponse(**data)
-
-    async def query_modality(
-        self,
-        modality: str,
-        **query_params: Any,
-    ) -> ModalityQueryResponse:
-        """Query a modality's state with filters.
-        
-        This endpoint allows modality-specific queries with custom filter
-        parameters. The query format varies by modality type.
-        
-        Args:
-            modality: The name of the modality to query.
-            **query_params: Modality-specific query parameters.
-        
-        Returns:
-            Filtered query results from the modality.
-        
-        Raises:
-            NotFoundError: If the modality doesn't exist.
-            ValidationError: If query parameters are invalid.
-            APIError: If the request fails.
-        
-        Query Parameters by Modality:
-            See the API documentation for modality-specific query parameters.
-            Common parameters include: limit, offset, sort_by, sort_order.
-        """
-        data = await self._post(
-            f"{self._BASE_PATH}/modalities/{modality}/query",
-            json=query_params,
-        )
-        return ModalityQueryResponse(**data)
 
     async def validate(self) -> ValidationResponse:
         """Validate the current environment state for consistency.

@@ -126,7 +126,7 @@ class TestEventLifecycleConsistency:
         # Advance time to execute the event
         client.post("/simulator/time/advance", json={"seconds": 1})
         
-        # Verify environment state reflects change
+        # Verify environment state reflects change (model_dump format)
         env_response = client.get("/environment/state")
         assert env_response.status_code == 200
         location_state = env_response.json()["modalities"]["location"]
@@ -338,9 +338,9 @@ class TestEnvironmentStateConsistency:
         """Email event should update email modality state."""
         client, _ = client_with_engine
         
-        # Get initial state
-        initial_response = client.get("/environment/modalities/email")
-        initial_count = len(initial_response.json()["state"]["emails"])
+        # Get initial state from modality-specific endpoint
+        initial_response = client.get("/email/state")
+        initial_count = len(initial_response.json()["emails"])
         
         # Execute email receive event
         client.post(
@@ -356,25 +356,20 @@ class TestEnvironmentStateConsistency:
         client.post("/simulator/time/advance", json={"seconds": 1})
         
         # Check modality-specific endpoint
-        modality_response = client.get("/environment/modalities/email")
+        modality_response = client.get("/email/state")
         assert modality_response.status_code == 200
-        email_state = modality_response.json()["state"]
+        email_state = modality_response.json()
         
-        # Check full environment state
-        env_response = client.get("/environment/state")
-        env_email_state = env_response.json()["modalities"]["email"]
-        
-        # Both should have more emails than before
+        # Should have more emails than before
         assert len(email_state["emails"]) > initial_count
-        assert len(env_email_state["emails"]) > initial_count
 
     def test_sms_event_updates_sms_modality_state(self, client_with_engine):
         """SMS event should update SMS modality state."""
         client, _ = client_with_engine
         
-        # Get initial state
-        initial_response = client.get("/environment/modalities/sms")
-        initial_conversations = len(initial_response.json()["state"]["conversations"])
+        # Get initial state from modality-specific endpoint
+        initial_response = client.get("/sms/state")
+        initial_conversations = len(initial_response.json()["conversations"])
         
         # Execute SMS receive event
         client.post(
@@ -390,9 +385,9 @@ class TestEnvironmentStateConsistency:
         client.post("/simulator/time/advance", json={"seconds": 1})
         
         # Check modality-specific endpoint
-        modality_response = client.get("/environment/modalities/sms")
+        modality_response = client.get("/sms/state")
         assert modality_response.status_code == 200
-        sms_state = modality_response.json()["state"]
+        sms_state = modality_response.json()
         
         # Should have at least one conversation
         assert len(sms_state["conversations"]) > initial_conversations
@@ -415,9 +410,9 @@ class TestEnvironmentStateConsistency:
         client.post("/simulator/time/advance", json={"seconds": 1})
         
         # Check modality-specific endpoint
-        modality_response = client.get("/environment/modalities/chat")
+        modality_response = client.get("/chat/state")
         assert modality_response.status_code == 200
-        chat_state = modality_response.json()["state"]
+        chat_state = modality_response.json()
         
         # Should have the conversation
         assert "test_conv" in chat_state["conversations"]
@@ -440,13 +435,13 @@ class TestEnvironmentStateConsistency:
         # Advance time to execute
         client.post("/simulator/time/advance", json={"seconds": 1})
         
-        # Check modality-specific endpoint
-        modality_response = client.get("/environment/modalities/location")
+        # Check modality-specific endpoint (get_snapshot format)
+        modality_response = client.get("/location/state")
         assert modality_response.status_code == 200
-        location_state = modality_response.json()["state"]
+        location_state = modality_response.json()
         
-        assert location_state["current_latitude"] == new_lat
-        assert location_state["current_longitude"] == new_lon
+        assert location_state["current"]["latitude"] == new_lat
+        assert location_state["current"]["longitude"] == new_lon
 
     def test_calendar_event_updates_calendar_modality_state(self, client_with_engine):
         """Calendar event should update calendar modality state."""
@@ -456,9 +451,9 @@ class TestEnvironmentStateConsistency:
         time_response = client.get("/simulator/time")
         current_time = datetime.fromisoformat(time_response.json()["current_time"])
         
-        # Get initial count
-        initial_response = client.get("/environment/modalities/calendar")
-        initial_count = len(initial_response.json()["state"]["events"])
+        # Get initial count from modality-specific endpoint
+        initial_response = client.get("/calendar/state")
+        initial_count = len(initial_response.json()["events"])
         
         # Execute calendar create event
         client.post(
@@ -475,9 +470,9 @@ class TestEnvironmentStateConsistency:
         client.post("/simulator/time/advance", json={"seconds": 1})
         
         # Check modality-specific endpoint
-        modality_response = client.get("/environment/modalities/calendar")
+        modality_response = client.get("/calendar/state")
         assert modality_response.status_code == 200
-        calendar_state = modality_response.json()["state"]
+        calendar_state = modality_response.json()
         
         # Should have more events than before
         assert len(calendar_state["events"]) > initial_count
@@ -488,9 +483,9 @@ class TestEnvironmentStateConsistency:
         
         test_lat, test_lon = 48.8566, 2.3522  # Paris
         
-        # Get initial count
-        initial_response = client.get("/environment/modalities/weather")
-        initial_count = len(initial_response.json()["state"]["locations"])
+        # Get initial count from modality-specific endpoint
+        initial_response = client.get("/weather/state")
+        initial_count = len(initial_response.json()["locations"])
         
         # Execute weather update event
         client.post(
@@ -505,15 +500,15 @@ class TestEnvironmentStateConsistency:
         client.post("/simulator/time/advance", json={"seconds": 1})
         
         # Check modality-specific endpoint
-        modality_response = client.get("/environment/modalities/weather")
+        modality_response = client.get("/weather/state")
         assert modality_response.status_code == 200
-        weather_state = modality_response.json()["state"]
+        weather_state = modality_response.json()
         
         # Should have weather data for more locations
         assert len(weather_state["locations"]) > initial_count
 
     def test_modality_state_matches_full_environment_snapshot(self, client_with_engine):
-        """Modality state endpoint should match corresponding state in full snapshot."""
+        """Modality state endpoint should return data consistent with full snapshot."""
         client, _ = client_with_engine
         
         # Update location
@@ -529,23 +524,23 @@ class TestEnvironmentStateConsistency:
         client.post("/simulator/time/advance", json={"seconds": 1})
         
         # Get modality-specific state
-        modality_response = client.get("/environment/modalities/location")
-        modality_state = modality_response.json()["state"]
+        modality_response = client.get("/location/state")
+        modality_state = modality_response.json()
         
         # Get full environment state
         env_response = client.get("/environment/state")
         env_location_state = env_response.json()["modalities"]["location"]
         
-        # States should match
-        assert modality_state["current_latitude"] == env_location_state["current_latitude"]
-        assert modality_state["current_longitude"] == env_location_state["current_longitude"]
+        # Both should reflect the same current location
+        assert modality_state["current"]["latitude"] == env_location_state["current_latitude"]
+        assert modality_state["current"]["longitude"] == env_location_state["current_longitude"]
 
     def test_modality_query_results_match_state(self, client_with_engine):
         """Modality query results should be consistent with modality state."""
         client, _ = client_with_engine
         
         # Send chat message
-        client.post(
+        event_response = client.post(
             "/events/immediate",
             json={"modality": "chat", "data": chat_event_data(
                 role="user",
@@ -553,20 +548,31 @@ class TestEnvironmentStateConsistency:
                 conversation_id="query_test",
             )},
         )
+        assert event_response.status_code == 200, f"Event creation failed: {event_response.text}"
         
-        # Get state
-        state_response = client.get("/environment/modalities/chat")
-        chat_state = state_response.json()["state"]
+        # Advance time to execute the event
+        client.post("/simulator/time/advance", json={"seconds": 1})
         
-        # Query messages
+        # Get state from modality-specific endpoint
+        state_response = client.get("/chat/state")
+        assert state_response.status_code == 200
+        chat_state = state_response.json()
+        
+        # Verify message is in state first
+        assert "query_test" in chat_state.get("conversations", {}), \
+            f"Conversation 'query_test' not found in state. State: {chat_state}"
+        
+        # Query messages using modality-specific query endpoint
         query_response = client.post(
-            "/environment/modalities/chat/query",
+            "/chat/query",
             json={"conversation_id": "query_test"},
         )
+        assert query_response.status_code == 200
         query_results = query_response.json()
         
-        # Query should return messages from state
-        assert len(query_results["results"]) > 0
+        # Query should return messages (ChatQueryResponse uses total_count)
+        assert query_results["total_count"] > 0, \
+            f"Query returned no results. State: {chat_state}, Query response: {query_results}"
 
 
 # =============================================================================
@@ -842,7 +848,7 @@ class TestCrossModalityConsistency:
         env_response = client.get("/environment/state")
         env_data = env_response.json()
         
-        # Verify both changes reflected
+        # Verify both changes reflected (model_dump format for /environment/state)
         assert env_data["modalities"]["location"]["current_latitude"] == 34.0522
         assert "cross_test" in env_data["modalities"]["chat"]["conversations"]
 
@@ -872,7 +878,7 @@ class TestEdgeCaseConsistency:
         # Advance time to execute all events
         client.post("/simulator/time/advance", json={"seconds": 1})
         
-        # Verify state is consistent
+        # Verify state is consistent (model_dump format for /environment/state)
         env_response = client.get("/environment/state")
         location_state = env_response.json()["modalities"]["location"]
         
@@ -880,7 +886,7 @@ class TestEdgeCaseConsistency:
         assert location_state["current_latitude"] == pytest.approx(37.9, rel=0.01)
         assert location_state["current_longitude"] == pytest.approx(-121.1, rel=0.01)
         
-        # History should have all locations
+        # History should have all locations (model_dump uses "location_history")
         assert len(location_state["location_history"]) >= 10
 
     def test_state_consistent_after_skip_to_next(self, client_with_engine):

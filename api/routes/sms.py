@@ -5,7 +5,7 @@ receiving, reading, reacting to messages, and managing group conversations.
 """
 
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
@@ -260,6 +260,33 @@ class SMSStateResponse(BaseModel):
     total_conversation_count: int
 
 
+class SMSCompactStateResponse(BaseModel):
+    """Compact response model for SMS state endpoint.
+
+    Used when compact=true query parameter is set. Optimized for LLM context.
+    Returns conversation metadata without full message content.
+
+    Attributes:
+        modality_type: Always "sms".
+        last_updated: ISO timestamp of last update.
+        update_count: Number of SMS state changes.
+        user_phone_number: The simulated user's phone number.
+        conversations: Conversation metadata (without full message content).
+        total_conversations: Number of conversations.
+        total_messages: Total message count.
+        unread_total: Total unread message count.
+    """
+
+    modality_type: str = Field(default="sms")
+    last_updated: str
+    update_count: int
+    user_phone_number: str
+    conversations: dict[str, Any]
+    total_conversations: int
+    total_messages: int
+    unread_total: int
+
+
 class SMSQueryResponse(BaseModel):
     """Response model for SMS query endpoint.
 
@@ -283,18 +310,24 @@ class SMSQueryResponse(BaseModel):
 # ============================================================================
 
 
-@router.get("/state", response_model=SMSStateResponse)
-async def get_sms_state(engine: SimulationEngineDep) -> SMSStateResponse:
+@router.get("/state")
+async def get_sms_state(
+    engine: SimulationEngineDep,
+    compact: bool = False,
+) -> SMSStateResponse | SMSCompactStateResponse:
     """Get current SMS state.
 
-    Returns a complete snapshot of the SMS system including all messages
+    Returns a snapshot of the SMS system including messages
     and conversations.
 
     Args:
         engine: The simulation engine dependency.
+        compact: If True, return compact state with conversation metadata only.
+            Optimized for LLM context and quick status checks.
 
     Returns:
-        Complete SMS state with all messages.
+        SMSStateResponse: Full state with all messages (default).
+        SMSCompactStateResponse: Compact state with conversation metadata (if compact=True).
     """
     sms_state = engine.environment.get_state("sms")
 
@@ -303,6 +336,11 @@ async def get_sms_state(engine: SimulationEngineDep) -> SMSStateResponse:
             status_code=500,
             detail="SMS state not properly initialized",
         )
+
+    # Return compact snapshot if requested
+    if compact:
+        snapshot = sms_state.get_snapshot()
+        return SMSCompactStateResponse(**snapshot)
 
     # Calculate total counts
     unread_count = sum(1 for msg in sms_state.messages.values() if not msg.is_read)

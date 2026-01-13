@@ -121,11 +121,6 @@ class DeleteItemsRequest(BaseModel):
 # Event creation
 create_immediate_event(engine, modality, data, priority=100) -> SimulatorEvent
 
-# Validation
-validate_modality_exists(engine, modality) -> None
-get_modality_state(engine, modality) -> Any
-get_current_simulator_time(engine) -> datetime
-
 # Query helpers
 apply_pagination(items, limit, offset) -> tuple[list, int, int]
 apply_sort(items, sort_by, sort_order) -> list
@@ -145,12 +140,14 @@ Create `api/routes/{modality}.py` with this structure:
 Brief description of what this modality provides.
 """
 
+from typing import Any
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from api.dependencies import SimulationEngineDep
-from api.models import ModalityActionResponse, ModalityStateResponse
-from api.utils import create_immediate_event, get_modality_state
+from api.models import ModalityActionResponse
+from api.utils import create_immediate_event
 
 router = APIRouter(
     prefix="/{modality}",
@@ -199,49 +196,54 @@ class ModalityQueryResults(BaseModel):
 
 ### Step 4: Implement State Endpoint
 
+Each modality state endpoint supports a `compact` query parameter:
+- `compact=false` (default): Returns full state via `model_dump()`
+- `compact=true`: Returns compact view via `get_snapshot()` (no history)
+
 ```python
-@router.get("/state", response_model=ModalityStateResponse[ModalityStateData])
-async def get_modality_state(engine: SimulationEngineDep):
+@router.get("/state")
+async def get_modality_state(
+    engine: SimulationEngineDep,
+    compact: bool = False,
+) -> ModalityStateResponse | ModalityCompactStateResponse:
     """Get current modality state.
     
-    Returns a complete snapshot of the modality's current state
-    including all items and metadata.
+    Returns a snapshot of the modality's current state.
     
     Args:
         engine: The SimulationEngine instance (injected).
+        compact: If True, return compact view without history.
+            Optimized for LLM context and quick status checks.
     
     Returns:
-        Complete modality state.
+        ModalityStateResponse: Full state including history (default).
+        ModalityCompactStateResponse: Compact state without history (if compact=True).
     
     Raises:
         HTTPException: If modality not initialized (500).
     """
-    try:
-        state = get_modality_state(engine, "{modality}")
-        current_time = get_current_simulator_time(engine)
-        
-        # Convert state to response format
-        state_data = ModalityStateData(
-            items=state.items,
-            metadata={"count": len(state.items)},
-        )
-        
-        return ModalityStateResponse(
-            modality_type="{modality}",
-            current_time=current_time,
-            state=state_data,
-        )
-    except Exception as e:
+    modality_state = engine.environment.get_state("{modality}")
+    
+    if not isinstance(modality_state, ModalityState):
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to retrieve {modality} state: {str(e)}",
+            detail="{Modality} state not properly initialized",
         )
+    
+    # Return compact snapshot if requested
+    if compact:
+        snapshot = modality_state.get_snapshot()
+        return ModalityCompactStateResponse(**snapshot)
+    
+    # Use model_dump for complete state (includes history)
+    state_data = modality_state.model_dump(mode="json")
+    return ModalityStateResponse(**state_data)
 ```
 
 ### Step 5: Implement Query Endpoint (Optional)
 
 ```python
-@router.post("/query", response_model=ModalityQueryResponse[ModalityQueryResults])
+@router.post("/query", response_model=ModalityQueryResponse)
 async def query_modality(
     request: ModalityQueryRequest,
     engine: SimulationEngineDep,
@@ -261,42 +263,27 @@ async def query_modality(
     Raises:
         HTTPException: If query fails (400 for invalid params, 500 for errors).
     """
-    try:
-        state = get_modality_state(engine, "{modality}")
-        
-        # Convert state items to dicts for filtering
-        items = [item.model_dump() for item in state.items]
-        
-        # Apply filters (modality-specific)
-        if request.filter_field:
-            items = [i for i in items if i.get("field") == request.filter_field]
-        
-        # Apply sorting
-        items = apply_sort(items, request.sort_by, request.sort_order or "asc")
-        
-        # Apply pagination
-        paginated, total, returned = apply_pagination(
-            items,
-            request.limit,
-            request.offset,
-        )
-        
-        results = ModalityQueryResults(items=paginated)
-        
-        return ModalityQueryResponse(
-            modality_type="{modality}",
-            query=request.model_dump(exclude_none=True),
-            results=results,
-            total_count=total,
-            returned_count=returned,
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
+    modality_state = engine.environment.get_state("{modality}")
+    
+    if not isinstance(modality_state, ModalityState):
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to query {modality}: {str(e)}",
+            detail="{Modality} state not properly initialized",
         )
+    
+    # Build query params dict
+    query_params = request.model_dump(exclude_none=True)
+    
+    # Execute query using modality's query method
+    result = modality_state.query(query_params)
+    
+    return ModalityQueryResponse(
+        modality_type="{modality}",
+        results=result["items"],
+        total_count=result["total_count"],
+        returned_count=result["count"],
+        query=query_params,
+    )
 ```
 
 ### Step 6: Implement Action Endpoints
@@ -448,8 +435,8 @@ async def endpoint(request: RequestModel, engine: SimulationEngineDep) -> Respon
 # Don't recreate event creation logic
 event = create_immediate_event(engine, "email", data)
 
-# Don't reimplement modality lookup
-state = get_modality_state(engine, "email")
+# Use engine.environment.get_state() for modality lookup
+state = engine.environment.get_state("email")
 ```
 
 ### 3. Consistent Error Messages
@@ -579,8 +566,16 @@ class <Modality>QueryRequest(BaseModel):
 # --- Response Models ---
 
 class <Modality>StateResponse(BaseModel):
-    """Response model for <modality> state."""
-    state: <Modality>State
+    """Response model for <modality> full state."""
+    modality_type: str
+    last_updated: str
+    # ... modality-specific fields
+
+class <Modality>CompactStateResponse(BaseModel):
+    """Compact response for <modality> state (no history)."""
+    modality_type: str
+    last_updated: str
+    # ... compact fields (counts, current values, no history)
 
 class <Modality>QueryResponse(BaseModel):
     """Response model for <modality> query results."""
@@ -588,20 +583,32 @@ class <Modality>QueryResponse(BaseModel):
 
 # --- Core Endpoints ---
 
-@router.get("/state", response_model=<Modality>StateResponse)
-async def get_modality_state(engine: SimulationEngineDep):
+@router.get("/state")
+async def get_modality_state(
+    engine: SimulationEngineDep,
+    compact: bool = False,
+) -> <Modality>StateResponse | <Modality>CompactStateResponse:
     """Get current <modality> state.
     
-    Returns a complete snapshot of the modality's current state.
+    Args:
+        compact: If True, return compact view without history.
+    
+    Returns:
+        Full state (default) or compact snapshot (if compact=True).
     """
-    modality_state = engine.environment.get_modality("<modality>")
-    if not modality_state:
+    modality_state = engine.environment.get_state("<modality>")
+    if not isinstance(modality_state, <Modality>State):
         raise HTTPException(
-            status_code=404,
-            detail="<Modality> modality not found in environment",
+            status_code=500,
+            detail="<Modality> state not properly initialized",
         )
     
-    return <Modality>StateResponse(state=modality_state)
+    if compact:
+        snapshot = modality_state.get_snapshot()
+        return <Modality>CompactStateResponse(**snapshot)
+    
+    state_data = modality_state.model_dump(mode="json")
+    return <Modality>StateResponse(**state_data)
 
 @router.post("/query", response_model=<Modality>QueryResponse)
 async def query_modality(request: <Modality>QueryRequest, engine: SimulationEngineDep):
@@ -609,17 +616,17 @@ async def query_modality(request: <Modality>QueryRequest, engine: SimulationEngi
     
     Allows filtering and searching through <modality> data.
     """
-    modality_state = engine.environment.get_modality("<modality>")
-    if not modality_state:
+    modality_state = engine.environment.get_state("<modality>")
+    if not isinstance(modality_state, <Modality>State):
         raise HTTPException(
-            status_code=404,
-            detail="<Modality> modality not found in environment",
+            status_code=500,
+            detail="<Modality> state not properly initialized",
         )
     
     # Apply filters and return results
-    results = modality_state.query(...)  # Implementation depends on modality
+    results = modality_state.query(request.model_dump(exclude_none=True))
     
-    return <Modality>QueryResponse(results=results)
+    return <Modality>QueryResponse(results=results["items"])
 
 # --- Action Endpoints ---
 
@@ -629,31 +636,25 @@ async def perform_action_one(request: ActionOneRequest, engine: SimulationEngine
     
     Creates an immediate event that executes the action.
     """
-    try:
-        # Create modality input from request
-        modality_input = <Modality>Input(
-            action="action_one",
-            field1=request.field1,
-            field2=request.field2,
-        )
-        
-        # Create and execute immediate event
-        event = create_immediate_event(
-            engine=engine,
-            modality="<modality>",
-            input_data=modality_input,
-        )
-        
-        return ModalityActionResponse(
-            event_id=event.event_id,
-            status="executed",
-            message="Action performed successfully",
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to perform action: {str(e)}",
-        )
+    # Create modality input from request
+    modality_input = <Modality>Input(
+        action="action_one",
+        field1=request.field1,
+        field2=request.field2,
+    )
+    
+    # Create and execute immediate event
+    event = create_immediate_event(
+        engine=engine,
+        modality="<modality>",
+        input_data=modality_input,
+    )
+    
+    return ModalityActionResponse(
+        event_id=event.event_id,
+        status="executed",
+        message="Action performed successfully",
+    )
 
 @router.post("/action-two", response_model=ModalityActionResponse)
 async def perform_action_two(request: ActionTwoRequest, engine: SimulationEngineDep):

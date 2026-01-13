@@ -416,10 +416,12 @@ class TestReadWriteConsistency:
             return _update
         
         def read_location():
-            response = client.get("/environment/modalities/location")
-            state = response.json()["state"]
-            lat = state.get("current_latitude")
-            lon = state.get("current_longitude")
+            response = client.get("/location/state")
+            state = response.json()
+            # get_snapshot format uses nested current.latitude/longitude
+            current = state.get("current", {})
+            lat = current.get("latitude")
+            lon = current.get("longitude")
             # If one is set, both should be set (atomic update)
             if lat is not None and lon is not None:
                 # Values should be consistent (from same update)
@@ -681,14 +683,14 @@ class TestResourceContention:
             )
             # Advance to execute
             client.post("/simulator/time/advance", json={"seconds": 1})
-            # Read state
-            response = client.get("/environment/modalities/chat")
+            # Read state (using modality-specific endpoint)
+            response = client.get("/chat/state")
             return response.json()
         
         def just_read():
-            response = client.get("/environment/modalities/chat")
-            state = response.json()["state"]
-            # State should always be valid
+            response = client.get("/chat/state")
+            state = response.json()
+            # State should always be valid (get_snapshot format)
             assert "conversations" in state
             assert "messages" in state
             return state

@@ -582,21 +582,45 @@ class CalendarState(ModalityState):
             del self.events[event.event_id]
 
     def get_snapshot(self) -> dict[str, Any]:
-        """Get complete state snapshot.
+        """Return a compact snapshot of current calendar state.
+
+        This returns a compact view optimized for API responses and LLM context.
+        It includes calendar metadata and event counts but excludes full event details.
+
+        For complete state including all events, use `model_dump(mode="json")`.
 
         Returns:
-            Dictionary containing all calendars and events.
+            Dictionary with:
+            - modality_type: Always "calendar"
+            - last_updated: ISO timestamp of last update
+            - update_count: Number of calendar state changes
+            - default_calendar_id: ID of the default calendar
+            - user_timezone: User's timezone string
+            - calendars: Calendar metadata (id, name, event_count per calendar)
+            - calendar_count: Number of calendars
+            - event_count: Total number of events
+
+        Note:
+            Full event details are NOT included. Use model_dump() for full state.
         """
+        # Build compact calendar summaries (metadata only, no full event list)
+        calendars_snapshot = {}
+        for cid, cal in self.calendars.items():
+            calendars_snapshot[cid] = {
+                "calendar_id": cal.calendar_id,
+                "name": cal.name,
+                "color": cal.color,
+                "visible": cal.visible,
+                "event_count": len(cal.event_ids),
+            }
+
         return {
             "modality_type": self.modality_type,
             "last_updated": self.last_updated.isoformat(),
             "update_count": self.update_count,
             "default_calendar_id": self.default_calendar_id,
             "user_timezone": self.user_timezone,
-            "calendars": {
-                cid: cal.model_dump(mode="json") for cid, cal in self.calendars.items()
-            },
-            "events": {eid: evt.model_dump(mode="json") for eid, evt in self.events.items()},
+            "calendars": calendars_snapshot,
             "calendar_count": len(self.calendars),
             "event_count": len(self.events),
         }

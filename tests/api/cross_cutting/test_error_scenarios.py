@@ -306,21 +306,28 @@ class TestNotFoundErrors:
         assert "detail" in data or "error" in data
 
     def test_invalid_modality_name_state(self, client_with_engine):
-        """Invalid modality name returns 404 from state endpoint."""
+        """Invalid modality endpoint returns 404.
+        
+        Note: We no longer have /environment/modalities/{modality} endpoint.
+        Each modality has its own endpoint like /email/state, /location/state, etc.
+        Invalid modality names result in 404 from FastAPI router.
+        """
         client, _ = client_with_engine
-        response = client.get("/environment/modalities/invalid_modality")
+        # Try to access a non-existent modality endpoint
+        response = client.get("/invalid_modality/state")
         assert response.status_code == 404
         data = response.json()
         assert "detail" in data or "error" in data
-        # Should list available modalities
-        available = data.get("available_modalities", [])
-        assert len(available) > 0 or "available" in str(data).lower()
 
     def test_invalid_modality_name_query(self, client_with_engine):
-        """Invalid modality name returns 404 from query endpoint."""
+        """Invalid modality query endpoint returns 404.
+        
+        Note: Each modality has its own query endpoint (e.g., /email/query).
+        Invalid modality names result in 404 from FastAPI router.
+        """
         client, _ = client_with_engine
         response = client.post(
-            "/environment/modalities/invalid_modality/query",
+            "/invalid_modality/query",
             json={},
         )
         assert response.status_code == 404

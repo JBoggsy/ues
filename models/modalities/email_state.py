@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from models.base_input import ModalityInput
 from models.base_state import ModalityState
@@ -279,10 +279,7 @@ class EmailState(ModalityState):
         default="user@example.com", description="User's email address"
     )
 
-    class Config:
-        """Pydantic configuration."""
-
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     def model_post_init(self, __context: Any) -> None:
         """Initialize standard folders after model creation.
@@ -841,10 +838,27 @@ class EmailState(ModalityState):
         return references
 
     def get_snapshot(self) -> dict[str, Any]:
-        """Return a complete snapshot of current state for API responses.
+        """Return a compact snapshot of current email state.
+
+        This returns a compact view optimized for API responses and LLM context.
+        It includes folder summaries and counts but excludes full email content.
+
+        For complete state including all emails, use `model_dump(mode="json")`.
 
         Returns:
-            Dictionary representation of email state.
+            Dictionary with:
+            - modality_type: Always "email"
+            - last_updated: ISO timestamp of last update
+            - update_count: Number of email state changes
+            - user_email_address: The user's email address
+            - total_emails: Total email count
+            - total_threads: Total thread count
+            - folders: Per-folder message and unread counts
+            - label_count: Number of custom labels
+            - draft_count: Number of draft emails
+
+        Note:
+            Full email content is NOT included. Use model_dump() for full state.
         """
         folder_summaries = {}
         for folder_name, message_ids in self.folders.items():

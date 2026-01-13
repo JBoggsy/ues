@@ -863,19 +863,39 @@ print(text_snapshot)  # Human-readable text with emoji indicators
 
 ### Getting Specific Modality State
 
+Use the modality-specific sub-clients to get state for individual modalities:
+
 ```python
-# Get state for a specific modality
-email_state = client.environment.get_modality_state("email")
-print(f"Email messages: {email_state.get('message_count')}")
+# Get state for email modality (full state)
+email_state = client.email.get_state()
+print(f"Email messages: {email_state.total_email_count}")
+
+# Get compact state (optimized for LLM context)
+email_compact = client.email.get_state(compact=True)
+print(f"Unread emails: {email_compact['statistics']['unread_count']}")
 ```
 
-### Querying Across Modalities
+All modality state endpoints support the `compact` parameter:
+
+| Modality | Default (full state) | `compact=True` |
+|----------|---------------------|----------------|
+| `email` | All emails with bodies | Statistics + summaries |
+| `sms` | All messages | Conversation metadata only |
+| `chat` | Full message history | Conversation metadata only |
+| `calendar` | All events | Calendar metadata only |
+| `location` | Current + history | Current location only |
+| `weather` | Full reports | Current conditions only |
+
+### Querying Modalities
+
+Use the modality-specific query endpoints:
 
 ```python
-# Query a specific modality through environment endpoint
-results = client.environment.query_modality(
-    modality="email",
-    query_params={"folder": "inbox", "is_read": False},
+# Query emails through email sub-client
+results = client.email.query(
+    folder="inbox",
+    is_read=False,
+    limit=10,
 )
 ```
 

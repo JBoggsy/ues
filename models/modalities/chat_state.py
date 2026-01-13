@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Optional, Union
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from models.base_input import ModalityInput
 from models.base_state import ModalityState
@@ -145,10 +145,7 @@ class ChatState(ModalityState):
         default="default", description="ID for default conversation"
     )
 
-    class Config:
-        """Pydantic configuration."""
-
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     def apply_input(self, input_data: ModalityInput) -> None:
         """Apply a ChatInput to modify this state.
@@ -275,10 +272,24 @@ class ChatState(ModalityState):
             del self.conversations[conversation_id]
 
     def get_snapshot(self) -> dict[str, Any]:
-        """Return a complete snapshot of current state for API responses.
+        """Return a compact snapshot of current chat state.
+
+        This returns a compact view optimized for API responses and LLM context.
+        It includes conversation metadata and counts but excludes full message content.
+
+        For complete state including all messages, use `model_dump(mode="json")`.
 
         Returns:
-            Dictionary representation of all conversations and messages.
+            Dictionary with:
+            - modality_type: Always "chat"
+            - last_updated: ISO timestamp of last update
+            - update_count: Number of chat state changes
+            - conversations: Conversation metadata (id, title, message_count, etc.)
+            - total_message_count: Total number of messages
+            - conversation_count: Number of conversations
+
+        Note:
+            Full message content is NOT included. Use model_dump() for full state.
         """
         return {
             "modality_type": self.modality_type,
@@ -288,7 +299,6 @@ class ChatState(ModalityState):
                 conv_id: metadata.to_dict()
                 for conv_id, metadata in self.conversations.items()
             },
-            "messages": [msg.to_dict() for msg in self.messages],
             "total_message_count": len(self.messages),
             "conversation_count": len(self.conversations),
         }

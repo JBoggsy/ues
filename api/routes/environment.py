@@ -163,8 +163,9 @@ async def get_environment_state(
             return CompactSnapshotResponse(**snapshot)
     
     # Default: Full state response
+    # Use model_dump() for complete, unabridged state
     modalities_dict = {
-        name: state.model_dump() for name, state in env.modality_states.items()
+        name: state.model_dump(mode="json") for name, state in env.modality_states.items()
     }
     
     summaries = [
@@ -204,41 +205,6 @@ async def list_modalities(engine: SimulationEngineDep):
     )
 
 
-@router.get("/modalities/{modality_name}")
-async def get_modality_state(modality_name: str, engine: SimulationEngineDep):
-    """Get the current state of a specific modality.
-    
-    This returns just the state for one modality, which is more efficient
-    than fetching the entire environment state.
-    
-    Args:
-        modality_name: The name of the modality to query (e.g., "email", "sms").
-        engine: The SimulationEngine instance (injected by FastAPI).
-    
-    Returns:
-        The current state of the requested modality.
-    
-    Raises:
-        ModalityNotFoundError: If the modality doesn't exist.
-    """
-    
-    env = engine.environment
-    
-    if modality_name not in env.modality_states:
-        raise ModalityNotFoundError(
-            modality_name=modality_name,
-            available_modalities=list(env.modality_states.keys()),
-        )
-    
-    state = env.modality_states[modality_name]
-    
-    return {
-        "modality_type": modality_name,
-        "current_time": env.time_state.current_time.isoformat(),
-        "state": state.model_dump(),
-    }
-
-
 class ValidationResponse(BaseModel):
     """Response model for environment validation.
     
@@ -273,131 +239,3 @@ async def validate_environment(engine: SimulationEngineDep):
         errors=errors,
         checked_at=engine.environment.time_state.current_time,
     )
-
-
-@router.post("/modalities/{modality_name}/query")
-async def query_modality(modality_name: str, query_params: dict[str, Any], engine: SimulationEngineDep):
-    """Query a modality's state with filters.
-    
-    This endpoint allows modality-specific queries with custom filter parameters.
-    The query format varies by modality type - see REST API documentation for details.
-    
-    Args:
-        modality_name: The name of the modality to query.
-        query_params: Dictionary of query parameters (modality-specific).
-        engine: The SimulationEngine instance (injected by FastAPI).
-    
-    Returns:
-        Filtered query results from the modality.
-    
-    Raises:
-        ModalityNotFoundError: If the modality doesn't exist.
-    
-    Query Parameters by Modality:
-    
-    Email:
-        - folder: Filter by folder name
-        - label: Filter by label
-        - is_read: Filter by read status (bool)
-        - is_starred: Filter by starred status (bool)
-        - has_attachments: Filter by attachment presence (bool)
-        - from_address: Filter by sender
-        - to_address: Filter by recipient
-        - subject_contains: Search subject
-        - body_contains: Search body
-        - date_from: Start of date range (datetime)
-        - date_to: End of date range (datetime)
-        - thread_id: Get specific thread
-        - limit: Max results
-        - offset: Pagination offset
-        - sort_by: Sort field ("date", "from", "subject")
-        - sort_order: Sort order ("asc", "desc")
-    
-    Calendar:
-        - calendar_ids: List of calendar IDs to filter
-        - start: Start date/datetime for range
-        - end: End date/datetime for range
-        - expand_recurring: Generate individual occurrences (bool)
-        - status: Filter by status ("confirmed", "tentative", "cancelled")
-        - has_attendees: Filter by attendee presence (bool)
-        - recurring: Filter by recurring vs one-time (bool)
-        - search: Search title/description/location
-        - color: Filter by event color
-        - limit: Max results
-    
-    SMS:
-        - thread_id: Filter messages by conversation thread
-        - phone_number: Filter messages involving this phone number
-        - direction: Filter by "incoming" or "outgoing"
-        - message_type: Filter by "sms" or "rcs"
-        - is_read: Filter by read status (bool)
-        - has_attachments: Filter messages with attachments (bool)
-        - search_text: Search message body text (case-insensitive)
-        - since: Filter messages sent after this time (datetime)
-        - until: Filter messages sent before this time (datetime)
-        - limit: Maximum number of messages to return
-    
-    Chat:
-        - conversation_id: Filter by conversation
-        - role: Filter by role ("user", "assistant")
-        - since: Messages after this time (datetime)
-        - until: Messages before this time (datetime)
-        - search: Search message content
-        - limit: Max results
-    
-    Weather:
-        - lat: Latitude (required)
-        - lon: Longitude (required)
-        - exclude: Comma-delimited list of parts to exclude
-        - units: "standard", "metric", or "imperial"
-        - from: Unix timestamp - return all reports since this time
-        - to: Unix timestamp - return reports until this time
-        - real: Query OpenWeather API for real data (bool)
-    
-    Location:
-        - since: Start of time range (datetime)
-        - until: End of time range (datetime)
-        - named_location: Filter by location name
-        - limit: Max results
-    
-    Time:
-        - since: Start of time range (datetime)
-        - until: End of time range (datetime)
-        - timezone: Filter by specific timezone
-        - limit: Max results
-    """
-    env = engine.environment
-    
-    if modality_name not in env.modality_states:
-        raise ModalityNotFoundError(
-            modality_name=modality_name,
-            available_modalities=list(env.modality_states.keys()),
-        )
-    
-    state = env.modality_states[modality_name]
-    
-    # Call the state's query method if it exists
-    if hasattr(state, 'query'):
-        try:
-            results = state.query(query_params)
-            
-            # All modality query methods now return dict[str, Any]
-            return {
-                "modality_type": modality_name,
-                "query": query_params,
-                "results": results,
-            }
-        except Exception as e:
-            from fastapi import HTTPException
-            raise HTTPException(
-                status_code=400,
-                detail=f"Query failed for {modality_name}: {str(e)}",
-            )
-    else:
-        # Fallback for modalities without query methods
-        return {
-            "modality_type": modality_name,
-            "query": query_params,
-            "results": state.model_dump(),
-            "message": f"{modality_name} modality does not support custom queries - full state returned",
-        }

@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from models.base_state import ModalityState
 from models.time import SimulatorTime
@@ -42,8 +42,7 @@ class Environment(BaseModel):
         description="The current simulator time state"
     )
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @model_validator(mode="after")
     def validate_modality_consistency(self) -> "Environment":

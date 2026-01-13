@@ -5,7 +5,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any, Optional
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 if TYPE_CHECKING:
     from models.base_input import ModalityInput
@@ -79,9 +79,7 @@ class SimulatorEvent(BaseModel):
         default_factory=dict, description="Flexible additional data"
     )
 
-    class Config:
-        arbitrary_types_allowed = True
-        use_enum_values = False
+    model_config = ConfigDict(arbitrary_types_allowed=True, use_enum_values=False)
 
     @field_validator("scheduled_time", "created_at", "executed_at", mode="before")
     @classmethod

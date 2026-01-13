@@ -298,7 +298,7 @@ webapp/
 4. **API Hooks**
    - `useEnvironmentState()`: Poll `/environment/state`
    - `useModalityList()`: Get `/environment/modalities`
-   - `useModalityState(modality)`: Get `/environment/modalities/{modality}`
+   - `useModalityState(modality)`: Get `/{modality}/state`
 
 #### Deliverables
 - [ ] Sidebar shows all modalities with live status
@@ -512,8 +512,8 @@ const { data: timeState } = useQuery({
 | Redo | `/simulation/redo` | POST | - |
 | Env State | `/environment/state` | GET | 5s |
 | Modality List | `/environment/modalities` | GET | - |
-| Modality State | `/environment/modalities/{m}` | GET | 5s |
-| Modality Query | `/environment/modalities/{m}/query` | POST | - |
+| Modality State | `/{modality}/state` | GET | 5s |
+| Modality Query | `/{modality}/query` | POST | - |
 | Event List | `/events` | GET | 3s |
 | Create Event | `/events` | POST | - |
 | Immediate Event | `/events/immediate` | POST | - |

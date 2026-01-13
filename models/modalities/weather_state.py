@@ -2,10 +2,10 @@
 
 import os
 from copy import deepcopy
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from models.base_input import ModalityInput
 from models.base_state import ModalityState
@@ -108,10 +108,7 @@ class WeatherState(ModalityState):
         default=None, description="OpenWeather API key for real weather queries"
     )
 
-    class Config:
-        """Pydantic configuration."""
-
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     def __init__(self, **data):
         """Initialize weather state.
@@ -190,18 +187,43 @@ class WeatherState(ModalityState):
         self.update_count += 1
 
     def get_snapshot(self) -> dict[str, Any]:
-        """Return a complete snapshot of current state for API responses.
+        """Return a compact snapshot of current weather state.
+
+        This returns a compact view optimized for API responses and LLM context.
+        It includes current weather conditions per location but excludes weather history.
+
+        For complete state including history, use `model_dump(mode="json")`.
 
         Returns:
-            Dictionary representation of all locations and their current weather.
+            Dictionary with:
+            - modality_type: Always "weather"
+            - last_updated: ISO timestamp of last update
+            - update_count: Number of weather updates
+            - locations: Current weather per location (without history)
+            - location_count: Number of tracked locations
+
+        Note:
+            Report history is NOT included. Use model_dump() for full state.
         """
+        # Build locations dict with current weather only (no history)
+        locations_snapshot = {}
+        for key, location in self.locations.items():
+            loc_data = {
+                "latitude": location.latitude,
+                "longitude": location.longitude,
+                "last_updated": location.last_updated.isoformat(),
+                "current_report": location.current_report,
+                "report_count": len(location.report_history),
+            }
+            if location.name:
+                loc_data["name"] = location.name
+            locations_snapshot[key] = loc_data
+
         return {
             "modality_type": self.modality_type,
             "last_updated": self.last_updated.isoformat(),
             "update_count": self.update_count,
-            "locations": {
-                key: location.to_dict() for key, location in self.locations.items()
-            },
+            "locations": locations_snapshot,
             "location_count": len(self.locations),
         }
 
