@@ -6,6 +6,7 @@ UES is an AI-driven testing tool for AI personal assistants, simulating multiple
 
 **For architecture details**: See `README.md`, `docs/SIMULATION_ENGINE.md`, `docs/REST_API.md`
 **For current status/roadmap**: See `TODO.md`
+**For Python client usage**: See `client/CLIENT_QUICK_REFERENCE.md` for available methods and patterns
 
 ## Development Environment
 

@@ -1,0 +1,365 @@
+{
+  "metadata": {
+    "ues_version": "0.1.0",
+    "scenario_version": "1",
+    "created_at": "2026-01-15T12:00:00-05:00",
+    "author": "UES Examples",
+    "description": "A busy Friday workday with 10+ emails of various types for testing the email summary agent. Includes spam, work emails, team threads, calendar invites, and personal emails."
+  },
+  "environment": {
+    "time_state": {
+      "current_time": "2026-01-16T06:00:00-05:00",
+      "time_scale": 1.0,
+      "is_paused": true,
+      "auto_advance": false,
+      "last_wall_time_update": "2026-01-16T06:00:00-05:00"
+    },
+    "modality_states": {
+      "email": {
+        "modality_type": "email",
+        "last_updated": "2026-01-16T06:00:00-05:00",
+        "update_count": 2,
+        "user_email_address": "alex.johnson@techcorp.com",
+        "emails": {
+          "msg-spam-001": {
+            "message_id": "msg-spam-001",
+            "thread_id": "thread-spam-001",
+            "from_address": "deals@promo-offers.net",
+            "to_addresses": ["alex.johnson@techcorp.com"],
+            "cc_addresses": [],
+            "bcc_addresses": [],
+            "reply_to_address": null,
+            "subject": "🔥 LIMITED TIME: 90% OFF Everything!",
+            "body_text": "Don't miss out on our biggest sale ever! Click here for exclusive deals. Unsubscribe link at bottom.",
+            "body_html": null,
+            "attachments": [],
+            "in_reply_to": null,
+            "references": [],
+            "sent_at": "2026-01-15T22:30:00-05:00",
+            "received_at": "2026-01-15T22:31:00-05:00",
+            "is_read": false,
+            "is_starred": false,
+            "priority": "normal",
+            "folder": "inbox",
+            "labels": []
+          },
+          "msg-spam-002": {
+            "message_id": "msg-spam-002",
+            "thread_id": "thread-spam-002",
+            "from_address": "noreply@newsletter-daily.com",
+            "to_addresses": ["alex.johnson@techcorp.com"],
+            "cc_addresses": [],
+            "bcc_addresses": [],
+            "reply_to_address": null,
+            "subject": "Your Daily Tech Digest - Jan 15",
+            "body_text": "Top stories: AI advances, market updates, and more. Click to read full articles.",
+            "body_html": null,
+            "attachments": [],
+            "in_reply_to": null,
+            "references": [],
+            "sent_at": "2026-01-15T23:00:00-05:00",
+            "received_at": "2026-01-15T23:01:00-05:00",
+            "is_read": false,
+            "is_starred": false,
+            "priority": "normal",
+            "folder": "inbox",
+            "labels": []
+          }
+        },
+        "threads": {
+          "thread-spam-001": {
+            "thread_id": "thread-spam-001",
+            "subject": "🔥 LIMITED TIME: 90% OFF Everything!",
+            "participant_addresses": ["deals@promo-offers.net", "alex.johnson@techcorp.com"],
+            "message_ids": ["msg-spam-001"],
+            "created_at": "2026-01-15T22:31:00-05:00",
+            "last_message_at": "2026-01-15T22:31:00-05:00",
+            "message_count": 1,
+            "unread_count": 1
+          },
+          "thread-spam-002": {
+            "thread_id": "thread-spam-002",
+            "subject": "Your Daily Tech Digest - Jan 15",
+            "participant_addresses": ["noreply@newsletter-daily.com", "alex.johnson@techcorp.com"],
+            "message_ids": ["msg-spam-002"],
+            "created_at": "2026-01-15T23:01:00-05:00",
+            "last_message_at": "2026-01-15T23:01:00-05:00",
+            "message_count": 1,
+            "unread_count": 1
+          }
+        },
+        "folders": {
+          "inbox": ["msg-spam-001", "msg-spam-002"],
+          "sent": [],
+          "drafts": [],
+          "trash": [],
+          "spam": [],
+          "archive": []
+        },
+        "labels": {},
+        "drafts": {}
+      }
+    }
+  },
+  "events": {
+    "events": [
+      {
+        "event_id": "evt-001",
+        "scheduled_time": "2026-01-16T06:45:00-05:00",
+        "modality": "email",
+        "data": {
+          "modality_type": "email",
+          "timestamp": "2026-01-16T06:45:00-05:00",
+          "operation": "receive",
+          "from_address": "marketing@software-deals.com",
+          "to_addresses": ["alex.johnson@techcorp.com"],
+          "subject": "New Year Special - Upgrade Your Tools Today!",
+          "body_text": "Start 2026 right with our premium software suite. Use code NEWYEAR26 for 50% off. Limited time offer!"
+        },
+        "status": "pending",
+        "created_at": "2026-01-15T12:00:00-05:00",
+        "executed_at": null,
+        "agent_id": null,
+        "priority": 50,
+        "error_message": null,
+        "metadata": {}
+      },
+      {
+        "event_id": "evt-002",
+        "scheduled_time": "2026-01-16T08:15:00-05:00",
+        "modality": "email",
+        "data": {
+          "modality_type": "email",
+          "timestamp": "2026-01-16T08:15:00-05:00",
+          "operation": "receive",
+          "from_address": "sarah.chen@techcorp.com",
+          "to_addresses": ["alex.johnson@techcorp.com"],
+          "subject": "Q1 Planning Meeting - Need Your Input",
+          "body_text": "Hi Alex,\n\nI'm pulling together the agenda for Monday's Q1 planning meeting. Could you send me your team's priorities by EOD today? We need to finalize the roadmap before the exec review next week.\n\nThanks,\nSarah"
+        },
+        "status": "pending",
+        "created_at": "2026-01-15T12:00:00-05:00",
+        "executed_at": null,
+        "agent_id": null,
+        "priority": 50,
+        "error_message": null,
+        "metadata": {}
+      },
+      {
+        "event_id": "evt-003",
+        "scheduled_time": "2026-01-16T08:32:00-05:00",
+        "modality": "email",
+        "data": {
+          "modality_type": "email",
+          "timestamp": "2026-01-16T08:32:00-05:00",
+          "operation": "receive",
+          "from_address": "calendar-noreply@techcorp.com",
+          "to_addresses": ["alex.johnson@techcorp.com"],
+          "subject": "Meeting Invitation: Project Alpha Sync",
+          "body_text": "You have been invited to a meeting.\n\nProject Alpha Sync\nWhen: Friday, Jan 16, 2026 at 2:00 PM - 3:00 PM EST\nWhere: Conference Room B / Zoom link: https://zoom.us/j/123456789\nOrganizer: Mike Thompson\n\nAgenda:\n- Sprint review\n- Blocker discussion\n- Next sprint planning\n\nPlease respond: Accept | Decline | Tentative"
+        },
+        "status": "pending",
+        "created_at": "2026-01-15T12:00:00-05:00",
+        "executed_at": null,
+        "agent_id": null,
+        "priority": 50,
+        "error_message": null,
+        "metadata": {}
+      },
+      {
+        "event_id": "evt-004",
+        "scheduled_time": "2026-01-16T08:45:00-05:00",
+        "modality": "email",
+        "data": {
+          "modality_type": "email",
+          "timestamp": "2026-01-16T08:45:00-05:00",
+          "operation": "receive",
+          "from_address": "mike.thompson@techcorp.com",
+          "to_addresses": ["alex.johnson@techcorp.com", "jennifer.wu@techcorp.com", "david.kim@techcorp.com"],
+          "subject": "URGENT: Production Issue - API Gateway",
+          "body_text": "Team,\n\nWe're seeing elevated error rates on the API gateway since 8:30 AM. Error rate is at 5% and climbing. I've started investigating but could use extra eyes.\n\nDashboard: https://monitoring.techcorp.com/api-gateway\n\nCan someone check the recent deployments? I don't see anything obvious in the logs.\n\nMike",
+          "priority": "high"
+        },
+        "status": "pending",
+        "created_at": "2026-01-15T12:00:00-05:00",
+        "executed_at": null,
+        "agent_id": null,
+        "priority": 50,
+        "error_message": null,
+        "metadata": {}
+      },
+      {
+        "event_id": "evt-005",
+        "scheduled_time": "2026-01-16T08:52:00-05:00",
+        "modality": "email",
+        "data": {
+          "modality_type": "email",
+          "timestamp": "2026-01-16T08:52:00-05:00",
+          "operation": "receive",
+          "from_address": "jennifer.wu@techcorp.com",
+          "to_addresses": ["mike.thompson@techcorp.com", "alex.johnson@techcorp.com", "david.kim@techcorp.com"],
+          "subject": "Re: URGENT: Production Issue - API Gateway",
+          "body_text": "I found it - there was a config change pushed at 8:25 AM that modified the rate limiting settings. Rolling back now.\n\n-Jen",
+          "thread_id": "thread-urgent-api",
+          "in_reply_to": "evt-004"
+        },
+        "status": "pending",
+        "created_at": "2026-01-15T12:00:00-05:00",
+        "executed_at": null,
+        "agent_id": null,
+        "priority": 50,
+        "error_message": null,
+        "metadata": {}
+      },
+      {
+        "event_id": "evt-006",
+        "scheduled_time": "2026-01-16T09:10:00-05:00",
+        "modality": "email",
+        "data": {
+          "modality_type": "email",
+          "timestamp": "2026-01-16T09:10:00-05:00",
+          "operation": "receive",
+          "from_address": "mom@gmail.com",
+          "to_addresses": ["alex.johnson@techcorp.com"],
+          "subject": "Sunday dinner?",
+          "body_text": "Hi sweetie,\n\nAre you and Jamie coming for dinner on Sunday? Dad is making his famous lasagna. Let me know so I can plan.\n\nLove,\nMom"
+        },
+        "status": "pending",
+        "created_at": "2026-01-15T12:00:00-05:00",
+        "executed_at": null,
+        "agent_id": null,
+        "priority": 50,
+        "error_message": null,
+        "metadata": {}
+      },
+      {
+        "event_id": "evt-007",
+        "scheduled_time": "2026-01-16T10:30:00-05:00",
+        "modality": "email",
+        "data": {
+          "modality_type": "email",
+          "timestamp": "2026-01-16T10:30:00-05:00",
+          "operation": "receive",
+          "from_address": "noreply@linkedin.com",
+          "to_addresses": ["alex.johnson@techcorp.com"],
+          "subject": "You have 5 new connection requests",
+          "body_text": "Alex, you have pending connection requests from: John Smith (Recruiter at BigTech), and 4 others. Log in to view and accept."
+        },
+        "status": "pending",
+        "created_at": "2026-01-15T12:00:00-05:00",
+        "executed_at": null,
+        "agent_id": null,
+        "priority": 50,
+        "error_message": null,
+        "metadata": {}
+      },
+      {
+        "event_id": "evt-008",
+        "scheduled_time": "2026-01-16T11:45:00-05:00",
+        "modality": "email",
+        "data": {
+          "modality_type": "email",
+          "timestamp": "2026-01-16T11:45:00-05:00",
+          "operation": "receive",
+          "from_address": "david.kim@techcorp.com",
+          "to_addresses": ["alex.johnson@techcorp.com"],
+          "subject": "Code review request - Feature branch",
+          "body_text": "Hey Alex,\n\nCould you review my PR when you get a chance? It's the user authentication refactor we discussed.\n\nPR: https://github.com/techcorp/main-app/pull/1234\n\nNo rush, but hoping to merge before the weekend if possible.\n\nThanks!\nDavid"
+        },
+        "status": "pending",
+        "created_at": "2026-01-15T12:00:00-05:00",
+        "executed_at": null,
+        "agent_id": null,
+        "priority": 50,
+        "error_message": null,
+        "metadata": {}
+      },
+      {
+        "event_id": "evt-009",
+        "scheduled_time": "2026-01-16T14:30:00-05:00",
+        "modality": "email",
+        "data": {
+          "modality_type": "email",
+          "timestamp": "2026-01-16T14:30:00-05:00",
+          "operation": "receive",
+          "from_address": "hr@techcorp.com",
+          "to_addresses": ["all-employees@techcorp.com"],
+          "subject": "Reminder: Benefits enrollment deadline Jan 31",
+          "body_text": "This is a reminder that open enrollment for 2026 benefits ends January 31st. Please log into the HR portal to review and confirm your selections.\n\nQuestions? Contact hr@techcorp.com"
+        },
+        "status": "pending",
+        "created_at": "2026-01-15T12:00:00-05:00",
+        "executed_at": null,
+        "agent_id": null,
+        "priority": 50,
+        "error_message": null,
+        "metadata": {}
+      },
+      {
+        "event_id": "evt-010",
+        "scheduled_time": "2026-01-16T16:15:00-05:00",
+        "modality": "email",
+        "data": {
+          "modality_type": "email",
+          "timestamp": "2026-01-16T16:15:00-05:00",
+          "operation": "receive",
+          "from_address": "sarah.chen@techcorp.com",
+          "to_addresses": ["alex.johnson@techcorp.com"],
+          "subject": "Re: Q1 Planning Meeting - Need Your Input",
+          "body_text": "Thanks for sending those priorities, Alex! I've added them to the deck. See you Monday.\n\n-Sarah",
+          "thread_id": "thread-q1-planning",
+          "in_reply_to": "evt-002"
+        },
+        "status": "pending",
+        "created_at": "2026-01-15T12:00:00-05:00",
+        "executed_at": null,
+        "agent_id": null,
+        "priority": 50,
+        "error_message": null,
+        "metadata": {}
+      },
+      {
+        "event_id": "evt-011",
+        "scheduled_time": "2026-01-16T17:45:00-05:00",
+        "modality": "email",
+        "data": {
+          "modality_type": "email",
+          "timestamp": "2026-01-16T17:45:00-05:00",
+          "operation": "receive",
+          "from_address": "jamie.martinez@gmail.com",
+          "to_addresses": ["alex.johnson@techcorp.com"],
+          "subject": "Dinner tonight?",
+          "body_text": "Hey! Want to try that new Thai place after work? I can make a reservation for 7pm.\n\n- Jamie"
+        },
+        "status": "pending",
+        "created_at": "2026-01-15T12:00:00-05:00",
+        "executed_at": null,
+        "agent_id": null,
+        "priority": 50,
+        "error_message": null,
+        "metadata": {}
+      },
+      {
+        "event_id": "evt-012",
+        "scheduled_time": "2026-01-16T19:00:00-05:00",
+        "modality": "email",
+        "data": {
+          "modality_type": "email",
+          "timestamp": "2026-01-16T19:00:00-05:00",
+          "operation": "receive",
+          "from_address": "deals@travel-promo.com",
+          "to_addresses": ["alex.johnson@techcorp.com"],
+          "subject": "Last chance! Flight deals expiring tonight",
+          "body_text": "Book now and save up to 40% on flights to top destinations. Sale ends at midnight! Click here to browse deals."
+        },
+        "status": "pending",
+        "created_at": "2026-01-15T12:00:00-05:00",
+        "executed_at": null,
+        "agent_id": null,
+        "priority": 50,
+        "error_message": null,
+        "metadata": {}
+      }
+    ]
+  }
+}
