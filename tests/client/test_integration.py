@@ -409,19 +409,29 @@ class TestEnvironmentIntegration:
         assert "location" in result.modalities
         assert "weather" in result.modalities
 
-    def test_get_modality_state(self, sync_client):
-        """Test getting a specific modality's state."""
+    def test_get_modality_state_via_modality_client(self, sync_client):
+        """Test getting a specific modality's state via the modality client.
+        
+        Note: The /environment/modalities/{modality} endpoint was removed.
+        Use the modality-specific clients instead (e.g., client.email.get_state()).
+        """
         sync_client.simulation.start()
         
-        state = sync_client.environment.get_modality("email")
-        assert state.modality_type == "email"
+        # Use the email-specific client to get state
+        state = sync_client.email.get_state()
+        assert state.user_email_address is not None
 
-    def test_get_unknown_modality_raises_not_found(self, sync_client):
-        """Test that getting unknown modality raises NotFoundError."""
+    def test_invalid_endpoint_returns_404(self, sync_client):
+        """Test that accessing an invalid endpoint raises NotFoundError.
+        
+        Note: The /environment/modalities/{modality} endpoint was removed.
+        Invalid modality names now simply result in 404 from the router.
+        """
         sync_client.simulation.start()
         
+        # Accessing a non-existent endpoint should raise NotFoundError
         with pytest.raises(NotFoundError):
-            sync_client.environment.get_modality("unknown_modality")
+            sync_client._http.get("/nonexistent_modality/state")
 
 
 # =============================================================================
@@ -1149,12 +1159,16 @@ class TestErrorHandling:
         with pytest.raises(NotFoundError):
             sync_client.events.get("non-existent-event-id")
 
-    def test_not_found_error_on_unknown_modality(self, sync_client):
-        """Test that querying unknown modality raises NotFoundError."""
+    def test_not_found_error_on_invalid_endpoint(self, sync_client):
+        """Test that accessing invalid endpoint raises NotFoundError.
+        
+        Note: The /environment/modalities/{modality} endpoint was removed.
+        This test verifies that invalid routes return 404.
+        """
         sync_client.simulation.start()
         
         with pytest.raises(NotFoundError):
-            sync_client.environment.get_modality("unknown_modality")
+            sync_client._http.get("/fake_modality/state")
 
 
 # =============================================================================

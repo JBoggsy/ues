@@ -158,9 +158,9 @@ export interface WeatherLocationData {
   last_updated: string;
   update_count: number;
   history_count: number;
-  /** History from /weather/state endpoint */
+  /** History from /weather/state endpoint (full response) */
   history?: WeatherHistoryEntry[];
-  /** History from /environment/modalities/weather endpoint */
+  /** History from /weather/state endpoint (alternate field name) */
   report_history?: WeatherHistoryEntry[];
 }
 

@@ -573,7 +573,8 @@ class TestExceptionHandlerIntegration:
     def test_error_response_is_json(self, client_with_engine):
         """Error responses are always JSON."""
         client, _ = client_with_engine
-        response = client.get("/environment/modalities/fake")
+        # Use a non-existent route to trigger 404
+        response = client.get("/nonexistent_route")
         assert response.headers["content-type"].startswith("application/json")
 
     def test_already_running_simulation_returns_409(self, client_with_engine):

@@ -1,0 +1,524 @@
+{
+  "scenario": {
+    "metadata": {
+      "ues_version": "0.1.0",
+      "scenario_version": "1",
+      "created_at": "2026-01-18T10:00:00Z",
+      "author": "UES Examples",
+      "description": "Interactive email scenario for testing the email reply generator agent. Contains emails from various characters that invite or require responses from the user. Designed to demonstrate simulator-side agents that generate realistic email replies."
+    },
+    "environment": {
+      "time_state": {
+        "current_time": "2026-01-20T08:00:00-08:00",
+        "time_scale": 1.0,
+        "is_paused": true,
+        "auto_advance": false,
+        "last_wall_time_update": "2026-01-20T08:00:00-08:00"
+      },
+      "modality_states": {
+        "email": {
+          "modality_type": "email",
+          "last_updated": "2026-01-20T08:00:00-08:00",
+          "update_count": 0,
+          "emails": {},
+          "threads": {},
+          "folders": {
+            "inbox": [],
+            "sent": [],
+            "drafts": [],
+            "trash": [],
+            "spam": [],
+            "archive": []
+          },
+          "labels": {},
+          "drafts": {},
+          "user_email_address": "alex.johnson@techcorp.com"
+        }
+      }
+    },
+    "events": {
+      "events": [
+        {
+          "event_id": "evt-001",
+          "scheduled_time": "2026-01-20T08:05:00-08:00",
+          "modality": "email",
+          "data": {
+            "modality_type": "email",
+            "timestamp": "2026-01-20T08:05:00-08:00",
+            "operation": "receive",
+            "from_address": "sarah.chen@techcorp.com",
+            "to_addresses": [
+              "alex.johnson@techcorp.com"
+            ],
+            "subject": "Q1 Planning - Need Your Input",
+            "body_text": "Hi Alex,\n\nI'm putting together the Q1 roadmap and wanted to get your thoughts on a few things:\n\n1. What do you think is the realistic timeline for the authentication refactor?\n2. Are there any technical risks we should flag to leadership?\n3. Do you have capacity to mentor David on the dashboard project?\n\nI'd like to have the draft ready by Wednesday, so any input by EOD tomorrow would be great.\n\nThanks,\nSarah",
+            "priority": "normal",
+            "labels": [
+              "work"
+            ],
+            "input_id": "a9989799-2a5d-4d93-861b-567461697803",
+            "message_id": null,
+            "message_ids": null,
+            "cc_addresses": null,
+            "bcc_addresses": null,
+            "reply_to_address": null,
+            "body_html": null,
+            "attachments": null,
+            "thread_id": null,
+            "in_reply_to": null,
+            "references": null,
+            "folder": null,
+            "is_draft": false
+          },
+          "status": "pending",
+          "priority": 50,
+          "created_at": "2026-01-20T08:00:00Z",
+          "executed_at": null,
+          "agent_id": null,
+          "error_message": null,
+          "metadata": {}
+        },
+        {
+          "event_id": "evt-002",
+          "scheduled_time": "2026-01-20T08:30:00-08:00",
+          "modality": "email",
+          "data": {
+            "modality_type": "email",
+            "timestamp": "2026-01-20T08:30:00-08:00",
+            "operation": "receive",
+            "from_address": "marcus.williams@techcorp.com",
+            "to_addresses": [
+              "alex.johnson@techcorp.com"
+            ],
+            "subject": "Quick question about the rate limiter",
+            "body_text": "Hey Alex!\n\nI was looking at your PR for the rate limiting implementation and had a question. For the token bucket algorithm, are we planning to use Redis for the distributed state or keep it in-memory per instance?\n\nI'm asking because I'm working on the monitoring integration and want to make sure I set up the right metrics. If it's Redis-backed, we should probably add some cache hit/miss tracking too.\n\nNo rush - just wanted to catch you before standup.\n\nMarcus",
+            "priority": "normal",
+            "labels": [
+              "work"
+            ],
+            "input_id": "7da97cee-49b1-4317-9830-91763513e25c",
+            "message_id": null,
+            "message_ids": null,
+            "cc_addresses": null,
+            "bcc_addresses": null,
+            "reply_to_address": null,
+            "body_html": null,
+            "attachments": null,
+            "thread_id": null,
+            "in_reply_to": null,
+            "references": null,
+            "folder": null,
+            "is_draft": false
+          },
+          "status": "pending",
+          "priority": 50,
+          "created_at": "2026-01-20T08:00:00Z",
+          "executed_at": null,
+          "agent_id": null,
+          "error_message": null,
+          "metadata": {}
+        },
+        {
+          "event_id": "evt-003",
+          "scheduled_time": "2026-01-20T09:00:00-08:00",
+          "modality": "email",
+          "data": {
+            "modality_type": "email",
+            "timestamp": "2026-01-20T09:00:00-08:00",
+            "operation": "receive",
+            "from_address": "david.kim@techcorp.com",
+            "to_addresses": [
+              "alex.johnson@techcorp.com"
+            ],
+            "subject": "Help with JWT refresh tokens?",
+            "body_text": "Hi Alex,\n\nI'm working on the user session management feature and running into an issue with the JWT refresh token flow. When a user's access token expires, I'm not sure if I should:\n\na) Automatically refresh on any 401 response\nb) Only refresh on specific endpoints\nc) Let the frontend handle the refresh logic\n\nI've read through a few articles but they all seem to recommend different approaches. Given our architecture, what would you suggest?\n\nI know you've implemented this before at your previous company, so I thought I'd ask. Happy to jump on a quick call if that's easier.\n\nThanks!\nDavid",
+            "priority": "normal",
+            "labels": [
+              "work"
+            ],
+            "input_id": "f3737629-af53-4e66-a62e-833e551ff270",
+            "message_id": null,
+            "message_ids": null,
+            "cc_addresses": null,
+            "bcc_addresses": null,
+            "reply_to_address": null,
+            "body_html": null,
+            "attachments": null,
+            "thread_id": null,
+            "in_reply_to": null,
+            "references": null,
+            "folder": null,
+            "is_draft": false
+          },
+          "status": "pending",
+          "priority": 50,
+          "created_at": "2026-01-20T08:00:00Z",
+          "executed_at": null,
+          "agent_id": null,
+          "error_message": null,
+          "metadata": {}
+        },
+        {
+          "event_id": "evt-004",
+          "scheduled_time": "2026-01-20T09:45:00-08:00",
+          "modality": "email",
+          "data": {
+            "modality_type": "email",
+            "timestamp": "2026-01-20T09:45:00-08:00",
+            "operation": "receive",
+            "from_address": "emily.rodriguez@techcorp.com",
+            "to_addresses": [
+              "alex.johnson@techcorp.com"
+            ],
+            "subject": "Deployment approval needed",
+            "body_text": "Hey Alex,\n\nThe API rate limiting feature is ready for production deployment. I've completed the staging verification and all tests pass.\n\nCan you approve the deployment? Here's the runbook:\nhttps://wiki.techcorp.com/deployments/rate-limiter\n\nI'd like to deploy during the low-traffic window (2-3pm today) if possible.\n\nLet me know!\nEmily",
+            "priority": "high",
+            "labels": [
+              "work"
+            ],
+            "input_id": "16f70468-da83-49eb-bc61-62cc738e1e7a",
+            "message_id": null,
+            "message_ids": null,
+            "cc_addresses": null,
+            "bcc_addresses": null,
+            "reply_to_address": null,
+            "body_html": null,
+            "attachments": null,
+            "thread_id": null,
+            "in_reply_to": null,
+            "references": null,
+            "folder": null,
+            "is_draft": false
+          },
+          "status": "pending",
+          "priority": 50,
+          "created_at": "2026-01-20T08:00:00Z",
+          "executed_at": null,
+          "agent_id": null,
+          "error_message": null,
+          "metadata": {}
+        },
+        {
+          "event_id": "evt-005",
+          "scheduled_time": "2026-01-20T10:30:00-08:00",
+          "modality": "email",
+          "data": {
+            "modality_type": "email",
+            "timestamp": "2026-01-20T10:30:00-08:00",
+            "operation": "receive",
+            "from_address": "priya.patel@techcorp.com",
+            "to_addresses": [
+              "alex.johnson@techcorp.com"
+            ],
+            "subject": "Dashboard API - Timeline Check",
+            "body_text": "Hi Alex,\n\nHope your Monday is going well! I'm meeting with the design team this afternoon and wanted to give them an update on the backend timeline.\n\nFor the new dashboard APIs:\n1. User analytics endpoint - what's your estimate?\n2. Custom widget configuration - any blockers?\n3. Export functionality - can this be pushed to phase 2?\n\nI know engineering timelines can be tricky, so ballpark figures are totally fine. Just want to set appropriate expectations with stakeholders.\n\nThanks!\nPriya",
+            "priority": "normal",
+            "labels": [
+              "work"
+            ],
+            "input_id": "b56168c8-57e0-4e2e-8729-4889945fe05e",
+            "message_id": null,
+            "message_ids": null,
+            "cc_addresses": null,
+            "bcc_addresses": null,
+            "reply_to_address": null,
+            "body_html": null,
+            "attachments": null,
+            "thread_id": null,
+            "in_reply_to": null,
+            "references": null,
+            "folder": null,
+            "is_draft": false
+          },
+          "status": "pending",
+          "priority": 50,
+          "created_at": "2026-01-20T08:00:00Z",
+          "executed_at": null,
+          "agent_id": null,
+          "error_message": null,
+          "metadata": {}
+        },
+        {
+          "event_id": "evt-006",
+          "scheduled_time": "2026-01-20T11:00:00-08:00",
+          "modality": "email",
+          "data": {
+            "modality_type": "email",
+            "timestamp": "2026-01-20T11:00:00-08:00",
+            "operation": "receive",
+            "from_address": "linda.johnson@gmail.com",
+            "to_addresses": [
+              "alex.johnson@techcorp.com"
+            ],
+            "subject": "Weekend visit?",
+            "body_text": "Hi sweetie!\n\nYour father and I were thinking about driving up to see you this weekend. We'd arrive Saturday afternoon and could take you out for dinner - there's that nice Italian place you mentioned last time.\n\nWould that work with your schedule? We don't want to impose if you have plans. Just let us know and we can always come another weekend.\n\nAlso, how's work going? You sounded a bit stressed last time we talked.\n\nLove,\nMom\n\nP.S. Mrs. Patterson says hi! She asks about you every time I see her at the grocery store.",
+            "priority": "normal",
+            "labels": [
+              "personal"
+            ],
+            "input_id": "3120e349-039b-411e-b906-10829e568c71",
+            "message_id": null,
+            "message_ids": null,
+            "cc_addresses": null,
+            "bcc_addresses": null,
+            "reply_to_address": null,
+            "body_html": null,
+            "attachments": null,
+            "thread_id": null,
+            "in_reply_to": null,
+            "references": null,
+            "folder": null,
+            "is_draft": false
+          },
+          "status": "pending",
+          "priority": 50,
+          "created_at": "2026-01-20T08:00:00Z",
+          "executed_at": null,
+          "agent_id": null,
+          "error_message": null,
+          "metadata": {}
+        },
+        {
+          "event_id": "evt-007",
+          "scheduled_time": "2026-01-20T12:15:00-08:00",
+          "modality": "email",
+          "data": {
+            "modality_type": "email",
+            "timestamp": "2026-01-20T12:15:00-08:00",
+            "operation": "receive",
+            "from_address": "mike.chen@gmail.com",
+            "to_addresses": [
+              "alex.johnson@techcorp.com"
+            ],
+            "subject": "Dude - Austin reunion happening!",
+            "body_text": "Alex!!\n\nOkay so Jamie confirmed - his place is available Presidents Day weekend! Chris is definitely in, and now we just need you.\n\nThe plan:\n- Friday night: arrive, catch up, maybe hit 6th Street\n- Saturday: BBQ at Jamie's, maybe kayaking on the lake?\n- Sunday: brunch before everyone heads out\n\nI already checked flights and there's a $180 round trip from SFO if you book soon.\n\nCome on man, it's been 5 YEARS since we all hung out! Don't make me guilt trip you about missing Brad's wedding... \ud83d\ude05\n\nLMK ASAP!\n\n- Mike",
+            "priority": "normal",
+            "labels": [
+              "personal"
+            ],
+            "input_id": "d3a38905-70f7-4fdb-91ff-dec0d9a51917",
+            "message_id": null,
+            "message_ids": null,
+            "cc_addresses": null,
+            "bcc_addresses": null,
+            "reply_to_address": null,
+            "body_html": null,
+            "attachments": null,
+            "thread_id": null,
+            "in_reply_to": null,
+            "references": null,
+            "folder": null,
+            "is_draft": false
+          },
+          "status": "pending",
+          "priority": 50,
+          "created_at": "2026-01-20T08:00:00Z",
+          "executed_at": null,
+          "agent_id": null,
+          "error_message": null,
+          "metadata": {}
+        },
+        {
+          "event_id": "evt-008",
+          "scheduled_time": "2026-01-20T14:00:00-08:00",
+          "modality": "email",
+          "data": {
+            "modality_type": "email",
+            "timestamp": "2026-01-20T14:00:00-08:00",
+            "operation": "receive",
+            "from_address": "marcus.williams@techcorp.com",
+            "to_addresses": [
+              "alex.johnson@techcorp.com"
+            ],
+            "subject": "Re: Quick question about the rate limiter",
+            "body_text": "Hey Alex,\n\nJust following up on this - no worries if you've been swamped. I saw you were in the incident channel earlier.\n\nActually, I went ahead and looked at the PR more closely. I think I see what you're doing with the sliding window approach. Pretty clever!\n\nStill curious about the Redis question though when you get a chance. Also, want to grab lunch this week? Haven't caught up properly in a while.\n\nMarcus",
+            "priority": "normal",
+            "labels": [
+              "work"
+            ],
+            "input_id": "df21f5a6-32ea-419f-97ac-9f282e419e31",
+            "message_id": null,
+            "message_ids": null,
+            "cc_addresses": null,
+            "bcc_addresses": null,
+            "reply_to_address": null,
+            "body_html": null,
+            "attachments": null,
+            "thread_id": null,
+            "in_reply_to": null,
+            "references": null,
+            "folder": null,
+            "is_draft": false
+          },
+          "status": "pending",
+          "priority": 50,
+          "created_at": "2026-01-20T08:00:00Z",
+          "executed_at": null,
+          "agent_id": null,
+          "error_message": null,
+          "metadata": {}
+        },
+        {
+          "event_id": "evt-009",
+          "scheduled_time": "2026-01-20T15:30:00-08:00",
+          "modality": "email",
+          "data": {
+            "modality_type": "email",
+            "timestamp": "2026-01-20T15:30:00-08:00",
+            "operation": "receive",
+            "from_address": "sam.taylor@gmail.com",
+            "to_addresses": [
+              "alex.johnson@techcorp.com"
+            ],
+            "subject": "Dinner plans",
+            "body_text": "Hey babe,\n\nStill good for dinner tonight? I was thinking we could try that new Thai place on Valencia that everyone's been talking about.\n\nAlso, my sister wants to know if we're coming to her birthday next month. It's February 8th - I know that's a Saturday but wanted to check your calendar before I commit us.\n\nHow's your day going? Hope the Monday chaos isn't too bad!\n\n\u2764\ufe0f Sam",
+            "priority": "normal",
+            "labels": [
+              "personal"
+            ],
+            "input_id": "eccf242a-c22f-4349-8ccd-d94d6a98e067",
+            "message_id": null,
+            "message_ids": null,
+            "cc_addresses": null,
+            "bcc_addresses": null,
+            "reply_to_address": null,
+            "body_html": null,
+            "attachments": null,
+            "thread_id": null,
+            "in_reply_to": null,
+            "references": null,
+            "folder": null,
+            "is_draft": false
+          },
+          "status": "pending",
+          "priority": 50,
+          "created_at": "2026-01-20T08:00:00Z",
+          "executed_at": null,
+          "agent_id": null,
+          "error_message": null,
+          "metadata": {}
+        },
+        {
+          "event_id": "evt-010",
+          "scheduled_time": "2026-01-20T16:15:00-08:00",
+          "modality": "email",
+          "data": {
+            "modality_type": "email",
+            "timestamp": "2026-01-20T16:15:00-08:00",
+            "operation": "receive",
+            "from_address": "sarah.chen@techcorp.com",
+            "to_addresses": [
+              "alex.johnson@techcorp.com"
+            ],
+            "subject": "Re: Q1 Planning - Quick follow-up",
+            "body_text": "Hi Alex,\n\nI know you're probably deep in code, but wanted to give you a heads up - the VP asked specifically about the authentication timeline in our leadership sync.\n\nI gave a rough estimate based on our earlier conversations, but if you have a chance to send me even a quick bullet point response to my earlier email today, it would really help me finalize the roadmap.\n\nNo pressure if you're slammed - we can sync tomorrow morning if needed.\n\nThanks,\nSarah",
+            "priority": "high",
+            "labels": [
+              "work"
+            ],
+            "input_id": "496860c6-269c-422c-bad2-6f953e3ec755",
+            "message_id": null,
+            "message_ids": null,
+            "cc_addresses": null,
+            "bcc_addresses": null,
+            "reply_to_address": null,
+            "body_html": null,
+            "attachments": null,
+            "thread_id": null,
+            "in_reply_to": null,
+            "references": null,
+            "folder": null,
+            "is_draft": false
+          },
+          "status": "pending",
+          "priority": 50,
+          "created_at": "2026-01-20T08:00:00Z",
+          "executed_at": null,
+          "agent_id": null,
+          "error_message": null,
+          "metadata": {}
+        },
+        {
+          "event_id": "evt-011",
+          "scheduled_time": "2026-01-20T17:00:00-08:00",
+          "modality": "email",
+          "data": {
+            "modality_type": "email",
+            "timestamp": "2026-01-20T17:00:00-08:00",
+            "operation": "receive",
+            "from_address": "emily.rodriguez@techcorp.com",
+            "to_addresses": [
+              "alex.johnson@techcorp.com"
+            ],
+            "subject": "Re: Deployment approval needed - Update",
+            "body_text": "Hey Alex,\n\nJust a heads up - I went ahead and got Jason to approve the deployment since I couldn't catch you. Everything went smoothly!\n\nThe rate limiter is now live in production. I'm monitoring the dashboards and everything looks stable so far. P99 latency unchanged, and we're already seeing some rate limit triggers from the test accounts.\n\nI've got alerts set up if anything goes sideways. Let me know if you want to review the metrics tomorrow.\n\nThanks!\nEmily",
+            "priority": "normal",
+            "labels": [
+              "work"
+            ],
+            "input_id": "34c24e69-ce2b-43b3-863a-c274fc12070f",
+            "message_id": null,
+            "message_ids": null,
+            "cc_addresses": null,
+            "bcc_addresses": null,
+            "reply_to_address": null,
+            "body_html": null,
+            "attachments": null,
+            "thread_id": null,
+            "in_reply_to": null,
+            "references": null,
+            "folder": null,
+            "is_draft": false
+          },
+          "status": "pending",
+          "priority": 50,
+          "created_at": "2026-01-20T08:00:00Z",
+          "executed_at": null,
+          "agent_id": null,
+          "error_message": null,
+          "metadata": {}
+        },
+        {
+          "event_id": "evt-012",
+          "scheduled_time": "2026-01-20T17:45:00-08:00",
+          "modality": "email",
+          "data": {
+            "modality_type": "email",
+            "timestamp": "2026-01-20T17:45:00-08:00",
+            "operation": "receive",
+            "from_address": "david.kim@techcorp.com",
+            "to_addresses": [
+              "alex.johnson@techcorp.com"
+            ],
+            "subject": "Re: Help with JWT refresh tokens?",
+            "body_text": "Hi Alex,\n\nNo worries if you haven't had a chance to look at this yet! I did some more digging and found a pattern in our existing codebase that might work.\n\nI'm thinking of using a similar approach to how the payment service handles token refresh - intercepting 401s at the HTTP client level. Does that sound reasonable?\n\nIf you have 15 minutes tomorrow, I'd love to walk through my implementation with you. Just to make sure I'm not missing any edge cases.\n\nThanks again!\nDavid",
+            "priority": "normal",
+            "labels": [
+              "work"
+            ],
+            "input_id": "379a1e0d-c3f2-49c0-9257-99e953e18d9f",
+            "message_id": null,
+            "message_ids": null,
+            "cc_addresses": null,
+            "bcc_addresses": null,
+            "reply_to_address": null,
+            "body_html": null,
+            "attachments": null,
+            "thread_id": null,
+            "in_reply_to": null,
+            "references": null,
+            "folder": null,
+            "is_draft": false
+          },
+          "status": "pending",
+          "priority": 50,
+          "created_at": "2026-01-20T08:00:00Z",
+          "executed_at": null,
+          "agent_id": null,
+          "error_message": null,
+          "metadata": {}
+        }
+      ]
+    }
+  }
+}

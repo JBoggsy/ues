@@ -313,7 +313,7 @@ class TestWeatherStateGetSnapshot:
         assert "longitude" in location
         assert "current_report" in location
         assert "last_updated" in location
-        assert "history_count" in location
+        assert "report_count" in location
 
     def test_get_snapshot_with_multiple_locations(self):
         """Test snapshot with multiple locations.
@@ -336,19 +336,25 @@ class TestWeatherStateGetSnapshot:
         assert snapshot["location_count"] == 3
 
     def test_get_snapshot_includes_weather_data(self):
-        """Test that snapshot includes weather report data."""
+        """Test that snapshot includes weather report data.
+        
+        Note: current_report is a WeatherReport model (not dict).
+        Access attributes via dot notation or model_dump().
+        """
         state = create_weather_state()
         
         state.apply_input(RAINY_WEATHER)
         snapshot = state.get_snapshot()
         
         location = list(snapshot["locations"].values())[0]
-        current = location["current_report"]["current"]
+        # current_report is a WeatherReport model with a current attribute
+        current_report = location["current_report"]
+        current = current_report.current
         
-        assert "temp" in current
-        assert "feels_like" in current
-        assert "humidity" in current
-        assert "weather" in current
+        assert current.temp is not None
+        assert current.feels_like is not None
+        assert current.humidity is not None
+        assert current.weather is not None
 
 
 class TestWeatherStateValidateState:

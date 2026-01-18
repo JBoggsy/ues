@@ -1080,8 +1080,8 @@ class SMSState(ModalityState):
                 "last_message_at": conv.last_message_at.isoformat(),
                 "created_at": conv.created_at.isoformat(),
             }
-            if conv.display_name:
-                conversations_snapshot[thread_id]["display_name"] = conv.display_name
+            if conv.group_name:
+                conversations_snapshot[thread_id]["group_name"] = conv.group_name
 
         return {
             "modality_type": self.modality_type,

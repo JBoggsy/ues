@@ -753,12 +753,16 @@ class TestSMSStateGetSnapshot:
         assert snapshot["modality_type"] == "sms"
         assert snapshot["user_phone_number"] == "+15559876543"
         assert snapshot["conversations"] == {}
-        assert snapshot["messages"] == {}
         assert snapshot["total_conversations"] == 0
         assert snapshot["total_messages"] == 0
+        assert snapshot["unread_total"] == 0
 
     def test_snapshot_with_messages(self):
-        """GENERAL PATTERN: Verify snapshot includes messages."""
+        """GENERAL PATTERN: Verify snapshot includes message counts.
+        
+        Note: Compact snapshot doesn't include full messages, only counts.
+        Use model_dump() for full message content.
+        """
         state = create_sms_state()
 
         send_input = SMSInput(
@@ -774,7 +778,8 @@ class TestSMSStateGetSnapshot:
 
         snapshot = state.get_snapshot()
         assert snapshot["total_messages"] == 1
-        assert len(snapshot["messages"]) == 1
+        # Compact snapshot doesn't include full messages dict
+        assert "messages" not in snapshot
 
     def test_snapshot_with_conversations(self):
         """MODALITY-SPECIFIC: Verify snapshot includes conversations."""

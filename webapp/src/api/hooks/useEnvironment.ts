@@ -42,6 +42,8 @@ export function useModalityList() {
 /**
  * Hook to fetch state of a specific modality with polling.
  * Uses settings store for default polling interval.
+ * 
+ * Calls the modality-specific endpoint: /{modality}/state
  */
 export function useModalityState<T = unknown>(modality: Modality, pollingInterval?: number) {
   const { environmentPollingInterval } = usePollingSettings();
@@ -50,9 +52,8 @@ export function useModalityState<T = unknown>(modality: Modality, pollingInterva
   return useQuery<T>({
     queryKey: [...QUERY_KEY, 'modalities', modality],
     queryFn: async () => {
-      const response = await apiClient.get(`/environment/modalities/${modality}`);
-      // API returns { modality_type, current_time, state }, extract just the state
-      return response.data.state;
+      const response = await apiClient.get(`/${modality}/state`);
+      return response.data;
     },
     refetchInterval: interval,
     enabled: !!modality,
@@ -61,6 +62,8 @@ export function useModalityState<T = unknown>(modality: Modality, pollingInterva
 
 /**
  * Hook to query a modality with filters.
+ * 
+ * Calls the modality-specific endpoint: /{modality}/query
  */
 export function useModalityQuery<T = unknown>(
   modality: Modality,
@@ -70,7 +73,7 @@ export function useModalityQuery<T = unknown>(
   return useQuery<T>({
     queryKey: [...QUERY_KEY, 'modalities', modality, 'query', query],
     queryFn: async () => {
-      const response = await apiClient.post(`/environment/modalities/${modality}/query`, query);
+      const response = await apiClient.post(`/${modality}/query`, query);
       return response.data;
     },
     enabled: enabled && !!modality,

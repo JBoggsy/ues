@@ -92,10 +92,12 @@ def load_scenario(scenario_path: Path, ues_host: str) -> None:
         scenario_path: Path to the .ues-scenario.json file.
         ues_host: The UES server URL.
     """
+    # The .ues-scenario.json file already has the {"scenario": ...} wrapper
+    # expected by the /scenario/import/full endpoint
     scenario_data = json.loads(scenario_path.read_text())
     response = httpx.post(
         f"{ues_host}/scenario/import/full",
-        json={"scenario": scenario_data},
+        json=scenario_data,
         timeout=30.0,
     )
     if not response.is_success:

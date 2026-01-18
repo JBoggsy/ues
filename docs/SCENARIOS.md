@@ -238,6 +238,63 @@ Run UES with external agents for dynamic testing:
 4. Let all agents interact through the API
 5. Optionally export final state as a new scenario for replay
 
+## Companion Files
+
+While scenario files (`.ues-scenario.json`) contain the core simulation data, certain use cases
+benefit from companion files that provide additional context for external tools and agents.
+
+### Character Definitions (`characters.json`)
+
+When building interactive scenarios with simulator-side agents that simulate other people, a
+`characters.json` file can define the personalities and behaviors of those characters:
+
+```json
+{
+  "characters": {
+    "sarah.chen@techcorp.com": {
+      "name": "Sarah Chen",
+      "role": "Engineering Manager",
+      "relationship": "Direct manager",
+      "personality": "Professional, supportive, efficient...",
+      "communication_style": "Structured responses, uses bullet points...",
+      "responsiveness": {
+        "min_delay_minutes": 5,
+        "max_delay_minutes": 30,
+        "work_hours_only": true
+      },
+      "work_hours": {
+        "start": "08:00",
+        "end": "18:00",
+        "timezone": "America/Los_Angeles"
+      }
+    }
+  },
+  "user": {
+    "email": "user@example.com",
+    "name": "User Name",
+    "role": "Software Engineer",
+    "context": "Additional context about the user..."
+  }
+}
+```
+
+**Key properties:**
+
+| Property | Purpose |
+|----------|---------|
+| `name`, `role`, `relationship` | Character identity and relation to user |
+| `personality` | LLM-friendly description of how the character behaves |
+| `communication_style` | How the character writes (formal, casual, etc.) |
+| `responsiveness` | Timing parameters for reply scheduling |
+| `work_hours` | When the character is "available" (optional) |
+
+This file is **not loaded by UES itself**—it's consumed by external agents that generate
+character responses. This separation keeps UES as a pure simulation engine while enabling
+sophisticated character simulation.
+
+See the [Email Reply Generator Agent](../examples/agents/email_reply_generator/) for a working
+example that uses `characters.json` to generate realistic email replies.
+
 ### Pattern 4: Scenario Capture
 
 Generate scenarios from interactive sessions:

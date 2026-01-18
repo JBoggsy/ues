@@ -262,29 +262,15 @@ Tests revealed the actual request field names required by the API:
   - [x] Count is accurate
   - [x] Lightweight response (no full state)
 
-#### Modality State (`test_modality_state.py`) - 6 tests
-- [x] `GET /environment/modalities/{modality_name}` - Get modality state
-  - [x] Returns modality state with correct structure
-  - [x] Works for all registered modalities
-  - [x] Returns 404 for invalid modality
-  - [x] Reflects changes after event execution
-  - [x] Includes current simulator time
-  - [x] More efficient than fetching full environment state
+#### ~~Modality State~~ (REMOVED) - Endpoint removed
+- ~~`GET /environment/modalities/{modality_name}`~~ - **Removed**
+  - Use modality-specific endpoints instead: `GET /{modality}/state`
+  - Each modality now has its own `/state` endpoint (e.g., `/email/state`, `/sms/state`)
 
-#### Modality Queries (`test_modality_queries.py`) - 12 tests
-- [x] `POST /environment/modalities/{modality_name}/query` - Query with filters
-  - [x] Returns query results with correct structure
-  - [x] Returns 404 for invalid modality
-  - [x] Email modality supports filters
-  - [x] SMS modality supports filters
-  - [x] Calendar modality supports filters
-  - [x] Chat modality supports filters
-  - [x] Location modality supports filters
-  - [x] Weather modality supports filters
-  - [x] Weather query fails without required lat/lon
-  - [x] Time modality supports filters
-  - [x] Handles invalid query parameters gracefully
-  - [x] All 7 modalities have working query methods
+#### ~~Modality Queries~~ (REMOVED) - Endpoint removed
+- ~~`POST /environment/modalities/{modality_name}/query`~~ - **Removed**
+  - Use modality-specific endpoints instead: `POST /{modality}/query`
+  - Each modality now has its own `/query` endpoint (e.g., `/email/query`, `/sms/query`)
 
 #### Environment Validation (`test_environment_validation.py`) - 6 tests
 - [x] `POST /environment/validate` - Validate consistency

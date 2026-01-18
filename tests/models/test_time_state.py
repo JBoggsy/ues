@@ -277,16 +277,22 @@ class TestTimeStateGetSnapshot:
         assert "locale" not in snapshot["current"]
         assert "week_start" not in snapshot["current"]
 
-    def test_get_snapshot_includes_history(self):
-        """Test that snapshot includes settings history."""
+    def test_get_snapshot_includes_history_count(self):
+        """Test that snapshot includes history count (not full history).
+        
+        Note: Compact snapshot has history_count but not full settings history.
+        Use model_dump() for full settings history.
+        """
         state = create_time_state()
         state.apply_input(US_EASTERN_INPUT)
         state.apply_input(UK_INPUT)
         
         snapshot = state.get_snapshot()
         
-        assert "history" in snapshot
-        assert len(snapshot["history"]) == 2
+        assert "history_count" in snapshot
+        assert snapshot["history_count"] == 2
+        # Compact snapshot doesn't include full history
+        assert "history" not in snapshot
 
     def test_get_snapshot_is_json_serializable(self):
         """Test that snapshot can be JSON serialized."""

@@ -232,15 +232,20 @@ class TestChatStateGetSnapshot:
         assert snapshot["update_count"] == 0
 
     def test_get_snapshot_includes_messages(self):
-        """Test snapshot includes message list."""
+        """Test snapshot includes message count (not full messages).
+        
+        Note: Compact snapshot has total_message_count but not full messages.
+        Use model_dump() for full message content.
+        """
         state = create_chat_state()
         state.apply_input(USER_GREETING)
         state.apply_input(ASSISTANT_RESPONSE)
         
         snapshot = state.get_snapshot()
         
-        assert "messages" in snapshot
-        assert len(snapshot["messages"]) == 2
+        assert snapshot["total_message_count"] == 2
+        # Compact snapshot doesn't include full messages list
+        assert "messages" not in snapshot
 
     def test_get_snapshot_includes_conversations(self):
         """Test snapshot includes conversation metadata."""

@@ -423,7 +423,11 @@ class TestCalendarStateGetSnapshot:
     """
 
     def test_get_snapshot_empty(self):
-        """GENERAL PATTERN: Verify snapshot of empty state."""
+        """GENERAL PATTERN: Verify snapshot of empty state.
+        
+        Note: Compact snapshot includes counts and calendar metadata,
+        but not full event details. Use model_dump() for full events.
+        """
         state = CalendarState(
             last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
         )
@@ -436,10 +440,15 @@ class TestCalendarStateGetSnapshot:
         assert snapshot["calendar_count"] == 1
         assert snapshot["event_count"] == 0
         assert "calendars" in snapshot
-        assert "events" in snapshot
+        # Compact snapshot doesn't include full events
+        assert "events" not in snapshot
 
     def test_get_snapshot_with_events(self):
-        """MODALITY-SPECIFIC: Verify snapshot includes events."""
+        """MODALITY-SPECIFIC: Verify snapshot includes event count.
+        
+        Note: Compact snapshot includes event_count but not full event details.
+        Use model_dump() for full event information.
+        """
         state = CalendarState(
             last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
         )
@@ -459,7 +468,8 @@ class TestCalendarStateGetSnapshot:
         snapshot = state.get_snapshot()
 
         assert snapshot["event_count"] == 3
-        assert len(snapshot["events"]) == 3
+        # Compact snapshot doesn't include full events list
+        assert "events" not in snapshot
 
 
 class TestCalendarStateValidateState:

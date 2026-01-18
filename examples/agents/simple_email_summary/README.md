@@ -37,34 +37,35 @@ The scenario simulates a single workday (Friday, Jan 16, 2026) for Alex Johnson,
 engineer at TechCorp.
 
 **Initial state (6:00 AM):**
-- Two unread spam/promotional emails from overnight
+- Empty inbox (all emails arrive as scheduled events throughout the day)
 
-**Scheduled events throughout the day:**
-| Time | Type | Description |
-|------|------|-------------|
-| 6:45 AM | Spam | Software deals promotional email |
-| 8:15 AM | Work (1-1) | Sarah asks for Q1 planning input (needs response by EOD) |
-| 8:32 AM | Calendar | Meeting invite for 2pm Project Alpha Sync |
-| 8:45 AM | Work (Team) | **URGENT** - Mike reports production API gateway issue |
-| 8:52 AM | Work (Team) | Jennifer replies with fix to the API issue |
-| 9:10 AM | Personal | Mom asks about Sunday dinner |
-| 10:30 AM | Notification | LinkedIn connection requests |
-| 11:45 AM | Work (1-1) | David requests code review on auth refactor PR |
-| 2:30 PM | HR | Benefits enrollment deadline reminder |
-| 4:15 PM | Work (1-1) | Sarah confirms she received Q1 priorities |
-| 5:45 PM | Personal | Jamie asks about dinner plans tonight |
-| 7:00 PM | Spam | Travel deals promotional email |
+**Scheduled events throughout the day (48 emails):**
+
+The scenario includes a dense distribution of emails, particularly during busy hours (8-10am, 3-5pm):
+
+| Hour | Count | Types |
+|------|-------|-------|
+| 6-7 AM | 2 | Spam (dev tools promo, fitness newsletter) |
+| 7-8 AM | 2 | Spam (morning briefing), Automated (CI/CD build success) |
+| 8-9 AM | 6 | Work (Q1 planning, API docs question, **URGENT** incident + 2 replies), Automated (standup reminder) |
+| 9-10 AM | 4 | Spam (cloud sales), Work (post-mortem, meeting agenda), Personal (mom checking in) |
+| 10-11 AM | 4 | Work (feature timeline), Automated (Jira, LinkedIn), Spam (TechCrunch) |
+| 11-12 PM | 3 | Personal (college friend reunion), Work (code review request), Spam |
+| 12-1 PM | 3 | Spam (coffee, DoorDash, webinar promo) |
+| 1-2 PM | 4 | Automated (cafeteria survey, meeting reminder), Work (PR question), Spam (Hacker Newsletter) |
+| 2-3 PM | 2 | Work (meeting notes), HR (benefits enrollment) |
+| 3-4 PM | 4 | Spam (webinar), Work (security notice, PR thanks), Personal (dentist reminder) |
+| 4-5 PM | 4 | Automated (GitHub, Jira digest), Work (Q1 confirmation), Spam (electronics sale) |
+| 5-6 PM | 3 | Work (API docs thanks), Personal (dinner plans), Spam (courses) |
+| 6-7 PM | 3 | Personal (package delivery), Spam (fitness trackers, travel deals) |
+| 7-8 PM | 4 | Automated (weekly summary), Spam (groceries, VPN, crypto newsletter) |
 
 **Email types represented:**
-- Spam/promotional (sender-identifiable by domain patterns like `promo`, `deals`, `noreply`)
-- Work 1-1 emails (direct requests and follow-ups)
-- Work team threads (multi-person urgent discussion with replies)
-- Calendar invitations
-- Automated notifications (LinkedIn, HR)
-- Personal emails (family and partner)
-
-**Note:** This is a skeleton scenario with ~12 emails. For more thorough testing, expand to 36+
-emails with denser distribution in busy hours (8-10am, 2-4pm).
+- **Spam/promotional** (18): Software deals, fitness apps, cloud services, food delivery, shopping, webinars, learning platforms, travel deals, VPN, crypto
+- **Work emails** (13): Q1 planning, API documentation, code review, meeting notes, security notices, follow-ups
+- **Work incident thread** (3): Production API latency incident with status update and fix deployed
+- **Automated/System** (9): CI/CD, standup bot, calendar reminders, Jira notifications, GitHub, weekly summary
+- **Personal emails** (5): Mom, college friend, dinner plans, dentist appointment, package delivery
 
 ## The Agent (`agent.py`)
 

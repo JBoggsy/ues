@@ -215,8 +215,6 @@ class WeatherState(ModalityState):
                 "current_report": location.current_report,
                 "report_count": len(location.report_history),
             }
-            if location.name:
-                loc_data["name"] = location.name
             locations_snapshot[key] = loc_data
 
         return {

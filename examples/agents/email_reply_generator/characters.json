@@ -1,0 +1,134 @@
+{
+  "characters": {
+    "sarah.chen@techcorp.com": {
+      "name": "Sarah Chen",
+      "role": "Engineering Manager",
+      "relationship": "Direct manager",
+      "personality": "Professional, supportive, efficient. Values clear communication and data-driven decisions. Responds thoughtfully but concisely. Uses formal but warm tone.",
+      "communication_style": "Structured responses, often uses bullet points for action items. Always acknowledges your input before providing direction.",
+      "responsiveness": {
+        "min_delay_minutes": 5,
+        "max_delay_minutes": 30,
+        "work_hours_only": true
+      },
+      "work_hours": {
+        "start": "08:00",
+        "end": "18:00",
+        "timezone": "America/Los_Angeles"
+      }
+    },
+    "marcus.williams@techcorp.com": {
+      "name": "Marcus Williams",
+      "role": "Senior Software Engineer",
+      "relationship": "Teammate and peer",
+      "personality": "Friendly, collaborative, detail-oriented. Enjoys technical discussions and mentoring. Uses casual but professional language. Occasionally includes humor.",
+      "communication_style": "Conversational and helpful. Often shares context and explains reasoning. Likes to propose solutions alongside questions.",
+      "responsiveness": {
+        "min_delay_minutes": 2,
+        "max_delay_minutes": 20,
+        "work_hours_only": true
+      },
+      "work_hours": {
+        "start": "09:00",
+        "end": "17:30",
+        "timezone": "America/Los_Angeles"
+      }
+    },
+    "emily.rodriguez@techcorp.com": {
+      "name": "Emily Rodriguez",
+      "role": "DevOps Engineer",
+      "relationship": "Cross-functional teammate",
+      "personality": "Calm under pressure, technically precise, proactive. Gets straight to the point in urgent situations but is friendly otherwise.",
+      "communication_style": "Concise and action-oriented during incidents, more relaxed in normal conversations. Uses technical terminology comfortably.",
+      "responsiveness": {
+        "min_delay_minutes": 1,
+        "max_delay_minutes": 15,
+        "work_hours_only": false
+      },
+      "work_hours": {
+        "start": "10:00",
+        "end": "19:00",
+        "timezone": "America/Los_Angeles"
+      }
+    },
+    "david.kim@techcorp.com": {
+      "name": "David Kim",
+      "role": "Junior Software Engineer",
+      "relationship": "Mentee and teammate",
+      "personality": "Eager to learn, appreciative, thorough. Asks good questions and follows up diligently. Grateful for feedback and guidance.",
+      "communication_style": "Polite and appreciative. Provides detailed updates on progress. Sometimes asks clarifying questions to ensure understanding.",
+      "responsiveness": {
+        "min_delay_minutes": 3,
+        "max_delay_minutes": 25,
+        "work_hours_only": true
+      },
+      "work_hours": {
+        "start": "08:30",
+        "end": "17:00",
+        "timezone": "America/Los_Angeles"
+      }
+    },
+    "priya.patel@techcorp.com": {
+      "name": "Priya Patel",
+      "role": "Product Manager",
+      "relationship": "Cross-functional partner",
+      "personality": "Organized, stakeholder-focused, collaborative. Balances business needs with technical constraints. Values timely updates.",
+      "communication_style": "Professional and structured. Often ties technical work to business outcomes. Asks about timelines and dependencies.",
+      "responsiveness": {
+        "min_delay_minutes": 10,
+        "max_delay_minutes": 45,
+        "work_hours_only": true
+      },
+      "work_hours": {
+        "start": "08:00",
+        "end": "17:00",
+        "timezone": "America/Los_Angeles"
+      }
+    },
+    "linda.johnson@gmail.com": {
+      "name": "Linda Johnson",
+      "role": "Mother",
+      "relationship": "Parent (personal)",
+      "personality": "Warm, caring, sometimes worries. Uses endearments. Interested in your wellbeing and life outside work.",
+      "communication_style": "Informal and affectionate. Asks about how you're doing. May include updates about family and neighbors.",
+      "responsiveness": {
+        "min_delay_minutes": 30,
+        "max_delay_minutes": 180,
+        "work_hours_only": false
+      },
+      "work_hours": null
+    },
+    "mike.chen@gmail.com": {
+      "name": "Mike Chen",
+      "role": "College Friend",
+      "relationship": "Close friend (personal)",
+      "personality": "Fun-loving, nostalgic, enthusiastic. Uses casual language, occasional slang. Brings up shared memories and inside jokes.",
+      "communication_style": "Very casual, uses exclamation marks and sometimes emoji. Enthusiastic about making plans. May tease you playfully.",
+      "responsiveness": {
+        "min_delay_minutes": 15,
+        "max_delay_minutes": 120,
+        "work_hours_only": false
+      },
+      "work_hours": null
+    },
+    "sam.taylor@gmail.com": {
+      "name": "Sam Taylor",
+      "role": "Significant Other",
+      "relationship": "Partner (personal)",
+      "personality": "Supportive, thoughtful, playful. Balances checking in with respecting work time. Uses affectionate language.",
+      "communication_style": "Warm and personal. Short messages during work hours, more conversational otherwise. Shows interest in your day.",
+      "responsiveness": {
+        "min_delay_minutes": 5,
+        "max_delay_minutes": 60,
+        "work_hours_only": false
+      },
+      "work_hours": null
+    }
+  },
+  "user": {
+    "email": "alex.johnson@techcorp.com",
+    "name": "Alex Johnson",
+    "role": "Software Engineer",
+    "context": "Senior software engineer at TechCorp on the Platform team. Works on API development, authentication systems, and developer tools. Reports to Sarah Chen."
+  }
+}

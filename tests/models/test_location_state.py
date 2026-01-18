@@ -249,16 +249,22 @@ class TestLocationStateGetSnapshot:
         assert "current" in snapshot
         assert snapshot["current"] == {}
 
-    def test_get_snapshot_includes_history(self):
-        """Test that snapshot includes location history."""
+    def test_get_snapshot_includes_history_count(self):
+        """Test that snapshot includes history count (not full history).
+        
+        Note: Compact snapshot has history_count but not full history list.
+        Use model_dump() for full location history.
+        """
         state = create_location_state()
         state.apply_input(HOME_LOCATION)
         state.apply_input(OFFICE_LOCATION)
         
         snapshot = state.get_snapshot()
         
-        assert "history" in snapshot
-        assert len(snapshot["history"]) >= 1  # At least one previous location
+        assert "history_count" in snapshot
+        assert snapshot["history_count"] >= 1  # At least one previous location
+        # Compact snapshot doesn't include full history
+        assert "history" not in snapshot
 
     def test_get_snapshot_is_json_serializable(self):
         """Test that snapshot can be JSON serialized."""

@@ -339,9 +339,10 @@ class TestNotFoundErrors:
         client, _ = client_with_engine
         
         # Test multiple 404-triggering requests
+        # Note: /environment/modalities/{modality} was removed - use modality endpoints
         responses = [
             client.get("/events/nonexistent-id"),
-            client.get("/environment/modalities/fake_modality"),
+            client.get("/nonexistent_endpoint/state"),
         ]
         
         for response in responses:
@@ -586,13 +587,14 @@ class TestErrorResponseStructure:
         client, _ = client_with_engine
         
         # Generate various error responses
+        # Note: /environment/modalities/{modality} was removed
         error_responses = [
             # 422 - validation error
             client.post("/simulator/time/advance", json={}),
             # 404 - not found
             client.get("/events/nonexistent-id"),
-            # 404 - invalid modality
-            client.get("/environment/modalities/fake"),
+            # 404 - invalid route
+            client.get("/nonexistent_route"),
             # 409 - conflict (already running)
             client.post("/simulation/start"),
         ]
@@ -623,10 +625,11 @@ class TestErrorResponseStructure:
         client, _ = client_with_engine
         
         # Generate various errors
+        # Note: /environment/modalities/{modality} was removed
         responses = [
             client.get("/events/nonexistent-id"),
             client.post("/simulator/time/advance", json={"seconds": "invalid"}),
-            client.get("/environment/modalities/fake_modality"),
+            client.get("/nonexistent_route"),
         ]
         
         sensitive_patterns = [
@@ -651,13 +654,13 @@ class TestErrorResponseStructure:
         """Error responses include meaningful, actionable messages."""
         client, _ = client_with_engine
         
-        # 404 for invalid modality should mention valid options
-        response = client.get("/environment/modalities/fake_modality")
+        # 404 for invalid endpoint should indicate the resource was not found
+        response = client.get("/nonexistent_endpoint")
         assert response.status_code == 404
         data = response.json()
-        # Should mention what was requested or what's available
+        # Should mention what was requested or provide helpful info
         response_str = str(data).lower()
-        assert "modality" in response_str or "available" in response_str or "not found" in response_str
+        assert "not found" in response_str or "detail" in data
 
     def test_422_errors_consistent_across_endpoints(self, client_with_engine):
         """422 validation errors have consistent structure across endpoints."""
@@ -681,9 +684,10 @@ class TestErrorResponseStructure:
         client, _ = client_with_engine
         
         # Generate 404 errors from different endpoints
+        # Note: /environment/modalities/{modality} was removed
         responses = [
             client.get("/events/fake-event-id"),
-            client.get("/environment/modalities/fake_modality"),
+            client.get("/nonexistent_route"),
         ]
         
         for response in responses:
