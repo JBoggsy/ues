@@ -44,6 +44,54 @@ A simulator-side agent that monitors for sent emails and generates realistic rep
 
 ---
 
+### `calendar_conflict_resolver/` - User-Side Agent
+
+A user-side agent that analyzes calendar conflicts and recommends resolutions for a busy project manager.
+
+**Demonstrates:**
+- Calendar API integration for conflict detection
+- Multi-factor priority analysis (attendees, meeting type, history)
+- LLM-powered recommendation generation
+- Structured daily briefing output
+
+**Use case:** Testing how an AI assistant might help users manage scheduling conflicts intelligently.
+
+[📖 Read the full README](calendar_conflict_resolver/README.md)
+
+---
+
+### `sms_group_chat/` - Simulator-Side Agent
+
+A simulator-side agent that simulates multiple distinct personalities in a group SMS chat planning a camping trip.
+
+**Demonstrates:**
+- Multi-character simulation with unique personalities
+- Realistic per-character response timing
+- Inter-character reactions and group dynamics
+- Conversation state tracking (decisions, opinions)
+
+**Use case:** Creating realistic group messaging scenarios where "friends" interact naturally with each other and the user.
+
+[📖 Read the full README](sms_group_chat/README.md)
+
+---
+
+### `party_planner/` - Dual Agent (User-Side + Simulator-Side)
+
+A comprehensive integration test with both agent types: an AI assistant (user-side) coordinates a party while guests and vendors (simulator-side) respond realistically.
+
+**Demonstrates:**
+- Dual-agent architecture with both agent types interacting
+- Multi-modal coordination (email, SMS, calendar)
+- RSVP tracking and vendor negotiation flows
+- Objective test scoring of AI assistant capabilities
+
+**Use case:** End-to-end testing of an AI assistant's ability to coordinate complex multi-party tasks.
+
+[📖 Read the full README](party_planner/README.md)
+
+---
+
 ## Running the Examples
 
 All examples require:
