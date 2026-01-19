@@ -154,8 +154,8 @@ class EmailStateResponse(BaseModel):
         user_email_address: The simulated user's email address.
         emails: All emails indexed by message_id.
         threads: All threads indexed by thread_id.
-        folders: Folder names and their message counts.
-        labels: Label names and their message counts.
+        folders: Folder names to list of message_ids.
+        labels: Label names to list of message_ids.
         total_email_count: Total number of emails.
         unread_count: Total number of unread emails.
         starred_count: Total number of starred emails.
@@ -166,8 +166,8 @@ class EmailStateResponse(BaseModel):
     user_email_address: str
     emails: dict[str, Email]
     threads: dict[str, EmailThread]
-    folders: dict[str, int]
-    labels: dict[str, int]
+    folders: dict[str, list[str]]
+    labels: dict[str, list[str]]
     total_email_count: int
     unread_count: int
     starred_count: int

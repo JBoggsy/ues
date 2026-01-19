@@ -243,8 +243,8 @@ class EmailStateResponse(BaseModel):
         user_email_address: The simulated user's email address.
         emails: All emails indexed by message_id.
         threads: All threads indexed by thread_id.
-        folders: Folder names and their message counts.
-        labels: Label names and their message counts.
+        folders: Folder names to list of message_ids.
+        labels: Label names to list of message_ids.
         total_email_count: Total number of emails.
         unread_count: Total number of unread emails.
         starred_count: Total number of starred emails.
@@ -255,8 +255,8 @@ class EmailStateResponse(BaseModel):
     user_email_address: str
     emails: dict[str, Email]
     threads: dict[str, EmailThread]
-    folders: dict[str, int]
-    labels: dict[str, int]
+    folders: dict[str, list[str]]
+    labels: dict[str, list[str]]
     total_email_count: int
     unread_count: int
     starred_count: int
@@ -356,14 +356,6 @@ async def get_email_state(
             threads=summary_data["threads"],
         )
 
-    # Calculate folder and label counts
-    folder_counts = {
-        folder: len(message_ids) for folder, message_ids in email_state.folders.items()
-    }
-    label_counts = {
-        label: len(message_ids) for label, message_ids in email_state.labels.items()
-    }
-
     # Calculate total counts
     unread_count = sum(1 for email in email_state.emails.values() if not email.is_read)
     starred_count = sum(1 for email in email_state.emails.values() if email.is_starred)
@@ -373,8 +365,8 @@ async def get_email_state(
         user_email_address=email_state.user_email_address,
         emails=email_state.emails,
         threads=email_state.threads,
-        folders=folder_counts,
-        labels=label_counts,
+        folders=email_state.folders,
+        labels=email_state.labels,
         total_email_count=len(email_state.emails),
         unread_count=unread_count,
         starred_count=starred_count,
