@@ -1,0 +1,72 @@
+{
+  "scenario": {
+    "metadata": {
+      "ues_version": "0.1.0",
+      "scenario_version": "1",
+      "created_at": "2026-01-26T09:00:00-08:00",
+      "author": "UES Examples",
+      "description": "Party planner integration test scenario. Sam Rivera is planning a housewarming party for January 31st, 2026. This scenario starts on Monday morning (5 days before the party) with empty email/SMS/calendar states, allowing the AI assistant to be tested on its ability to send invitations, coordinate with vendors, and manage RSVPs."
+    },
+    "environment": {
+      "time_state": {
+        "current_time": "2026-01-26T09:00:00-08:00",
+        "time_scale": 1.0,
+        "is_paused": true,
+        "auto_advance": false,
+        "last_wall_time_update": "2026-01-26T09:00:00-08:00"
+      },
+      "modality_states": {
+        "email": {
+          "modality_type": "email",
+          "last_updated": "2026-01-26T09:00:00-08:00",
+          "update_count": 0,
+          "emails": {},
+          "threads": {},
+          "folders": {
+            "inbox": [],
+            "sent": [],
+            "drafts": [],
+            "trash": [],
+            "spam": [],
+            "archive": []
+          },
+          "labels": {},
+          "drafts": {},
+          "user_email_address": "sam.rivera@email.com"
+        },
+        "sms": {
+          "modality_type": "sms",
+          "last_updated": "2026-01-26T09:00:00-08:00",
+          "update_count": 0,
+          "conversations": {},
+          "messages": {},
+          "user_phone_number": "+15551234567"
+        },
+        "calendar": {
+          "modality_type": "calendar",
+          "last_updated": "2026-01-26T09:00:00-08:00",
+          "update_count": 0,
+          "calendars": {
+            "personal": {
+              "calendar_id": "personal",
+              "name": "Personal",
+              "color": "#4285f4",
+              "visible": true,
+              "created_at": "2026-01-01T00:00:00-08:00",
+              "updated_at": "2026-01-26T09:00:00-08:00",
+              "event_ids": [],
+              "default_reminders": [
+                {"method": "notification", "minutes_before": 30}
+              ]
+            }
+          },
+          "events": {},
+          "default_calendar_id": "personal"
+        }
+      }
+    },
+    "events": {
+      "events": []
+    }
+  }
+}

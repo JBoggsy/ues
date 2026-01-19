@@ -1,0 +1,96 @@
+{
+  "user": {
+    "name": "Jordan Blake",
+    "email": "jordan.blake@apexconsulting.com",
+    "role": "Senior Project Manager",
+    "company": "Apex Consulting",
+    "context": "Manages 3 concurrent client engagements (Clients A, B, C) and a 5-person dev team. Reports to VP of Client Services."
+  },
+  "priority_rules": {
+    "attendee_seniority_weight": 0.30,
+    "client_vs_internal_weight": 0.25,
+    "recurring_vs_onetime_weight": 0.15,
+    "subject_keywords_weight": 0.15,
+    "historical_patterns_weight": 0.15
+  },
+  "priority_keywords": {
+    "critical": ["URGENT", "CRITICAL", "EMERGENCY", "ASAP", "DEADLINE"],
+    "high": ["Decision", "Review", "Approval", "Contract", "Renewal"],
+    "medium": ["Update", "Sync", "Check-in", "Status"],
+    "low": ["FYI", "Optional", "Tentative"]
+  },
+  "buffer_settings": {
+    "minimum_gap_minutes": 15,
+    "travel_buffer_minutes": 30,
+    "default_meeting_duration_minutes": 60
+  },
+  "locations": {
+    "Downtown Office": {
+      "address": "123 Main St, Downtown",
+      "travel_time_from_office": 0
+    },
+    "Client A Site": {
+      "address": "456 Commerce Dr",
+      "travel_time_from_office": 25
+    },
+    "Client B Site": {
+      "address": "789 Industrial Blvd",
+      "travel_time_from_office": 35
+    },
+    "Client C Site": {
+      "address": "321 Tech Park Way",
+      "travel_time_from_office": 20
+    }
+  },
+  "characters": {
+    "rachel.kim@apexconsulting.com": {
+      "name": "Rachel Kim",
+      "role": "VP of Client Services",
+      "priority": "critical",
+      "relationship": "Jordan's manager",
+      "notes": "Her meetings override almost everything. Rarely reschedules."
+    },
+    "tom.nguyen@clienta.com": {
+      "name": "Tom Nguyen",
+      "role": "Client A Lead",
+      "priority": "medium",
+      "relationship": "Client stakeholder",
+      "notes": "Flexible on timing, good relationship, generally accommodating with reschedules."
+    },
+    "aisha.patel@clientb.com": {
+      "name": "Aisha Patel",
+      "role": "Client B Lead",
+      "priority": "high",
+      "relationship": "Client stakeholder",
+      "notes": "Contract renewal in 2 weeks. Very inflexible, sensitive relationship."
+    },
+    "derek.morrison@clientc.com": {
+      "name": "Derek Morrison",
+      "role": "Client C Lead",
+      "priority": "medium",
+      "relationship": "Client stakeholder",
+      "notes": "New engagement, still building rapport. Somewhat flexible."
+    },
+    "dev.team@apexconsulting.com": {
+      "name": "Dev Team",
+      "role": "Development Team (5 engineers)",
+      "priority": "low-medium",
+      "relationship": "Direct reports",
+      "notes": "Standups and syncs can often be rescheduled or made async."
+    },
+    "hr@apexconsulting.com": {
+      "name": "HR Representative",
+      "role": "Human Resources",
+      "priority": "low",
+      "relationship": "Internal support",
+      "notes": "Usually flexible on timing for benefits/admin meetings."
+    },
+    "finance@apexconsulting.com": {
+      "name": "Finance Contact",
+      "role": "Budget Reviews",
+      "priority": "medium",
+      "relationship": "Internal stakeholder",
+      "notes": "Quarterly deadlines matter, but generally can move within the week."
+    }
+  }
+}

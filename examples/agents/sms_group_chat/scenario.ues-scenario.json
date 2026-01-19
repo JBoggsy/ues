@@ -1,0 +1,265 @@
+{
+  "scenario": {
+    "metadata": {
+      "ues_version": "0.1.0",
+      "scenario_version": "1",
+      "created_at": "2026-01-22T10:00:00Z",
+      "author": "UES Examples",
+      "description": "SMS group chat scenario for testing the group chat simulator agent. Features a group thread 'Weekend Warriors' planning a camping trip with 5 friends plus the user. Contains initial thread history establishing the camping idea."
+    },
+    "environment": {
+      "time_state": {
+        "current_time": "2026-01-22T10:00:00-08:00",
+        "time_scale": 1.0,
+        "is_paused": true,
+        "auto_advance": false,
+        "last_wall_time_update": "2026-01-22T10:00:00-08:00"
+      },
+      "modality_states": {
+        "sms": {
+          "modality_type": "sms",
+          "last_updated": "2026-01-22T10:00:00-08:00",
+          "update_count": 0,
+          "user_phone_number": "+15550000001",
+          "messages": {
+            "msg-001": {
+              "message_id": "msg-001",
+              "thread_id": "weekend-warriors-camping",
+              "from_number": "+15551000001",
+              "to_numbers": ["+15550000001", "+15551000002", "+15551000003", "+15551000004", "+15551000005"],
+              "body": "You guys!!! I just found this AMAZING campsite listing!! We should totally do a camping trip this weekend!! 🏕️⛺🔥",
+              "message_type": "sms",
+              "direction": "incoming",
+              "sent_at": "2026-01-20T14:30:00-08:00",
+              "is_read": true,
+              "delivery_status": "delivered",
+              "attachments": [],
+              "reactions": [],
+              "is_deleted": false,
+              "is_spam": false
+            },
+            "msg-002": {
+              "message_id": "msg-002",
+              "thread_id": "weekend-warriors-camping",
+              "from_number": "+15551000005",
+              "to_numbers": ["+15550000001", "+15551000001", "+15551000002", "+15551000003", "+15551000004"],
+              "body": "Morgan discovers the outdoors 😂 but actually yeah im down",
+              "message_type": "sms",
+              "direction": "incoming",
+              "sent_at": "2026-01-20T14:35:00-08:00",
+              "is_read": true,
+              "delivery_status": "delivered",
+              "attachments": [],
+              "reactions": [],
+              "is_deleted": false,
+              "is_spam": false
+            },
+            "msg-003": {
+              "message_id": "msg-003",
+              "thread_id": "weekend-warriors-camping",
+              "from_number": "+15551000002",
+              "to_numbers": ["+15550000001", "+15551000001", "+15551000003", "+15551000004", "+15551000005"],
+              "body": "I could be interested. Which weekend were you thinking? I need to check the weather forecast and maybe look at some reviews first.",
+              "message_type": "sms",
+              "direction": "incoming",
+              "sent_at": "2026-01-20T14:42:00-08:00",
+              "is_read": true,
+              "delivery_status": "delivered",
+              "attachments": [],
+              "reactions": [],
+              "is_deleted": false,
+              "is_spam": false
+            },
+            "msg-004": {
+              "message_id": "msg-004",
+              "thread_id": "weekend-warriors-camping",
+              "from_number": "+15551000001",
+              "to_numbers": ["+15550000001", "+15551000002", "+15551000003", "+15551000004", "+15551000005"],
+              "body": "THIS weekend!!!! 🎉🎉🎉 Jan 24-25!! Come onnnnn it'll be so fun!!",
+              "message_type": "sms",
+              "direction": "incoming",
+              "sent_at": "2026-01-20T14:43:00-08:00",
+              "is_read": true,
+              "delivery_status": "delivered",
+              "attachments": [],
+              "reactions": [],
+              "is_deleted": false,
+              "is_spam": false
+            },
+            "msg-005": {
+              "message_id": "msg-005",
+              "thread_id": "weekend-warriors-camping",
+              "from_number": "+15551000004",
+              "to_numbers": ["+15550000001", "+15551000001", "+15551000002", "+15551000003", "+15551000005"],
+              "body": "Let me check with Sam... I think we might have something Saturday morning but maybe we can make it work?",
+              "message_type": "sms",
+              "direction": "incoming",
+              "sent_at": "2026-01-20T15:15:00-08:00",
+              "is_read": true,
+              "delivery_status": "delivered",
+              "attachments": [],
+              "reactions": [],
+              "is_deleted": false,
+              "is_spam": false
+            },
+            "msg-006": {
+              "message_id": "msg-006",
+              "thread_id": "weekend-warriors-camping",
+              "from_number": "+15550000001",
+              "to_numbers": ["+15551000001", "+15551000002", "+15551000003", "+15551000004", "+15551000005"],
+              "body": "I'm in! Could be fun. Let me help coordinate - we should figure out where we want to go and what time to leave.",
+              "message_type": "sms",
+              "direction": "outgoing",
+              "sent_at": "2026-01-20T15:30:00-08:00",
+              "is_read": true,
+              "delivery_status": "delivered",
+              "attachments": [],
+              "reactions": [],
+              "is_deleted": false,
+              "is_spam": false
+            },
+            "msg-007": {
+              "message_id": "msg-007",
+              "thread_id": "weekend-warriors-camping",
+              "from_number": "+15551000003",
+              "to_numbers": ["+15550000001", "+15551000001", "+15551000002", "+15551000004", "+15551000005"],
+              "body": "cool",
+              "message_type": "sms",
+              "direction": "incoming",
+              "sent_at": "2026-01-20T18:45:00-08:00",
+              "is_read": true,
+              "delivery_status": "delivered",
+              "attachments": [],
+              "reactions": [],
+              "is_deleted": false,
+              "is_spam": false
+            },
+            "msg-008": {
+              "message_id": "msg-008",
+              "thread_id": "weekend-warriors-camping",
+              "from_number": "+15551000002",
+              "to_numbers": ["+15550000001", "+15551000001", "+15551000003", "+15551000004", "+15551000005"],
+              "body": "So I did some research. There are basically three options: Pine Ridge (closest, 45 min), Lake Haven (1.5 hrs, better facilities), or Mountain View (2 hrs, most scenic). Pine Ridge has mixed reviews about the access road. Lake Haven has better cell service if that matters. Mountain View requires a bit more hiking to reach the good sites.",
+              "message_type": "sms",
+              "direction": "incoming",
+              "sent_at": "2026-01-21T09:15:00-08:00",
+              "is_read": true,
+              "delivery_status": "delivered",
+              "attachments": [],
+              "reactions": [],
+              "is_deleted": false,
+              "is_spam": false
+            },
+            "msg-009": {
+              "message_id": "msg-009",
+              "thread_id": "weekend-warriors-camping",
+              "from_number": "+15551000001",
+              "to_numbers": ["+15550000001", "+15551000002", "+15551000003", "+15551000004", "+15551000005"],
+              "body": "Riley did homework 🤓 haha jk I love it!! All three sound AMAZING tbh!! Pine Ridge sounds closest tho and we can get there faster to start the FUN sooner!! 🏕️",
+              "message_type": "sms",
+              "direction": "incoming",
+              "sent_at": "2026-01-21T09:18:00-08:00",
+              "is_read": true,
+              "delivery_status": "delivered",
+              "attachments": [],
+              "reactions": [],
+              "is_deleted": false,
+              "is_spam": false
+            },
+            "msg-010": {
+              "message_id": "msg-010",
+              "thread_id": "weekend-warriors-camping",
+              "from_number": "+15551000005",
+              "to_numbers": ["+15550000001", "+15551000001", "+15551000002", "+15551000003", "+15551000004"],
+              "body": "Mountain View = more hiking = less energy for s'mores. Lake Haven gets my vote 🏆",
+              "message_type": "sms",
+              "direction": "incoming",
+              "sent_at": "2026-01-21T09:25:00-08:00",
+              "is_read": true,
+              "delivery_status": "delivered",
+              "attachments": [],
+              "reactions": [],
+              "is_deleted": false,
+              "is_spam": false
+            },
+            "msg-011": {
+              "message_id": "msg-011",
+              "thread_id": "weekend-warriors-camping",
+              "from_number": "+15551000004",
+              "to_numbers": ["+15550000001", "+15551000001", "+15551000002", "+15551000003", "+15551000005"],
+              "body": "Sam says either Lake Haven or Pine Ridge works for us. Mountain View might be too far if we need to leave early Sunday for Sam's thing",
+              "message_type": "sms",
+              "direction": "incoming",
+              "sent_at": "2026-01-21T10:30:00-08:00",
+              "is_read": true,
+              "delivery_status": "delivered",
+              "attachments": [],
+              "reactions": [],
+              "is_deleted": false,
+              "is_spam": false
+            }
+          },
+          "conversations": {
+            "weekend-warriors-camping": {
+              "thread_id": "weekend-warriors-camping",
+              "conversation_type": "group",
+              "participants": [
+                {
+                  "phone_number": "+15550000001",
+                  "is_admin": false,
+                  "joined_at": "2026-01-20T14:30:00-08:00",
+                  "left_at": null
+                },
+                {
+                  "phone_number": "+15551000001",
+                  "is_admin": true,
+                  "joined_at": "2026-01-20T14:30:00-08:00",
+                  "left_at": null
+                },
+                {
+                  "phone_number": "+15551000002",
+                  "is_admin": false,
+                  "joined_at": "2026-01-20T14:30:00-08:00",
+                  "left_at": null
+                },
+                {
+                  "phone_number": "+15551000003",
+                  "is_admin": false,
+                  "joined_at": "2026-01-20T14:30:00-08:00",
+                  "left_at": null
+                },
+                {
+                  "phone_number": "+15551000004",
+                  "is_admin": false,
+                  "joined_at": "2026-01-20T14:30:00-08:00",
+                  "left_at": null
+                },
+                {
+                  "phone_number": "+15551000005",
+                  "is_admin": false,
+                  "joined_at": "2026-01-20T14:30:00-08:00",
+                  "left_at": null
+                }
+              ],
+              "group_name": "Weekend Warriors 🏕️",
+              "group_photo_url": null,
+              "created_at": "2026-01-20T14:30:00-08:00",
+              "created_by": "+15551000001",
+              "last_message_at": "2026-01-21T10:30:00-08:00",
+              "message_count": 11,
+              "unread_count": 0,
+              "is_pinned": false,
+              "is_muted": false,
+              "is_archived": false,
+              "draft_message": null
+            }
+          },
+          "max_messages_per_conversation": 10000
+        }
+      }
+    },
+    "events": {
+      "events": []
+    }
+  }
+}

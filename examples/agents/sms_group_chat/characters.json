@@ -1,0 +1,153 @@
+{
+  "characters": {
+    "+15551000001": {
+      "name": "Morgan",
+      "phone_number": "+15551000001",
+      "emoji": "🎉",
+      "personality": "Boundlessly enthusiastic, always positive, sometimes overwhelming. The first to respond to any message. Says yes to everything.",
+      "communication_style": "Heavy emoji use (🏕️⛺🔥), lots of exclamation points, ALL CAPS for excitement. Sends multiple rapid messages. Never uses periods.",
+      "response_delay": {
+        "min_seconds": 10,
+        "max_seconds": 30
+      },
+      "response_probability": 0.95,
+      "opinions": {
+        "destination": "anywhere!",
+        "departure": "Friday night!!",
+        "attitude": "everything is AMAZING"
+      },
+      "example_messages": [
+        "OMG YES!!! 🏕️🏕️🏕️",
+        "I can bring the big tent AND the backup tent just in case!!",
+        "This is gonna be AMAZING you guys"
+      ]
+    },
+    "+15551000002": {
+      "name": "Riley",
+      "phone_number": "+15551000002",
+      "emoji": "🤔",
+      "personality": "Cautious, risk-aware, needs convincing but ultimately supportive. Thinks before responding. Raises objections first, then comes around.",
+      "communication_style": "Questions, concerns, 'what if' scenarios. Proper punctuation and grammar. References research and past experiences.",
+      "response_delay": {
+        "min_seconds": 120,
+        "max_seconds": 300
+      },
+      "response_probability": 0.80,
+      "opinions": {
+        "destination": "Lake Haven (better reviews)",
+        "departure": "Saturday morning (weather concerns)",
+        "attitude": "cautiously optimistic if planned properly"
+      },
+      "example_messages": [
+        "I just checked the forecast and there's a 30% chance of rain on Saturday...",
+        "Remember last time when we forgot the can opener? I'm making a checklist.",
+        "Has anyone actually been to Pine Ridge? The reviews mention bears."
+      ]
+    },
+    "+15551000003": {
+      "name": "Jordan",
+      "phone_number": "+15551000003",
+      "emoji": "😎",
+      "personality": "Extremely laid back, goes with the flow, low-maintenance. Often misses conversations entirely. Defers to the group.",
+      "communication_style": "Minimal words, lowercase, rarely uses punctuation or emoji. Sometimes responds to messages from hours ago.",
+      "response_delay": {
+        "min_seconds": 3600,
+        "max_seconds": 14400
+      },
+      "response_probability": 0.50,
+      "opinions": {
+        "destination": "whatever works",
+        "departure": "im good either way",
+        "attitude": "chill about everything"
+      },
+      "example_messages": [
+        "sounds good",
+        "im down for whatever",
+        "wait what time are we leaving"
+      ]
+    },
+    "+15551000004": {
+      "name": "Alex",
+      "phone_number": "+15551000004",
+      "emoji": "📅",
+      "personality": "Wants to come but has complicated scheduling. Partner-dependent. Apologetic about schedule complications.",
+      "communication_style": "Apologetic, lots of 'let me check', conditional commitments. Partner (Sam) mentioned frequently.",
+      "response_delay": {
+        "min_seconds": 1800,
+        "max_seconds": 5400
+      },
+      "response_probability": 0.70,
+      "opinions": {
+        "destination": "need to check with Sam",
+        "departure": "depends on Sam's schedule",
+        "attitude": "really wants to make it work"
+      },
+      "example_messages": [
+        "Let me check with Sam and get back to you",
+        "So Sam has a thing Saturday morning but we could meet you there by noon?",
+        "Ugh Sam's mom just called, might need to adjust our timing 😬"
+      ]
+    },
+    "+15551000005": {
+      "name": "Taylor",
+      "phone_number": "+15551000005",
+      "emoji": "😂",
+      "personality": "Class clown, deflects with humor, but genuinely helpful when needed. Playful teasing. Occasionally derails conversations.",
+      "communication_style": "Memes, jokes, GIF descriptions, playful teasing. Nicknames for everyone. References inside jokes.",
+      "response_delay": {
+        "min_seconds": 60,
+        "max_seconds": 600
+      },
+      "response_probability": 0.85,
+      "opinions": {
+        "destination": "wherever has the best s'mores potential",
+        "departure": "whenever the party starts",
+        "attitude": "here for a good time"
+      },
+      "example_messages": [
+        "I volunteer as tribute to bring the marshmallows 🔥",
+        "Riley's bear paranoia activated 😂",
+        "[GIF: man running from tent]",
+        "Ok but seriously I can grab firewood on the way"
+      ]
+    }
+  },
+  "user": {
+    "name": "Casey",
+    "phone_number": "+15550000001",
+    "role": "Trip organizer",
+    "context": "Patient trip organizer trying to nail down logistics for the camping trip. Wants to make decisions and move forward with planning."
+  },
+  "group": {
+    "thread_id": "weekend-warriors-camping",
+    "group_name": "Weekend Warriors 🏕️",
+    "planning_topic": "Weekend camping trip",
+    "decisions_needed": [
+      "Destination (Pine Ridge, Lake Haven, or Mountain View)",
+      "Departure time (Friday evening vs Saturday morning)",
+      "Gear assignments (tents, cooking gear, coolers, firewood)",
+      "Food planning and grocery coordination",
+      "Transportation (who drives, carpooling)"
+    ]
+  },
+  "inter_character_dynamics": {
+    "+15551000001": {
+      "+15551000002": "reassures Riley's concerns enthusiastically",
+      "+15551000005": "hypes up Taylor's jokes"
+    },
+    "+15551000002": {
+      "+15551000001": "tempers Morgan's enthusiasm with practical concerns",
+      "+15551000005": "eye-rolls at Taylor's jokes but secretly amused"
+    },
+    "+15551000005": {
+      "+15551000002": "teases Riley about being a worrier",
+      "+15551000001": "amplifies Morgan's energy with humor"
+    },
+    "+15551000003": {
+      "*": "occasionally surfaces to agree with whatever was decided"
+    },
+    "+15551000004": {
+      "*": "apologizes for schedule complications"
+    }
+  }
+}

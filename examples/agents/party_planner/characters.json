@@ -1,0 +1,175 @@
+{
+  "characters": {
+    "linda.rivera@email.com": {
+      "name": "Linda Rivera",
+      "role": "Mother",
+      "relationship": "Parent",
+      "personality": "Warm, excited, slightly overbearing, wants to help with everything. Always supportive and encouraging.",
+      "communication_style": "Uses endearments like 'mijo' or 'honey'. Asks many follow-up questions. Offers to help before being asked. Mentions other family members. Uses emojis occasionally.",
+      "responsiveness": {
+        "min_delay_minutes": 30,
+        "max_delay_minutes": 60,
+        "work_hours_only": false
+      },
+      "work_hours": null,
+      "rsvp_response": "yes",
+      "rsvp_notes": "Will bring famous enchiladas, offers to help setup, asks about other guests"
+    },
+    "jamie.walsh@email.com": {
+      "name": "Jamie Walsh",
+      "role": "Best Friend",
+      "relationship": "Close friend since college",
+      "personality": "Enthusiastic, casual, always supportive, action-oriented. The life of the party.",
+      "communication_style": "Very casual tone, lots of exclamation points. Immediately offers to help. Suggests additions to the party. Uses slang and abbreviations.",
+      "responsiveness": {
+        "min_delay_minutes": 60,
+        "max_delay_minutes": 120,
+        "work_hours_only": false
+      },
+      "work_hours": null,
+      "rsvp_response": "yes",
+      "rsvp_notes": "Offers to come early to help setup, suggests bringing sangria"
+    },
+    "pat.chen@email.com": {
+      "name": "Pat Chen",
+      "role": "Work Friend",
+      "relationship": "Colleague from TechCorp",
+      "personality": "Friendly but busy, always juggling family logistics. Thoughtful and considerate.",
+      "communication_style": "Professional but warm. Apologetic about response time. Mentions spouse and kids. May need to check schedule.",
+      "responsiveness": {
+        "min_delay_minutes": 240,
+        "max_delay_minutes": 360,
+        "work_hours_only": true
+      },
+      "work_hours": {
+        "start": "09:00",
+        "end": "17:00",
+        "timezone": "America/Los_Angeles"
+      },
+      "rsvp_response": "tentative",
+      "rsvp_notes": "Needs to check with spouse about babysitter, may need to leave early for kids' bedtime"
+    },
+    "chris.miller@email.com": {
+      "name": "Chris Miller",
+      "role": "Neighbor",
+      "relationship": "Next-door neighbor",
+      "personality": "Polite, friendly, but keeps appropriate neighbor boundaries. Good community member.",
+      "communication_style": "Formal-ish but appreciative. Apologetic when declining. Mentions spouse (Dana).",
+      "responsiveness": {
+        "min_delay_minutes": 720,
+        "max_delay_minutes": 1440,
+        "work_hours_only": false
+      },
+      "work_hours": null,
+      "rsvp_response": "no",
+      "rsvp_notes": "Will be visiting parents in Portland that weekend, expresses regret"
+    },
+    "+15552001001": {
+      "name": "Marcus",
+      "role": "College Friend (Group SMS)",
+      "relationship": "College buddy, part of the college crew",
+      "personality": "Always down for a party, responds with enthusiasm. The hype man of the group.",
+      "communication_style": "Casual SMS style, uses caps for excitement, emoji heavy. Quick responses.",
+      "responsiveness": {
+        "min_delay_minutes": 5,
+        "max_delay_minutes": 15,
+        "work_hours_only": false
+      },
+      "work_hours": null,
+      "rsvp_response": "yes",
+      "rsvp_notes": "Immediately excited, may tease Derek"
+    },
+    "+15552001002": {
+      "name": "Aisha",
+      "role": "College Friend (Group SMS)",
+      "relationship": "College buddy, part of the college crew",
+      "personality": "Organized, checks her schedule, thoughtful about logistics.",
+      "communication_style": "Friendly SMS style, asks about plus-ones, confirms details.",
+      "responsiveness": {
+        "min_delay_minutes": 15,
+        "max_delay_minutes": 30,
+        "work_hours_only": false
+      },
+      "work_hours": null,
+      "rsvp_response": "yes",
+      "rsvp_notes": "Asks if she can bring Tyler (boyfriend)"
+    },
+    "+15552001003": {
+      "name": "Derek",
+      "role": "College Friend (Group SMS)",
+      "relationship": "College buddy, part of the college crew",
+      "personality": "Perpetual 'maybe', mentions other potential conflicts, but usually shows up.",
+      "communication_style": "Noncommittal but friendly. Takes longer to respond. Gets teased by others.",
+      "responsiveness": {
+        "min_delay_minutes": 120,
+        "max_delay_minutes": 240,
+        "work_hours_only": false
+      },
+      "work_hours": null,
+      "rsvp_response": "maybe",
+      "rsvp_notes": "Has a 'thing' but will try to make it work"
+    },
+    "orders@sweetdelightsbakery.com": {
+      "name": "Sweet Delights Bakery",
+      "role": "Vendor - Bakery",
+      "relationship": "Local bakery business",
+      "personality": "Professional, helpful, asks good qualifying questions. Customer-focused.",
+      "communication_style": "Professional business email. Asks about flavor, dietary restrictions, delivery. Provides clear pricing.",
+      "responsiveness": {
+        "min_delay_minutes": 120,
+        "max_delay_minutes": 240,
+        "work_hours_only": true
+      },
+      "work_hours": {
+        "start": "07:00",
+        "end": "18:00",
+        "timezone": "America/Los_Angeles"
+      },
+      "vendor_type": "bakery",
+      "products": ["cakes", "cupcakes", "pastries"],
+      "pricing_info": {
+        "10_inch_cake": "$65",
+        "delivery_fee": "$15"
+      }
+    },
+    "events@coastalcatering.com": {
+      "name": "Coastal Catering",
+      "role": "Vendor - Catering",
+      "relationship": "Local catering company",
+      "personality": "Professional, detailed, provides comprehensive quotes. Focused on client satisfaction.",
+      "communication_style": "Professional with detailed menu options. Asks about head count. Provides itemized quotes with clear options.",
+      "responsiveness": {
+        "min_delay_minutes": 180,
+        "max_delay_minutes": 300,
+        "work_hours_only": true
+      },
+      "work_hours": {
+        "start": "09:00",
+        "end": "17:00",
+        "timezone": "America/Los_Angeles"
+      },
+      "vendor_type": "catering",
+      "products": ["appetizers", "platters", "full catering"],
+      "pricing_info": {
+        "crowd_pleaser_package": "$180",
+        "elevated_bites_package": "$250"
+      }
+    }
+  },
+  "user": {
+    "email": "sam.rivera@email.com",
+    "phone": "+15551234567",
+    "name": "Sam Rivera",
+    "role": "Remote Software Engineer",
+    "context": "Recently moved into a new house and planning a housewarming party for Saturday, January 31st, 2026 at 6:00 PM. Wants to invite family, friends, and coordinate with vendors for cake and appetizers."
+  },
+  "college_crew_thread": {
+    "participants": ["+15551234567", "+15552001001", "+15552001002", "+15552001003"],
+    "names": {
+      "+15551234567": "Sam",
+      "+15552001001": "Marcus",
+      "+15552001002": "Aisha",
+      "+15552001003": "Derek"
+    }
+  }
+}
