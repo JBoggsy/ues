@@ -149,6 +149,32 @@ React 18 + TypeScript + Vite + Tailwind CSS + shadcn/ui
 
 ---
 
+## 🔮 Future: OpenEnv Compatibility
+
+[OpenEnv](https://github.com/meta-pytorch/OpenEnv) is Meta's framework for agentic RL training environments using Gymnasium-style APIs (`step()`, `reset()`, `state()`). Adding compatibility would enable RL training of AI assistants on simulated user environments.
+
+### Conceptual Mapping
+| OpenEnv | UES Equivalent |
+|---------|----------------|
+| `Environment` | Simulation Engine |
+| `Action` | `ModalityInput` |
+| `Observation` | `ModalityState` snapshots |
+| `State` | Episode metadata (sim time, step count) |
+| Episode | Scenario |
+
+### Implementation Tasks
+- [ ] Create `openenv/` adapter layer (`models.py`, `environment.py`, `client.py`)
+- [ ] Define `UESAction` (modality + payload) and `UESObservation` (state snapshot)
+- [ ] Implement `reset()` → simulation reset, `step()` → apply input + advance time
+- [ ] Design reward signal system (task completion, scenario-defined criteria)
+- [ ] Add WebSocket support (OpenEnv prefers WS over HTTP)
+- [ ] Create `Dockerfile` and `openenv.yaml` for deployment
+- [ ] Example: RL training script with TRL/torchforge
+
+**Note**: OpenEnv is experimental (APIs may change). Revisit when stable.
+
+---
+
 ## Notes
 
 - All models use Pydantic with `ConfigDict`
