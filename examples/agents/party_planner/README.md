@@ -65,25 +65,50 @@ The **user-side agent** (AI assistant being tested) must coordinate across modal
 
 ## Running the Example
 
-This example requires running **three processes**:
+### Recommended: Orchestrated Test
+
+The simplest way to run this example is with the orchestrated test runner, which handles
+both user-side and simulator-side agents in a single process:
 
 ```bash
 # Terminal 1: Start the UES server
 uv run uvicorn main:app --reload
 
-# Terminal 2: Start the simulator-side agents (guests + vendors)
+# Terminal 2: Run the complete test
+uv run python examples/agents/party_planner/run_test.py
+```
+
+Test options:
+```bash
+# Use a faster/smaller model
+uv run python examples/agents/party_planner/run_test.py --model llama3.2:3b
+
+# Simulate more time (default is 8 hours)
+uv run python examples/agents/party_planner/run_test.py --duration 24
+
+# Show detailed progress and response previews
+uv run python examples/agents/party_planner/run_test.py --verbose
+```
+
+### Alternative: Separate Processes
+
+You can also run the simulator-side agents and user agent separately for more
+interactive testing:
+
+```bash
+# Terminal 1: Start the UES server
+uv run uvicorn main:app --reload
+
+# Terminal 2: Start the simulator-side agents (monitors for emails/SMS, generates responses)
 uv run python examples/agents/party_planner/simulator_agents.py
 
-# Terminal 3: Run the user-side agent (AI assistant test)
+# Terminal 3: Run the user-side agent (AI assistant actions)
 uv run python examples/agents/party_planner/user_agent.py
 ```
 
-Or run the orchestrated test suite:
-
-```bash
-# Runs everything and produces a test report
-uv run python examples/agents/party_planner/run_test.py
-```
+**Note**: Running separately requires manual time advancement and may have timing
+issues between LLM response generation and time advancement. The orchestrated test
+runner handles this coordination automatically.
 
 ## The Scenario (`scenario.ues-scenario.json`)
 
@@ -443,7 +468,6 @@ The test evaluates the AI assistant on:
 4. **RSVP State Management**: Tracking responses and non-responses
 5. **Proactive Follow-ups**: Reminders, status updates, vendor confirmations
 6. **Test Evaluation**: Objective scoring of AI assistant capabilities
-
 ## Extending This Example
 
 - **Weather Integration**: Check forecast and warn guests if outdoor party
@@ -465,8 +489,7 @@ party_planner/
 │   ├── assistant.txt           # Prompt for AI assistant
 │   ├── guest.txt               # Prompt template for guests
 │   └── vendor.txt              # Prompt template for vendors
-├── characters.json             # Character definitions
-├── vendors.json                # Vendor definitions
+├── characters.json             # Character + vendor definitions
 ├── scenario.ues-scenario.json  # Initial state setup
 └── test_criteria.json          # Scoring rubric
 ```

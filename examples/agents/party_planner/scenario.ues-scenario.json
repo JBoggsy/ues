@@ -3,22 +3,22 @@
     "metadata": {
       "ues_version": "0.1.0",
       "scenario_version": "1",
-      "created_at": "2026-01-26T09:00:00-08:00",
+      "created_at": "2026-01-19T00:00:00Z",
       "author": "UES Examples",
-      "description": "Party planner integration test scenario. Sam Rivera is planning a housewarming party for January 31st, 2026. This scenario starts on Monday morning (5 days before the party) with empty email/SMS/calendar states, allowing the AI assistant to be tested on its ability to send invitations, coordinate with vendors, and manage RSVPs."
+      "description": "Party Planner integration test scenario. Sam Rivera is hosting a housewarming party on January 31, 2026 at 6 PM. The scenario starts on Monday January 26, 2026 at 9 AM - 5 days before the party."
     },
     "environment": {
       "time_state": {
-        "current_time": "2026-01-26T09:00:00-08:00",
+        "current_time": "2026-01-26T09:00:00-05:00",
         "time_scale": 1.0,
         "is_paused": true,
         "auto_advance": false,
-        "last_wall_time_update": "2026-01-26T09:00:00-08:00"
+        "last_wall_time_update": "2026-01-26T09:00:00-05:00"
       },
       "modality_states": {
         "email": {
           "modality_type": "email",
-          "last_updated": "2026-01-26T09:00:00-08:00",
+          "last_updated": "2026-01-26T09:00:00-05:00",
           "update_count": 0,
           "emails": {},
           "threads": {},
@@ -36,15 +36,16 @@
         },
         "sms": {
           "modality_type": "sms",
-          "last_updated": "2026-01-26T09:00:00-08:00",
+          "last_updated": "2026-01-26T09:00:00-05:00",
           "update_count": 0,
-          "conversations": {},
           "messages": {},
+          "conversations": {},
+          "max_messages_per_conversation": 10000,
           "user_phone_number": "+15551234567"
         },
         "calendar": {
           "modality_type": "calendar",
-          "last_updated": "2026-01-26T09:00:00-08:00",
+          "last_updated": "2026-01-26T09:00:00-05:00",
           "update_count": 0,
           "calendars": {
             "personal": {
@@ -52,8 +53,8 @@
               "name": "Personal",
               "color": "#4285f4",
               "visible": true,
-              "created_at": "2026-01-01T00:00:00-08:00",
-              "updated_at": "2026-01-26T09:00:00-08:00",
+              "created_at": "2025-01-01T00:00:00-05:00",
+              "updated_at": "2026-01-26T09:00:00-05:00",
               "event_ids": [],
               "default_reminders": [
                 {"method": "notification", "minutes_before": 30}
@@ -62,11 +63,156 @@
           },
           "events": {},
           "default_calendar_id": "personal"
+        },
+        "location": {
+          "modality_type": "location",
+          "last_updated": "2026-01-26T09:00:00-05:00",
+          "update_count": 1,
+          "current_latitude": 33.7490,
+          "current_longitude": -84.3880,
+          "current_address": "456 Oak Street, Atlanta, GA 30308",
+          "current_named_location": "Home",
+          "current_altitude": 320.0,
+          "current_accuracy": 10.0,
+          "current_speed": 0.0,
+          "current_bearing": null,
+          "location_history": [],
+          "max_history_size": 100
+        },
+        "weather": {
+          "modality_type": "weather",
+          "last_updated": "2026-01-26T09:00:00-05:00",
+          "update_count": 1,
+          "locations": {
+            "33.75,-84.39": {
+              "latitude": 33.75,
+              "longitude": -84.39,
+              "current_report": {
+                "lat": 33.75,
+                "lon": -84.39,
+                "timezone": "America/New_York",
+                "timezone_offset": -18000,
+                "current": {
+                  "dt": 1737903600,
+                  "sunrise": 1737891000,
+                  "sunset": 1737928800,
+                  "temp": 283.15,
+                  "feels_like": 281.5,
+                  "pressure": 1020,
+                  "humidity": 65,
+                  "dew_point": 276.0,
+                  "uvi": 2.0,
+                  "clouds": 25,
+                  "visibility": 10000,
+                  "wind_speed": 4.5,
+                  "wind_deg": 320,
+                  "wind_gust": null,
+                  "weather": [
+                    {
+                      "id": 801,
+                      "main": "Clouds",
+                      "description": "few clouds",
+                      "icon": "02d"
+                    }
+                  ]
+                }
+              },
+              "first_seen": "2026-01-26T09:00:00-05:00",
+              "last_updated": "2026-01-26T09:00:00-05:00",
+              "update_count": 1,
+              "report_history": []
+            }
+          },
+          "max_history_per_location": 100,
+          "openweather_api_key": null
+        },
+        "chat": {
+          "modality_type": "chat",
+          "last_updated": "2026-01-26T09:00:00-05:00",
+          "update_count": 0,
+          "messages": [],
+          "conversations": {},
+          "max_history_size": 1000,
+          "default_conversation_id": "default"
+        },
+        "time": {
+          "modality_type": "time",
+          "last_updated": "2026-01-26T09:00:00-05:00",
+          "update_count": 0,
+          "timezone": "America/New_York",
+          "format_preference": "12h",
+          "date_format": "MM/DD/YYYY",
+          "locale": "en_US",
+          "week_start": "sunday",
+          "settings_history": [],
+          "max_history_size": 50
         }
       }
     },
     "events": {
       "events": []
+    }
+  },
+  "user_profile": {
+    "name": "Sam Rivera",
+    "email": "sam.rivera@email.com",
+    "phone": "+15551234567",
+    "occupation": "Remote Software Engineer",
+    "location": "Atlanta, GA",
+    "context": "Recently moved into a new house and wants to host a housewarming party"
+  },
+  "contacts": {
+    "linda.rivera@email.com": {
+      "name": "Linda Rivera",
+      "relationship": "Mother",
+      "phone": "+15559876543",
+      "preferred_contact": "email"
+    },
+    "carlos.rivera@email.com": {
+      "name": "Carlos Rivera", 
+      "relationship": "Father",
+      "phone": "+15558765432",
+      "preferred_contact": "email"
+    },
+    "jamie.walsh@email.com": {
+      "name": "Jamie Walsh",
+      "relationship": "Best Friend",
+      "phone": "+15557654321",
+      "preferred_contact": "email"
+    },
+    "pat.chen@email.com": {
+      "name": "Pat Chen",
+      "relationship": "Work Friend",
+      "phone": "+15556543210",
+      "preferred_contact": "email"
+    },
+    "chris.miller@email.com": {
+      "name": "Chris Miller",
+      "relationship": "Neighbor",
+      "phone": "+15555432109",
+      "preferred_contact": "email"
+    },
+    "orders@sweetdelightsbakery.com": {
+      "name": "Sweet Delights Bakery",
+      "relationship": "Vendor",
+      "phone": "+15552253233",
+      "preferred_contact": "email"
+    },
+    "catering@coastalcatering.com": {
+      "name": "Coastal Catering",
+      "relationship": "Vendor", 
+      "phone": "+15552283837",
+      "preferred_contact": "email"
+    }
+  },
+  "sms_groups": {
+    "college-crew": {
+      "name": "College Crew",
+      "members": {
+        "+15552345001": "Marcus Jones",
+        "+15552345002": "Aisha Williams",
+        "+15552345003": "Derek Taylor"
+      }
     }
   }
 }

@@ -1,0 +1,18 @@
+{
+  "tracked_rsvps": {
+    "linda.rivera@email.com": "yes",
+    "jamie.walsh@email.com": "yes",
+    "pat.chen@email.com": "tentative",
+    "chris.miller@email.com": "no"
+  },
+  "invitations_sent": [
+    "linda.rivera@email.com",
+    "chris.miller@email.com",
+    "pat.chen@email.com",
+    "jamie.walsh@email.com"
+  ],
+  "vendors_contacted": [
+    "orders@sweetdelightsbakery.com",
+    "catering@coastalcatering.com"
+  ]
+}

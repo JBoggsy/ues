@@ -1,0 +1,209 @@
+{
+  "name": "Party Planner Integration Tests",
+  "timestamp": "2026-01-20T18:46:14.320277+00:00",
+  "duration_seconds": 0.05,
+  "total_score": 100.0,
+  "max_score": 100.0,
+  "percentage": 100.0,
+  "grade": "Excellent",
+  "passed": true,
+  "criteria_results": [
+    {
+      "id": "invitation_completeness",
+      "name": "Invitation Completeness",
+      "score": 25.0,
+      "max_score": 25.0,
+      "percentage": 100.0,
+      "explanation": "Emails sent to: chris.miller@email.com, jamie.walsh@email.com, linda.rivera@email.com, pat.chen@email.com; College crew SMS: \u2713",
+      "eval_count": 1,
+      "individual_results": [
+        {
+          "score": 5,
+          "max_score": 5,
+          "percentage": 100.0,
+          "explanation": "Emails sent to: chris.miller@email.com, jamie.walsh@email.com, linda.rivera@email.com, pat.chen@email.com; College crew SMS: \u2713",
+          "details": {
+            "emails_sent": [
+              "linda.rivera@email.com",
+              "pat.chen@email.com",
+              "chris.miller@email.com",
+              "jamie.walsh@email.com"
+            ],
+            "emails_missing": [],
+            "sms_sent": true
+          }
+        }
+      ],
+      "raw_score": 5,
+      "raw_max_score": 5
+    },
+    {
+      "id": "invitation_personalization",
+      "name": "Invitation Personalization",
+      "score": 10.0,
+      "max_score": 10.0,
+      "percentage": 100.0,
+      "explanation": "6/6 invitation pairs are personalized",
+      "eval_count": 1,
+      "individual_results": [
+        {
+          "score": 1.0,
+          "max_score": 1,
+          "percentage": 100.0,
+          "explanation": "6/6 invitation pairs are personalized",
+          "details": {
+            "invitation_count": 4,
+            "unique_pairs": 6,
+            "total_pairs": 6
+          }
+        }
+      ],
+      "raw_score": 1.0,
+      "raw_max_score": 1
+    },
+    {
+      "id": "calendar_accuracy",
+      "name": "Calendar Accuracy",
+      "score": 10.0,
+      "max_score": 10.0,
+      "percentage": 100.0,
+      "explanation": "Event '\ud83c\udfe0 Housewarming Party' on 2026-01-31",
+      "eval_count": 1,
+      "individual_results": [
+        {
+          "score": 3,
+          "max_score": 3,
+          "percentage": 100.0,
+          "explanation": "Event '\ud83c\udfe0 Housewarming Party' on 2026-01-31",
+          "details": {
+            "event_title": "\ud83c\udfe0 Housewarming Party",
+            "event_date": "2026-01-31",
+            "event_hour": 18,
+            "issues": []
+          }
+        }
+      ],
+      "raw_score": 3,
+      "raw_max_score": 3
+    },
+    {
+      "id": "rsvp_tracking",
+      "name": "RSVP Tracking",
+      "score": 15.0,
+      "max_score": 15.0,
+      "percentage": 100.0,
+      "explanation": "Agent tracked 4/4 RSVPs correctly",
+      "eval_count": 1,
+      "individual_results": [
+        {
+          "score": 4,
+          "max_score": 4,
+          "percentage": 100.0,
+          "explanation": "Agent tracked 4/4 RSVPs correctly",
+          "details": {
+            "agent_tracking": {
+              "linda.rivera@email.com": "yes",
+              "jamie.walsh@email.com": "yes",
+              "pat.chen@email.com": "tentative",
+              "chris.miller@email.com": "no"
+            },
+            "expected": {
+              "linda.rivera@email.com": "yes",
+              "jamie.walsh@email.com": "yes",
+              "pat.chen@email.com": "tentative",
+              "chris.miller@email.com": "no"
+            },
+            "breakdown": [
+              "\u2713 linda.rivera@email.com: agent tracked 'yes'",
+              "\u2713 jamie.walsh@email.com: agent tracked 'yes'",
+              "\u2713 pat.chen@email.com: agent tracked 'tentative'",
+              "\u2713 chris.miller@email.com: agent tracked 'no'"
+            ]
+          }
+        }
+      ],
+      "raw_score": 4,
+      "raw_max_score": 4
+    },
+    {
+      "id": "vendor_communication",
+      "name": "Vendor Communication",
+      "score": 20.0,
+      "max_score": 20.0,
+      "percentage": 100.0,
+      "explanation": "Contacted 2/2 vendors with relevant information",
+      "eval_count": 1,
+      "individual_results": [
+        {
+          "score": 4,
+          "max_score": 4,
+          "percentage": 100.0,
+          "explanation": "Contacted 2/2 vendors with relevant information",
+          "details": {
+            "vendors_contacted": [
+              "orders@sweetdelightsbakery.com",
+              "catering@coastalcatering.com"
+            ],
+            "issues": []
+          }
+        }
+      ],
+      "raw_score": 4,
+      "raw_max_score": 4
+    },
+    {
+      "id": "vendor_followup",
+      "name": "Vendor Follow-up Handling",
+      "score": 10.0,
+      "max_score": 10.0,
+      "percentage": 100.0,
+      "explanation": "Vendor follow-ups: 2/2",
+      "eval_count": 1,
+      "individual_results": [
+        {
+          "score": 2,
+          "max_score": 2,
+          "percentage": 100.0,
+          "explanation": "Vendor follow-ups: 2/2",
+          "details": {
+            "breakdown": [
+              "\u2713 Bakery: follow-up sent with preferences",
+              "\u2713 Catering: follow-up sent with selection"
+            ]
+          }
+        }
+      ],
+      "raw_score": 2,
+      "raw_max_score": 2
+    },
+    {
+      "id": "status_reporting",
+      "name": "Status Reporting",
+      "score": 10.0,
+      "max_score": 10.0,
+      "percentage": 100.0,
+      "explanation": "Status elements tracked: invitations: 8 emails, SMS: yes, responses: 8 received, vendors: 4 contacted",
+      "eval_count": 1,
+      "individual_results": [
+        {
+          "score": 3,
+          "max_score": 3,
+          "percentage": 100.0,
+          "explanation": "Status elements tracked: invitations: 8 emails, SMS: yes, responses: 8 received, vendors: 4 contacted",
+          "details": {
+            "tracked_elements": [
+              "invitations: 8 emails, SMS: yes",
+              "responses: 8 received",
+              "vendors: 4 contacted"
+            ]
+          }
+        }
+      ],
+      "raw_score": 3,
+      "raw_max_score": 3
+    }
+  ],
+  "scenario_path": "/home/boggsj/Coding/personal/ues/examples/agents/party_planner/scenario.ues-scenario.json",
+  "criteria_path": "/home/boggsj/Coding/personal/ues/examples/agents/party_planner/test_criteria.json",
+  "metadata": {}
+}

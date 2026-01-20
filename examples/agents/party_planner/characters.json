@@ -2,142 +2,220 @@
   "characters": {
     "linda.rivera@email.com": {
       "name": "Linda Rivera",
+      "nickname": "Mom",
       "role": "Mother",
-      "relationship": "Parent",
-      "personality": "Warm, excited, slightly overbearing, wants to help with everything. Always supportive and encouraging.",
-      "communication_style": "Uses endearments like 'mijo' or 'honey'. Asks many follow-up questions. Offers to help before being asked. Mentions other family members. Uses emojis occasionally.",
+      "relationship": "Parent (mother)",
+      "contact_type": "guest",
+      "personality": "Warm, excited, slightly overbearing, wants to help with everything. Genuinely proud of Sam and loves any opportunity to see the new place.",
+      "communication_style": "Always calls Sam 'mijo' or 'honey'. Asks lots of follow-up questions. Mentions she'll tell Dad. Offers her famous dish before being asked. Uses emojis sparingly but lovingly.",
+      "response_behavior": {
+        "rsvp": "immediate_yes",
+        "offers_to_help": true,
+        "asks_questions": true,
+        "mentions_bringing_food": "famous enchiladas"
+      },
       "responsiveness": {
         "min_delay_minutes": 30,
         "max_delay_minutes": 60,
         "work_hours_only": false
       },
-      "work_hours": null,
-      "rsvp_response": "yes",
-      "rsvp_notes": "Will bring famous enchiladas, offers to help setup, asks about other guests"
+      "email": "linda.rivera@email.com",
+      "phone": "+15559876543",
+      "preferred_contact": "email",
+      "example_response": "Mijo!!! 🎉\n\nOF COURSE we'll be there! Dad and I are so excited to see the new place!\nI'm already planning to bring my famous enchiladas - enough for everyone!\n\nA few questions:\n- What time should we arrive? I can come early to help set up\n- Do you need me to bring anything else? Plates? Decorations?\n- Is Jamie coming? I haven't seen her in ages!\n\nSo proud of you and your new home!\n\nLove,\nMom 💕\n\nP.S. - I'm telling Tía Rosa, she'll want to send something"
     },
     "jamie.walsh@email.com": {
       "name": "Jamie Walsh",
       "role": "Best Friend",
-      "relationship": "Close friend since college",
-      "personality": "Enthusiastic, casual, always supportive, action-oriented. The life of the party.",
-      "communication_style": "Very casual tone, lots of exclamation points. Immediately offers to help. Suggests additions to the party. Uses slang and abbreviations.",
+      "relationship": "Best friend since college",
+      "contact_type": "guest",
+      "personality": "Enthusiastic, casual, always supportive, action-oriented. Gets excited easily and uses lots of exclamation points.",
+      "communication_style": "Casual tone, lots of exclamation points and emojis. Immediately offers to help. Suggests additions to the party. Uses abbreviations.",
+      "response_behavior": {
+        "rsvp": "immediate_yes",
+        "offers_to_help": true,
+        "offers_to_bring": "sangria"
+      },
       "responsiveness": {
         "min_delay_minutes": 60,
         "max_delay_minutes": 120,
         "work_hours_only": false
       },
-      "work_hours": null,
-      "rsvp_response": "yes",
-      "rsvp_notes": "Offers to come early to help setup, suggests bringing sangria"
+      "email": "jamie.walsh@email.com",
+      "phone": "+15557654321",
+      "preferred_contact": "email",
+      "example_response": "YESSS!!! Finally get to see the new place! 🏠🎊\n\nCount me in - I can come over around 4 to help you set up if you want?\n\nShould I bring anything? I make a mean sangria 🍷\n\nCan't wait!!\n- J"
     },
     "pat.chen@email.com": {
       "name": "Pat Chen",
       "role": "Work Friend",
-      "relationship": "Colleague from TechCorp",
-      "personality": "Friendly but busy, always juggling family logistics. Thoughtful and considerate.",
-      "communication_style": "Professional but warm. Apologetic about response time. Mentions spouse and kids. May need to check schedule.",
+      "relationship": "Colleague and friend",
+      "contact_type": "guest",
+      "personality": "Friendly but busy, always juggling family logistics. Apologetic about response times. Thoughtful and considerate.",
+      "communication_style": "Slightly delayed responses, mentions checking with spouse, references kid logistics. Professional but warm.",
+      "response_behavior": {
+        "rsvp": "tentative_yes",
+        "mentions_spouse": "Maya",
+        "mentions_kids": true,
+        "may_leave_early": true
+      },
       "responsiveness": {
         "min_delay_minutes": 240,
         "max_delay_minutes": 360,
-        "work_hours_only": true
+        "work_hours_only": false
       },
-      "work_hours": {
-        "start": "09:00",
-        "end": "17:00",
-        "timezone": "America/Los_Angeles"
-      },
-      "rsvp_response": "tentative",
-      "rsvp_notes": "Needs to check with spouse about babysitter, may need to leave early for kids' bedtime"
+      "email": "pat.chen@email.com",
+      "phone": "+15556543210",
+      "preferred_contact": "email",
+      "example_response": "Hey Sam!\n\nSo sorry for the late reply - crazy day with the kids.\n\nWe'd love to come! Let me double check with Maya about babysitter\navailability, but I think we're good. We might need to leave a bit early\n(bedtime routine 🙄) but we'll definitely be there for a few hours.\n\nCongrats on the new place! Can't wait to see it.\n\n-Pat"
     },
     "chris.miller@email.com": {
       "name": "Chris Miller",
       "role": "Neighbor",
-      "relationship": "Next-door neighbor",
-      "personality": "Polite, friendly, but keeps appropriate neighbor boundaries. Good community member.",
-      "communication_style": "Formal-ish but appreciative. Apologetic when declining. Mentions spouse (Dana).",
+      "relationship": "Friendly neighbor",
+      "contact_type": "guest",
+      "personality": "Polite, friendly, maintains appropriate neighbor boundaries. Genuinely appreciative of being included.",
+      "communication_style": "Formal-ish, appreciative of the invitation. Apologetic when declining with a genuine reason.",
+      "response_behavior": {
+        "rsvp": "decline",
+        "reason": "out of town visiting parents in Portland",
+        "mentions_partner": "Dana",
+        "offers_neighborly_help": true
+      },
       "responsiveness": {
         "min_delay_minutes": 720,
         "max_delay_minutes": 1440,
         "work_hours_only": false
       },
-      "work_hours": null,
-      "rsvp_response": "no",
-      "rsvp_notes": "Will be visiting parents in Portland that weekend, expresses regret"
-    },
-    "+15552001001": {
-      "name": "Marcus",
-      "role": "College Friend (Group SMS)",
-      "relationship": "College buddy, part of the college crew",
-      "personality": "Always down for a party, responds with enthusiasm. The hype man of the group.",
-      "communication_style": "Casual SMS style, uses caps for excitement, emoji heavy. Quick responses.",
+      "email": "chris.miller@email.com",
+      "phone": "+15555432109",
+      "preferred_contact": "email",
+      "example_response": "Hi Sam,\n\nThank you so much for the invitation! It's so nice of you to include us.\n\nUnfortunately, we'll be out of town that weekend visiting my parents in \nPortland. We're really sorry to miss it!\n\nI hope the party goes great. Let us know if you ever need anything - \nthat's what neighbors are for!\n\nBest,\nChris & Dana"
+    }
+  },
+  "sms_characters": {
+    "+15552345001": {
+      "name": "Marcus Jones",
+      "nickname": "Marcus",
+      "role": "College Friend",
+      "personality": "Always down for a party, enthusiastic, uses emojis and slang",
+      "response_behavior": {
+        "rsvp": "yes",
+        "enthusiasm_level": "high"
+      },
       "responsiveness": {
         "min_delay_minutes": 5,
-        "max_delay_minutes": 15,
-        "work_hours_only": false
+        "max_delay_minutes": 15
       },
-      "work_hours": null,
-      "rsvp_response": "yes",
-      "rsvp_notes": "Immediately excited, may tease Derek"
+      "example_response": "YOOO finally!! Count me in 🙌"
     },
-    "+15552001002": {
-      "name": "Aisha",
-      "role": "College Friend (Group SMS)",
-      "relationship": "College buddy, part of the college crew",
-      "personality": "Organized, checks her schedule, thoughtful about logistics.",
-      "communication_style": "Friendly SMS style, asks about plus-ones, confirms details.",
+    "+15552345002": {
+      "name": "Aisha Williams",
+      "nickname": "Aisha",
+      "role": "College Friend",
+      "personality": "Organized, checks schedule, asks about plus-ones",
+      "response_behavior": {
+        "rsvp": "yes",
+        "asks_about_plus_one": "Tyler"
+      },
       "responsiveness": {
         "min_delay_minutes": 15,
-        "max_delay_minutes": 30,
-        "work_hours_only": false
+        "max_delay_minutes": 30
       },
-      "work_hours": null,
-      "rsvp_response": "yes",
-      "rsvp_notes": "Asks if she can bring Tyler (boyfriend)"
+      "example_response": "Let me check... yeah I should be free! Can I bring Tyler?"
     },
-    "+15552001003": {
-      "name": "Derek",
-      "role": "College Friend (Group SMS)",
-      "relationship": "College buddy, part of the college crew",
-      "personality": "Perpetual 'maybe', mentions other potential conflicts, but usually shows up.",
-      "communication_style": "Noncommittal but friendly. Takes longer to respond. Gets teased by others.",
+    "+15552345003": {
+      "name": "Derek Taylor",
+      "nickname": "Derek",
+      "role": "College Friend",
+      "personality": "Perpetual maybe, mentions other potential conflicts, usually shows up anyway",
+      "response_behavior": {
+        "rsvp": "maybe",
+        "mentions_conflict": true
+      },
       "responsiveness": {
         "min_delay_minutes": 120,
-        "max_delay_minutes": 240,
-        "work_hours_only": false
+        "max_delay_minutes": 240
       },
-      "work_hours": null,
-      "rsvp_response": "maybe",
-      "rsvp_notes": "Has a 'thing' but will try to make it work"
-    },
+      "example_response": "Oh nice! I might have a thing but I'll try to make it work"
+    }
+  },
+  "vendors": {
     "orders@sweetdelightsbakery.com": {
       "name": "Sweet Delights Bakery",
-      "role": "Vendor - Bakery",
-      "relationship": "Local bakery business",
-      "personality": "Professional, helpful, asks good qualifying questions. Customer-focused.",
-      "communication_style": "Professional business email. Asks about flavor, dietary restrictions, delivery. Provides clear pricing.",
+      "type": "bakery",
+      "contact_type": "vendor",
+      "personality": "Professional, helpful, asks good qualifying questions. Prompt business communication.",
+      "communication_style": "Professional and friendly. Uses proper business formatting. Provides clear options and pricing.",
+      "response_flow": {
+        "initial": "acknowledge_and_ask_questions",
+        "follow_up": "provide_options_and_pricing",
+        "final": "confirm_order_details"
+      },
+      "questions_to_ask": [
+        "Flavor preference (Chocolate, Vanilla, Red Velvet, Carrot)",
+        "Dietary restrictions (gluten-free options available)",
+        "Custom message on cake",
+        "Pickup or delivery ($15 within 10 miles)"
+      ],
+      "pricing": {
+        "10_inch_cake": 65,
+        "custom_design_addon": 15,
+        "delivery_fee": 15
+      },
       "responsiveness": {
         "min_delay_minutes": 120,
-        "max_delay_minutes": 240,
+        "max_delay_minutes": 300,
         "work_hours_only": true
       },
       "work_hours": {
-        "start": "07:00",
+        "start": "08:00",
         "end": "18:00",
-        "timezone": "America/Los_Angeles"
+        "timezone": "America/New_York"
       },
-      "vendor_type": "bakery",
-      "products": ["cakes", "cupcakes", "pastries"],
-      "pricing_info": {
-        "10_inch_cake": "$65",
-        "delivery_fee": "$15"
-      }
+      "email": "orders@sweetdelightsbakery.com",
+      "phone": "+15552253233",
+      "example_initial_response": "Dear Sam,\n\nThank you for reaching out to Sweet Delights Bakery!\n\nWe'd be happy to help with your housewarming celebration. For a party of \napproximately 15 people, I'd recommend our 10\" round cake, which serves \n14-18 guests.\n\nA few questions to help us prepare the perfect cake:\n- Flavor preference? (Our most popular: Chocolate, Vanilla, Red Velvet, Carrot)\n- Any dietary restrictions we should know about? (We offer gluten-free options)\n- Would you like a custom message on the cake?\n- Pickup or delivery? (Delivery is $15 within 10 miles)\n\nOur standard 10\" decorated cake starts at $65. Custom designs available \nupon request.\n\nPlease let us know your preferences and we'll send a confirmation!\n\nBest regards,\nSweet Delights Bakery\n555-CAKE"
     },
-    "events@coastalcatering.com": {
+    "catering@coastalcatering.com": {
       "name": "Coastal Catering",
-      "role": "Vendor - Catering",
-      "relationship": "Local catering company",
-      "personality": "Professional, detailed, provides comprehensive quotes. Focused on client satisfaction.",
-      "communication_style": "Professional with detailed menu options. Asks about head count. Provides itemized quotes with clear options.",
+      "type": "catering",
+      "contact_type": "vendor",
+      "personality": "Professional, detailed, provides comprehensive quotes. Thorough and organized.",
+      "communication_style": "Professional with detailed formatting. Uses bullet points and clear sections. Provides itemized quotes.",
+      "response_flow": {
+        "initial": "thank_and_ask_details",
+        "follow_up": "send_detailed_quote",
+        "final": "confirm_booking"
+      },
+      "menu_options": {
+        "crowd_pleaser": {
+          "name": "The Crowd Pleaser",
+          "price": 180,
+          "items": [
+            "Bruschetta trio (tomato, mushroom, olive tapenade)",
+            "Spinach artichoke dip with crostini",
+            "Caprese skewers",
+            "Meatballs (Swedish or BBQ)",
+            "Veggie crudité platter"
+          ]
+        },
+        "elevated_bites": {
+          "name": "Elevated Bites",
+          "price": 250,
+          "items": [
+            "Everything in The Crowd Pleaser, plus:",
+            "Bacon-wrapped dates",
+            "Shrimp cocktail",
+            "Assorted cheese board with crackers"
+          ]
+        }
+      },
+      "included_services": [
+        "All serving platters and utensils",
+        "Setup and cleanup",
+        "Delivery within 15 miles"
+      ],
       "responsiveness": {
         "min_delay_minutes": 180,
         "max_delay_minutes": 300,
@@ -146,30 +224,19 @@
       "work_hours": {
         "start": "09:00",
         "end": "17:00",
-        "timezone": "America/Los_Angeles"
+        "timezone": "America/New_York"
       },
-      "vendor_type": "catering",
-      "products": ["appetizers", "platters", "full catering"],
-      "pricing_info": {
-        "crowd_pleaser_package": "$180",
-        "elevated_bites_package": "$250"
-      }
+      "email": "catering@coastalcatering.com",
+      "phone": "+15552283837",
+      "example_quote_response": "Hi Sam,\n\nThank you for considering Coastal Catering for your housewarming party!\n\nBased on 15 guests with a 3-hour event, here are our recommended packages:\n\nOPTION A - \"The Crowd Pleaser\" - $180\n- Bruschetta trio (tomato, mushroom, olive tapenade)\n- Spinach artichoke dip with crostini\n- Caprese skewers\n- Meatballs (Swedish or BBQ)\n- Veggie crudité platter\n\nOPTION B - \"Elevated Bites\" - $250\n- Everything in Option A, plus:\n- Bacon-wrapped dates\n- Shrimp cocktail\n- Assorted cheese board with crackers\n\nBoth options include:\n✓ All serving platters and utensils\n✓ Setup and cleanup\n✓ Delivery within 15 miles\n\nPlease confirm your head count and preferred option by January 29th \nfor guaranteed availability.\n\nQuestions? Reply here or call 555-CATER.\n\nBest,\nThe Coastal Catering Team"
     }
   },
-  "user": {
-    "email": "sam.rivera@email.com",
-    "phone": "+15551234567",
-    "name": "Sam Rivera",
-    "role": "Remote Software Engineer",
-    "context": "Recently moved into a new house and planning a housewarming party for Saturday, January 31st, 2026 at 6:00 PM. Wants to invite family, friends, and coordinate with vendors for cake and appetizers."
-  },
-  "college_crew_thread": {
-    "participants": ["+15551234567", "+15552001001", "+15552001002", "+15552001003"],
-    "names": {
-      "+15551234567": "Sam",
-      "+15552001001": "Marcus",
-      "+15552001002": "Aisha",
-      "+15552001003": "Derek"
-    }
+  "party_details": {
+    "date": "2026-01-31",
+    "time": "18:00",
+    "timezone": "America/New_York",
+    "address": "456 Oak Street, Atlanta, GA 30308",
+    "expected_guests": 15,
+    "event_type": "Housewarming Party"
   }
 }

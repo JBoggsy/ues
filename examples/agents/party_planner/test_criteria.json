@@ -1,0 +1,118 @@
+{
+  "name": "Party Planner Integration Tests",
+  "description": "Test suite for evaluating an AI assistant's ability to coordinate a housewarming party across email, SMS, and calendar modalities.",
+  "test_module": "scenario_tests",
+  "criteria": [
+    {
+      "id": "invitation_completeness",
+      "name": "Invitation Completeness",
+      "description": "All specified guests receive invitations via the correct channel (email for individuals, SMS for college crew)",
+      "evaluator": "check_invitation_completeness",
+      "max_points": 25,
+      "eval_timing": "post_scenario",
+      "params": {
+        "expected_email_recipients": [
+          "linda.rivera@email.com",
+          "jamie.walsh@email.com",
+          "pat.chen@email.com",
+          "chris.miller@email.com"
+        ],
+        "expected_sms_recipients": [
+          "+15552345001",
+          "+15552345002",
+          "+15552345003"
+        ]
+      }
+    },
+    {
+      "id": "invitation_personalization",
+      "name": "Invitation Personalization",
+      "description": "Invitations are personalized and not generic copy-paste messages",
+      "evaluator": "check_invitation_personalization",
+      "max_points": 10,
+      "eval_timing": "post_scenario",
+      "params": {
+        "min_unique_content_ratio": 0.3,
+        "guest_recipients": [
+          "linda.rivera@email.com",
+          "jamie.walsh@email.com",
+          "pat.chen@email.com",
+          "chris.miller@email.com"
+        ]
+      }
+    },
+    {
+      "id": "calendar_accuracy",
+      "name": "Calendar Accuracy",
+      "description": "Party event created with correct date (Jan 31, 2026), time (6 PM), and appropriate title",
+      "evaluator": "check_calendar_accuracy",
+      "max_points": 10,
+      "eval_timing": "post_scenario",
+      "params": {
+        "expected_date": "2026-01-31",
+        "expected_hour": 18,
+        "expected_keywords": ["housewarming", "party", "house"]
+      }
+    },
+    {
+      "id": "rsvp_tracking",
+      "name": "RSVP Tracking",
+      "description": "Agent correctly identifies and tracks who responded YES/NO/MAYBE",
+      "evaluator": "check_rsvp_tracking",
+      "max_points": 15,
+      "eval_timing": "post_scenario",
+      "params": {
+        "expected_responses": {
+          "linda.rivera@email.com": "yes",
+          "jamie.walsh@email.com": "yes",
+          "pat.chen@email.com": "tentative",
+          "chris.miller@email.com": "no"
+        }
+      }
+    },
+    {
+      "id": "vendor_communication",
+      "name": "Vendor Communication",
+      "description": "Appropriate inquiries sent to both bakery and catering vendors with relevant information",
+      "evaluator": "check_vendor_communication",
+      "max_points": 20,
+      "eval_timing": "post_scenario",
+      "params": {
+        "expected_vendors": [
+          "orders@sweetdelightsbakery.com",
+          "catering@coastalcatering.com"
+        ]
+      }
+    },
+    {
+      "id": "vendor_followup",
+      "name": "Vendor Follow-up Handling",
+      "description": "Agent responds appropriately to vendor questions with substantive answers",
+      "evaluator": "check_vendor_followup",
+      "max_points": 10,
+      "eval_timing": "post_scenario",
+      "params": {}
+    },
+    {
+      "id": "status_reporting",
+      "name": "Status Reporting",
+      "description": "Agent provides accurate status updates to the user",
+      "evaluator": "check_status_reporting",
+      "max_points": 10,
+      "eval_timing": "post_scenario",
+      "params": {
+        "expected_report_elements": [
+          "invitations_sent",
+          "responses_received",
+          "vendor_status"
+        ]
+      }
+    }
+  ],
+  "grading_scale": {
+    "excellent": {"min_percentage": 90, "label": "Excellent"},
+    "good": {"min_percentage": 70, "label": "Good"},
+    "needs_improvement": {"min_percentage": 50, "label": "Needs Improvement"},
+    "failing": {"min_percentage": 0, "label": "Failing"}
+  }
+}
