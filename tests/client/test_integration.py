@@ -814,10 +814,10 @@ class TestCalendarIntegration:
         # Verify event exists
         state = sync_client.calendar.get_state()
         assert state.event_count == 1
-        # Check event via dict
+        # Check event via typed CalendarEvent model
         events_list = list(state.events.values())
         assert len(events_list) == 1
-        assert events_list[0]["title"] == "Test Meeting"
+        assert events_list[0].title == "Test Meeting"
 
     def test_update_event(self, sync_client):
         """Test updating a calendar event."""
@@ -842,7 +842,7 @@ class TestCalendarIntegration:
         )
         
         state = sync_client.calendar.get_state()
-        assert state.events[event_id]["title"] == "Updated Title"
+        assert state.events[event_id].title == "Updated Title"
 
     def test_delete_event(self, sync_client):
         """Test deleting a calendar event."""

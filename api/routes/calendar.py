@@ -371,8 +371,8 @@ class CalendarStateResponse(BaseModel):
     update_count: int
     default_calendar_id: str
     user_timezone: str
-    calendars: dict
-    events: dict
+    calendars: dict[str, Any]
+    events: dict[str, CalendarEvent]
     calendar_count: int
     event_count: int
 

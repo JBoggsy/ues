@@ -59,14 +59,14 @@ class TestReminder:
 
     def test_instantiation(self):
         """Test creating a Reminder."""
-        reminder = Reminder(method="popup", minutes=15)
-        assert reminder.method == "popup"
-        assert reminder.minutes == 15
+        reminder = Reminder(minutes_before=15, type="notification")
+        assert reminder.minutes_before == 15
+        assert reminder.type == "notification"
 
     def test_email_reminder(self):
         """Test creating an email reminder."""
-        reminder = Reminder(method="email", minutes=60)
-        assert reminder.method == "email"
+        reminder = Reminder(minutes_before=60, type="email")
+        assert reminder.type == "email"
 
 
 class TestRecurrenceRule:
@@ -117,7 +117,7 @@ class TestCalendarEvent:
                 Attendee(email="attendee@example.com", response_status="accepted"),
             ],
             recurrence=None,
-            reminders=[Reminder(method="popup", minutes=10)],
+            reminders=[Reminder(minutes_before=10, type="notification")],
             color="#4285F4",
             visibility="default",
             transparency="opaque",
@@ -160,8 +160,27 @@ class TestCalendarStateResponse:
             update_count=5,
             default_calendar_id="primary",
             user_timezone="America/New_York",
-            calendars={"primary": {"name": "Primary Calendar"}},
-            events={"evt-1": {"title": "Meeting"}},
+            calendars={
+                "primary": {
+                    "calendar_id": "primary",
+                    "name": "Primary Calendar",
+                    "color": "#4285f4",
+                    "visible": True,
+                    "created_at": "2025-01-01T00:00:00+00:00",
+                    "updated_at": "2025-01-15T10:00:00+00:00",
+                    "event_ids": ["evt-1"],
+                    "default_reminders": [],
+                }
+            },
+            events={
+                "evt-1": {
+                    "event_id": "evt-1",
+                    "calendar_id": "primary",
+                    "title": "Meeting",
+                    "start": "2025-01-15T14:00:00+00:00",
+                    "end": "2025-01-15T15:00:00+00:00",
+                }
+            },
             calendar_count=1,
             event_count=1,
         )
@@ -202,7 +221,18 @@ class TestCalendarClientGetState:
             "update_count": 5,
             "default_calendar_id": "primary",
             "user_timezone": "America/New_York",
-            "calendars": {"primary": {"name": "Primary Calendar"}},
+            "calendars": {
+                "primary": {
+                    "calendar_id": "primary",
+                    "name": "Primary Calendar",
+                    "color": "#4285f4",
+                    "visible": True,
+                    "created_at": "2025-01-01T00:00:00+00:00",
+                    "updated_at": "2025-01-15T10:00:00+00:00",
+                    "event_ids": [],
+                    "default_reminders": [],
+                }
+            },
             "events": {},
             "calendar_count": 1,
             "event_count": 0,
@@ -356,7 +386,7 @@ class TestCalendarClientCreate:
                 {"email": "attendee@example.com", "response_status": "needsAction"},
             ],
             recurrence={"frequency": "WEEKLY", "interval": 1},
-            reminders=[{"method": "popup", "minutes": 15}],
+            reminders=[{"minutes_before": 15, "type": "notification"}],
             color="#4285F4",
             visibility="default",
             transparency="opaque",

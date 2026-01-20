@@ -385,6 +385,9 @@ class EmailClient(BaseClient):
         reply_to_address: str | None = None,
         body_html: str | None = None,
         attachments: list[dict[str, Any]] | None = None,
+        thread_id: str | None = None,
+        in_reply_to: str | None = None,
+        references: list[str] | None = None,
         priority: Literal["high", "normal", "low"] = "normal",
     ) -> ModalityActionResponse:
         """Send a new email.
@@ -403,6 +406,9 @@ class EmailClient(BaseClient):
             body_html: HTML body content.
             attachments: File attachments. Each attachment should be a dict with
                 'filename', 'size', 'mime_type', and optional 'content_id' keys.
+            thread_id: Thread identifier for replies (to continue a conversation).
+            in_reply_to: Message ID this email replies to.
+            references: List of message IDs in thread chain.
             priority: Priority level ("high", "normal", "low").
         
         Returns:
@@ -430,6 +436,12 @@ class EmailClient(BaseClient):
             request_data["body_html"] = body_html
         if attachments is not None:
             request_data["attachments"] = attachments
+        if thread_id is not None:
+            request_data["thread_id"] = thread_id
+        if in_reply_to is not None:
+            request_data["in_reply_to"] = in_reply_to
+        if references is not None:
+            request_data["references"] = references
         
         data = self._post(f"{self._BASE_PATH}/send", json=request_data)
         return ModalityActionResponse(**data)
@@ -883,6 +895,9 @@ class AsyncEmailClient(AsyncBaseClient):
         reply_to_address: str | None = None,
         body_html: str | None = None,
         attachments: list[dict[str, Any]] | None = None,
+        thread_id: str | None = None,
+        in_reply_to: str | None = None,
+        references: list[str] | None = None,
         priority: Literal["high", "normal", "low"] = "normal",
     ) -> ModalityActionResponse:
         """Send a new email.
@@ -901,6 +916,9 @@ class AsyncEmailClient(AsyncBaseClient):
             body_html: HTML body content.
             attachments: File attachments. Each attachment should be a dict with
                 'filename', 'size', 'mime_type', and optional 'content_id' keys.
+            thread_id: Thread identifier for replies (to continue a conversation).
+            in_reply_to: Message ID this email replies to.
+            references: List of message IDs in thread chain.
             priority: Priority level ("high", "normal", "low").
         
         Returns:
@@ -928,6 +946,12 @@ class AsyncEmailClient(AsyncBaseClient):
             request_data["body_html"] = body_html
         if attachments is not None:
             request_data["attachments"] = attachments
+        if thread_id is not None:
+            request_data["thread_id"] = thread_id
+        if in_reply_to is not None:
+            request_data["in_reply_to"] = in_reply_to
+        if references is not None:
+            request_data["references"] = references
         
         data = await self._post(f"{self._BASE_PATH}/send", json=request_data)
         return ModalityActionResponse(**data)

@@ -55,12 +55,12 @@ class Reminder(BaseModel):
     """Represents an event reminder.
     
     Attributes:
-        method: Reminder method ("email", "popup", "sms").
-        minutes: Minutes before event to trigger reminder.
+        minutes_before: Minutes before event to trigger reminder.
+        type: Type of reminder ("notification", "email", "both").
     """
 
-    method: Literal["email", "popup", "sms"]
-    minutes: int
+    minutes_before: int
+    type: Literal["notification", "email", "both"] = "notification"
 
 
 class Attachment(BaseModel):
@@ -159,6 +159,30 @@ class CalendarEvent(BaseModel):
     updated_at: datetime | None = None
 
 
+class CalendarContainer(BaseModel):
+    """Represents a calendar container.
+    
+    Attributes:
+        calendar_id: Unique calendar identifier.
+        name: Calendar display name.
+        color: Calendar color (hex code).
+        visible: Whether calendar is visible.
+        created_at: When calendar was created.
+        updated_at: When calendar was last modified.
+        event_ids: Set of event IDs in this calendar.
+        default_reminders: Default reminder settings.
+    """
+
+    calendar_id: str
+    name: str
+    color: str = "#4285f4"
+    visible: bool = True
+    created_at: datetime | str
+    updated_at: datetime | str
+    event_ids: list[str] = Field(default_factory=list)
+    default_reminders: list[Reminder] = Field(default_factory=list)
+
+
 class CalendarStateResponse(BaseModel):
     """Response model for calendar state endpoint.
     
@@ -179,8 +203,8 @@ class CalendarStateResponse(BaseModel):
     update_count: int
     default_calendar_id: str
     user_timezone: str
-    calendars: dict[str, Any]
-    events: dict[str, Any]
+    calendars: dict[str, CalendarContainer]
+    events: dict[str, CalendarEvent]
     calendar_count: int
     event_count: int
 

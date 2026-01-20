@@ -61,6 +61,9 @@ class SendEmailRequest(BaseModel):
         body_text: Plain text body content.
         body_html: HTML body content.
         attachments: File attachments.
+        thread_id: Thread identifier for conversation grouping (for replies).
+        in_reply_to: Message ID this email replies to.
+        references: List of message IDs in thread chain.
         priority: Priority level ("high", "normal", "low").
     """
 
@@ -74,6 +77,11 @@ class SendEmailRequest(BaseModel):
     body_html: str | None = Field(default=None, description="HTML body content")
     attachments: list[EmailAttachmentRequest] = Field(
         default_factory=list, description="File attachments"
+    )
+    thread_id: str | None = Field(default=None, description="Thread identifier for replies")
+    in_reply_to: str | None = Field(default=None, description="Message ID this replies to")
+    references: list[str] = Field(
+        default_factory=list, description="Message IDs in thread chain"
     )
     priority: Literal["high", "normal", "low"] = Field(
         default="normal", description="Priority level"
@@ -458,6 +466,9 @@ async def send_email(
             body_text=request.body_text,
             body_html=request.body_html,
             reply_to_address=request.reply_to_address,
+            thread_id=request.thread_id,
+            in_reply_to=request.in_reply_to,
+            references=request.references if request.references else [],
             priority=request.priority,
             attachments=[att.model_dump() for att in request.attachments] if request.attachments else [],
         )

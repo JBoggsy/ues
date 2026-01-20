@@ -1,12 +1,31 @@
 # UES Development TODO
 
+## 🚨 URGENT: Multi-Agent Coordination
+
+### Simulation Locking for Response Generation
+When multiple agents (e.g., user-side AI assistant + simulator-side character agents) interact with UES concurrently, there's a race condition: one agent may advance simulation time while another is still generating LLM responses to schedule.
+
+**Problem**: Simulator-side agents receive WebSocket events, call an LLM (which takes 10-60+ seconds), then schedule response events. Meanwhile, the user-side agent continues advancing time, potentially past when the responses should have been received.
+
+**Proposed Solution**: Implement a "processing lock" or "hold" mechanism:
+- `POST /simulation/hold` - Request a hold (returns hold_id), prevents time advancement
+- `POST /simulation/release/{hold_id}` - Release the hold
+- Time advancement blocks while any holds are active
+- Optional timeout to auto-release stale holds
+- WebSocket notification when holds are acquired/released
+
+**Workaround (current)**: Run both agents in a single process with explicit coordination.
+
+---
+
 ## Test Suite Summary
 
-**Total Tests: 1,242 passing** | Run: `uv run pytest`
+**Total Tests: 3,279 passing** | Run: `uv run pytest`
 
 | Category | Tests | Location |
 |----------|-------|----------|
-| API Tests | 1,242 | `tests/api/` |
+| API Tests | 3,171 | `tests/api/` |
+| Agent Testing | 108 | `tests/agent_testing/` |
 
 Note: 3 websocket concurrency tests have known flakiness issues with httpx-ws/anyio library.
 
@@ -76,6 +95,47 @@ React 18 + TypeScript + Vite + Tailwind CSS + shadcn/ui
 | Settings | Theme toggle, API configuration |
 
 **Build**: `cd webapp && npm run dev` (dev) or `npm run build` (prod)
+
+---
+
+## ✅ Completed: Agent Testing Harness
+
+The `agent_testing` package provides infrastructure for scenario authors to evaluate AI agent performance through customizable, hook-based testing.
+
+| Component | Description |
+|-----------|-------------|
+| `EvalRunner` | Orchestrates test execution lifecycle |
+| `EvalContext` | Context object passed to evaluator functions |
+| `EvalResult` | Result returned by evaluator functions |
+| `CriterionResult` | Aggregated result for a single criterion |
+| `EvalReport` | Complete test report with grades and scoring |
+| `EventHookManager` | Hook registration and dispatch for on_event criteria |
+
+**Features**:
+- JSON-defined criteria referencing Python evaluator functions
+- Two evaluation timings: `post_scenario` (after completion) and `on_event` (real-time)
+- LLM-friendly: evaluators can use any logic (programmatic, LLM-based, hybrid)
+- Terminal scoreboard display with progress bars and grades
+- JSON report export for CI integration
+
+**Example**:
+```python
+from agent_testing import EvalRunner
+
+async def main():
+    runner = EvalRunner(
+        scenario_path="./scenario.ues-scenario.json",
+        criteria_path="./test_criteria.json",
+    )
+    report = await runner.run()
+    runner.print_report()
+```
+
+**CLI**: `uv run python -m agent_testing path/to/scenario/`
+
+**Tests**: 108 tests in `tests/agent_testing/`
+
+**Documentation**: `docs/AGENT_TESTING.md`
 
 ---
 

@@ -181,6 +181,9 @@ client.email.send(
     subject="Subject",
     body_text="Body content",
     cc_addresses=[],
+    thread_id=None,  # for replies, use original email's thread_id
+    in_reply_to=None,  # message_id of email being replied to
+    references=[],  # chain of message_ids in thread
     priority="normal",
 )
 # Returns: ModalityActionResponse
