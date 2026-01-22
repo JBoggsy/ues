@@ -190,6 +190,76 @@ Manage simulation lifecycle:
 - `GET /simulation/status` - Get status and metrics
 - `POST /simulation/reset` - Reset to initial state (**NOT YET IMPLEMENTED**)
 - `POST /simulation/clear` - Clear all events and states (**NOT YET IMPLEMENTED**)
+- `POST /simulation/hold` - Acquire a hold (blocks time advancement)
+- `POST /simulation/release/{hold_id}` - Release a specific hold
+- `GET /simulation/holds` - List all active holds
+
+**Simulation Holds (Multi-Agent Coordination):**
+
+Holds provide a locking mechanism for multi-agent scenarios where agents need to prevent time advancement while processing events. When one or more holds are active, all time operations (advance, set, skip-to-next) return a `409 Conflict` error.
+
+```bash
+# Acquire a hold
+POST /simulation/hold
+{
+  "agent_id": "email-processor",
+  "reason": "Processing incoming email",
+  "timeout_seconds": 30
+}
+
+# Response:
+{
+  "hold_id": "hld_abc123",
+  "reason": "Processing incoming email",
+  "timeout_seconds": 30.0,
+  "acquired_at": "2025-01-15T10:00:00Z",
+  "expires_at": "2025-01-15T10:00:30Z",
+  "active_hold_count": 1
+}
+
+# Try to advance time while hold is active
+POST /simulator/time/advance
+{"seconds": 60}
+
+# Response (409 Conflict):
+{
+  "detail": {
+    "message": "Time advancement blocked by 1 active hold(s): Processing incoming email",
+    "active_holds": [
+      {
+        "hold_id": "hld_abc123",
+        "reason": "Processing incoming email",
+        "agent_id": "email-processor"
+      }
+    ]
+  }
+}
+
+# Release the hold when done
+POST /simulation/release/hld_abc123
+
+# Response:
+{
+  "released": true,
+  "hold_id": "hld_abc123",
+  "active_hold_count": 0
+}
+
+# List active holds
+GET /simulation/holds
+
+# Response:
+{
+  "holds": [...],
+  "active_count": 0
+}
+```
+
+**Hold Behavior:**
+- Holds automatically expire after `timeout_seconds` (default: 30s, max: 300s)
+- Multiple agents can hold simultaneously (all must release before time advances)
+- Expired holds are cleaned up automatically
+- Clearing the simulation (`/simulation/clear`) releases all holds
 
 **Reset vs Clear:**
 - **Reset** (planned): Restores simulation to a defined "initial state" - the time, events, and modality states that existed when the simulation was first configured. Useful for replaying the same scenario multiple times. Requires infrastructure for tracking/loading initial state.

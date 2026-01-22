@@ -13,6 +13,7 @@ from models.queue import EventQueue
 from models.environment import Environment
 from models.simulation import SimulationEngine, SimulationLoop
 from models.undo import UndoEntry, UndoStack
+from models.hold import Hold, HoldError, HoldManager
 from models.version import UES_VERSION
 from models.scenario import (
     Scenario,
@@ -53,6 +54,10 @@ __all__ = [
     # Undo system
     "UndoEntry",
     "UndoStack",
+    # Hold system (multi-agent coordination)
+    "Hold",
+    "HoldError",
+    "HoldManager",
     # Scenario save/load
     "Scenario",
     "ScenarioMetadata",

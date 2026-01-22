@@ -168,6 +168,45 @@ print(f"Undid: {result.operation}")
 # Redo a previously undone operation
 result = client.simulation.redo()
 print(f"Redid: {result.operation}")
+```
+
+### Holds (Multi-Agent Coordination)
+
+Holds provide a locking mechanism for multi-agent scenarios. When holds are active, time advancement operations are blocked.
+
+```python
+# Acquire a hold before processing
+hold = client.simulation.hold(
+    agent_id="email-processor",
+    reason="Processing incoming email",
+    timeout_seconds=30.0,  # Auto-expires after 30s (default)
+)
+print(f"Hold acquired: {hold.hold_id}")
+print(f"Expires at: {hold.expires_at}")
+print(f"Active holds: {hold.active_hold_count}")
+
+try:
+    # Do your processing here...
+    # Time cannot advance while hold is active
+    process_email(email_data)
+finally:
+    # Always release the hold when done
+    result = client.simulation.release(hold.hold_id)
+    print(f"Hold released: {result.released}")
+
+# List all active holds
+holds = client.simulation.list_holds()
+print(f"Active holds: {holds.active_count}")
+for h in holds.holds:
+    print(f"  - {h.hold_id}: {h.reason} (expires: {h.expires_at})")
+```
+
+**Hold Behavior:**
+- Holds automatically expire after `timeout_seconds` (default: 30s, max: 300s)
+- Multiple agents can acquire holds simultaneously
+- All holds must be released before time can advance
+- Time operations return `409 Conflict` with hold details when blocked
+- Clearing the simulation releases all holds
 
 # Get undo/redo history
 history = client.simulation.history()

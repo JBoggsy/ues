@@ -76,6 +76,11 @@ class WSEventType(str, Enum):
     UNDO_PERFORMED = "undo.performed"
     REDO_PERFORMED = "redo.performed"
     
+    # Holds (multi-agent coordination)
+    HOLD_ACQUIRED = "hold.acquired"
+    HOLD_RELEASED = "hold.released"
+    HOLD_EXPIRED = "hold.expired"
+    
     # Subscription management
     SUBSCRIPTION_UPDATED = "subscription.updated"
 

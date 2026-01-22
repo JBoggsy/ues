@@ -127,6 +127,14 @@ function EmailNotification() {
 | `simulation.reset` | POST /simulation/reset | `simulation_id` |
 | `simulation.cleared` | POST /simulation/clear | `simulation_id` |
 
+### Holds (Multi-Agent Coordination)
+
+| Event Type | Trigger | Data Fields |
+|------------|---------|-------------|
+| `hold.acquired` | POST /simulation/hold | `hold_id`, `agent_id`, `reason`, `timeout_seconds`, `expires_at` |
+| `hold.released` | POST /simulation/release/{hold_id} | `hold_id`, `agent_id`, `reason` |
+| `hold.expired` | Automatic timeout | `hold_id`, `agent_id`, `reason` |
+
 ### Time Control
 
 | Event Type | Trigger | Data Fields |

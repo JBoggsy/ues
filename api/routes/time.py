@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 from api.broadcast import broadcast_event
 from api.dependencies import SimulationEngineDep
 from api.websocket import WSEventType
+from models.hold import HoldError
 from models.simulation import SimulationEngine
 
 
@@ -156,7 +157,7 @@ async def advance_time(request: AdvanceTimeRequest, engine: SimulationEngineDep)
         Summary of advancement including previous time, current time, and executed events.
     
     Raises:
-        HTTPException: If time advancement fails.
+        HTTPException: 400 if delta is invalid, 409 if holds are active, 500 on failure.
     """
     try:
         # Capture previous time before advancing
@@ -198,6 +199,22 @@ async def advance_time(request: AdvanceTimeRequest, engine: SimulationEngineDep)
                 )
                 for detail in result["execution_details"]
             ],
+        )
+    except HoldError as e:
+        # Time advancement blocked by active holds
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": str(e),
+                "active_holds": [
+                    {
+                        "hold_id": h.hold_id,
+                        "reason": h.reason,
+                        "agent_id": h.agent_id,
+                    }
+                    for h in e.active_holds
+                ],
+            },
         )
     except ValueError as e:
         raise HTTPException(
@@ -308,6 +325,22 @@ async def set_time(request: SetTimeRequest, engine: SimulationEngineDep):
             rolled_back_events=result.get("rolled_back_events", 0),
             reset_skipped_events=result.get("reset_skipped_events", 0),
         )
+    except HoldError as e:
+        # Time advancement blocked by active holds
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": str(e),
+                "active_holds": [
+                    {
+                        "hold_id": h.hold_id,
+                        "reason": h.reason,
+                        "agent_id": h.agent_id,
+                    }
+                    for h in e.active_holds
+                ],
+            },
+        )
     except ValueError as e:
         raise HTTPException(
             status_code=400,
@@ -334,7 +367,7 @@ async def skip_to_next_event(engine: SimulationEngineDep):
         Summary of the skip operation including previous time and events executed.
     
     Raises:
-        HTTPException: If there are no pending events or operation fails.
+        HTTPException: 404 if no pending events, 409 if holds are active.
     """
     try:
         # Capture previous time before skipping
@@ -376,6 +409,22 @@ async def skip_to_next_event(engine: SimulationEngineDep):
         )
     except HTTPException:
         raise
+    except HoldError as e:
+        # Time advancement blocked by active holds
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": str(e),
+                "active_holds": [
+                    {
+                        "hold_id": h.hold_id,
+                        "reason": h.reason,
+                        "agent_id": h.agent_id,
+                    }
+                    for h in e.active_holds
+                ],
+            },
+        )
     except ValueError as e:
         raise HTTPException(
             status_code=400,

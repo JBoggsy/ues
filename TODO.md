@@ -1,30 +1,43 @@
 # UES Development TODO
 
-## 🚨 URGENT: Multi-Agent Coordination
+## ✅ Completed: Multi-Agent Coordination
 
-### Simulation Locking for Response Generation
-When multiple agents (e.g., user-side AI assistant + simulator-side character agents) interact with UES concurrently, there's a race condition: one agent may advance simulation time while another is still generating LLM responses to schedule.
+### Simulation Hold System
+The hold system enables coordination between multiple concurrent agents (e.g., user-side AI assistant + simulator-side character agents) by preventing time advancement while holds are active.
 
-**Problem**: Simulator-side agents receive WebSocket events, call an LLM (which takes 10-60+ seconds), then schedule response events. Meanwhile, the user-side agent continues advancing time, potentially past when the responses should have been received.
+**API Endpoints**:
+- `POST /simulation/hold` - Acquire a hold (returns hold_id), blocks time advancement
+- `POST /simulation/release/{hold_id}` - Release a specific hold
+- `GET /simulation/holds` - List all active holds
 
-**Proposed Solution**: Implement a "processing lock" or "hold" mechanism:
-- `POST /simulation/hold` - Request a hold (returns hold_id), prevents time advancement
-- `POST /simulation/release/{hold_id}` - Release the hold
-- Time advancement blocks while any holds are active
-- Optional timeout to auto-release stale holds
-- WebSocket notification when holds are acquired/released
+**Features**:
+- Multiple holds can be active simultaneously (all must be released to allow time advancement)
+- Optional timeout (default: 300s) auto-releases stale holds
+- WebSocket notifications: `hold.acquired`, `hold.released`, `hold.expired`
+- `HoldError` returned (409 Conflict) when time operations attempted with active holds
 
-**Workaround (current)**: Run both agents in a single process with explicit coordination.
+**Python Client**:
+```python
+# Acquire a hold while processing
+hold = client.simulation.hold(reason="Generating LLM response", timeout_seconds=60.0)
+try:
+    # ... generate response and schedule events ...
+    pass
+finally:
+    client.simulation.release(hold.hold_id)
+```
+
+**Documentation**: See `models/hold.py` for implementation details.
 
 ---
 
 ## Test Suite Summary
 
-**Total Tests: 3,279 passing** | Run: `uv run pytest`
+**Total Tests: 3,325 passing** | Run: `uv run pytest`
 
 | Category | Tests | Location |
 |----------|-------|----------|
-| API Tests | 3,171 | `tests/api/` |
+| API Tests | 3,217 | `tests/api/` |
 | Agent Testing | 108 | `tests/agent_testing/` |
 
 Note: 3 websocket concurrency tests have known flakiness issues with httpx-ws/anyio library.
@@ -58,14 +71,14 @@ All modalities implement: `apply_input()`, `clear()`, `create_undo_data()`, `app
 
 ## ✅ Completed: REST API
 
-**83 endpoints** across time control, events, environment, simulation, scenarios, and modalities.
+**86 endpoints** across time control, events, environment, simulation, scenarios, and modalities.
 
 | Category | Key Endpoints |
 |----------|---------------|
 | Time | GET/POST `/simulator/time/*` (advance, set, skip-to-next, pause, resume, set-scale) |
 | Events | `/events` (list, create, batch), `/events/immediate`, `/events/{id}` |
 | Environment | `/environment/state`, `/environment/modalities` (list only) |
-| Simulation | `/simulation/start,stop,status,reset,clear,undo,redo` |
+| Simulation | `/simulation/start,stop,status,reset,clear,undo,redo,hold,release,holds` |
 | Scenarios | `/scenario/export/*`, `/scenario/import/*` |
 | Modalities | `/{modality}/state`, `/{modality}/query`, action endpoints |
 | Webhooks | `/webhooks` (9 endpoints for registration/management) |

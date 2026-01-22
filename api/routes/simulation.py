@@ -620,3 +620,224 @@ async def redo_simulation(
             status_code=500,
             detail=f"Unexpected error during redo: {str(e)}",
         )
+
+
+# ===== Hold Management Endpoints =====
+
+
+class HoldRequest(BaseModel):
+    """Request model for acquiring a hold.
+    
+    Attributes:
+        reason: Optional description of why the hold is needed.
+        timeout_seconds: Optional timeout in seconds. If None, uses server default.
+        agent_id: Optional identifier for the agent acquiring the hold.
+    """
+
+    reason: Optional[str] = Field(
+        default=None,
+        description="Human-readable reason for the hold (e.g., 'Generating LLM response')",
+    )
+    timeout_seconds: Optional[float] = Field(
+        default=None,
+        ge=1.0,
+        le=3600.0,
+        description="Timeout in seconds (1-3600). If None, uses server default (300s).",
+    )
+    agent_id: Optional[str] = Field(
+        default=None,
+        description="Optional identifier for the agent acquiring the hold",
+    )
+
+
+class HoldResponse(BaseModel):
+    """Response model for hold acquisition.
+    
+    Attributes:
+        hold_id: Unique identifier for the acquired hold.
+        reason: The reason provided for the hold.
+        timeout_seconds: The effective timeout for this hold.
+        acquired_at: ISO timestamp when the hold was acquired.
+        expires_at: ISO timestamp when the hold will expire (None if no timeout).
+        active_hold_count: Total number of active holds after acquisition.
+    """
+
+    hold_id: str
+    reason: Optional[str] = None
+    timeout_seconds: Optional[float] = None
+    acquired_at: str
+    expires_at: Optional[str] = None
+    active_hold_count: int
+
+
+class HoldInfo(BaseModel):
+    """Information about a single hold.
+    
+    Attributes:
+        hold_id: Unique identifier for the hold.
+        reason: The reason provided for the hold.
+        timeout_seconds: The timeout for this hold.
+        acquired_at: ISO timestamp when the hold was acquired.
+        expires_at: ISO timestamp when the hold will expire.
+        agent_id: Identifier for the agent that acquired the hold.
+    """
+
+    hold_id: str
+    reason: Optional[str] = None
+    timeout_seconds: Optional[float] = None
+    acquired_at: str
+    expires_at: Optional[str] = None
+    agent_id: Optional[str] = None
+
+
+class HoldsListResponse(BaseModel):
+    """Response model for listing active holds.
+    
+    Attributes:
+        holds: List of active holds.
+        active_count: Number of active holds.
+    """
+
+    holds: list[HoldInfo]
+    active_count: int
+
+
+class ReleaseHoldResponse(BaseModel):
+    """Response model for releasing a hold.
+    
+    Attributes:
+        released: Whether the hold was found and released.
+        hold_id: The ID of the hold that was released.
+        active_hold_count: Number of holds remaining after release.
+    """
+
+    released: bool
+    hold_id: str
+    active_hold_count: int
+
+
+@router.post("/hold", response_model=HoldResponse)
+async def acquire_hold(
+    engine: SimulationEngineDep,
+    request: Optional[HoldRequest] = None,
+):
+    """Acquire a hold on time advancement.
+    
+    When a hold is active, time advancement operations (advance, set, skip-to-next)
+    will fail with a 409 Conflict error until the hold is released or expires.
+    
+    This is useful for multi-agent coordination: when an agent needs time to
+    process an event (e.g., generating an LLM response), it can acquire a hold
+    to prevent other agents from advancing time.
+    
+    Args:
+        engine: The SimulationEngine instance (injected by FastAPI).
+        request: Optional request body with hold parameters.
+    
+    Returns:
+        Details of the acquired hold including the hold_id for later release.
+    """
+    # Parse request
+    reason = request.reason if request else None
+    timeout_seconds = request.timeout_seconds if request else None
+    agent_id = request.agent_id if request else None
+    
+    # Acquire the hold
+    hold_id = engine.hold_manager.acquire(
+        reason=reason,
+        timeout_seconds=timeout_seconds,
+        agent_id=agent_id,
+    )
+    
+    # Get the hold details
+    hold = engine.hold_manager.get_hold(hold_id)
+    
+    # Broadcast hold acquired event
+    await broadcast_event(WSEventType.HOLD_ACQUIRED, {
+        "hold_id": hold_id,
+        "reason": reason,
+        "timeout_seconds": hold.timeout_seconds if hold else None,
+        "agent_id": agent_id,
+        "active_hold_count": engine.hold_manager.active_hold_count(),
+    })
+    
+    return HoldResponse(
+        hold_id=hold_id,
+        reason=reason,
+        timeout_seconds=hold.timeout_seconds if hold else None,
+        acquired_at=hold.acquired_at.isoformat() if hold else None,
+        expires_at=hold.expires_at.isoformat() if hold and hold.expires_at else None,
+        active_hold_count=engine.hold_manager.active_hold_count(),
+    )
+
+
+@router.post("/release/{hold_id}", response_model=ReleaseHoldResponse)
+async def release_hold(
+    hold_id: str,
+    engine: SimulationEngineDep,
+):
+    """Release a previously acquired hold.
+    
+    After release, time advancement operations can proceed (unless other
+    holds are still active).
+    
+    Args:
+        hold_id: The ID of the hold to release.
+        engine: The SimulationEngine instance (injected by FastAPI).
+    
+    Returns:
+        Confirmation of whether the hold was released.
+    
+    Raises:
+        HTTPException: 404 if the hold was not found (may have expired).
+    """
+    released = engine.hold_manager.release(hold_id)
+    
+    if released:
+        # Broadcast hold released event
+        await broadcast_event(WSEventType.HOLD_RELEASED, {
+            "hold_id": hold_id,
+            "active_hold_count": engine.hold_manager.active_hold_count(),
+        })
+    
+    if not released:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Hold {hold_id} not found. It may have already expired or been released.",
+        )
+    
+    return ReleaseHoldResponse(
+        released=released,
+        hold_id=hold_id,
+        active_hold_count=engine.hold_manager.active_hold_count(),
+    )
+
+
+@router.get("/holds", response_model=HoldsListResponse)
+async def list_holds(engine: SimulationEngineDep):
+    """List all active holds.
+    
+    Returns information about all currently active (non-expired) holds.
+    
+    Args:
+        engine: The SimulationEngine instance (injected by FastAPI).
+    
+    Returns:
+        List of active holds with their details.
+    """
+    holds = engine.hold_manager.list_holds()
+    
+    return HoldsListResponse(
+        holds=[
+            HoldInfo(
+                hold_id=h.hold_id,
+                reason=h.reason,
+                timeout_seconds=h.timeout_seconds,
+                acquired_at=h.acquired_at.isoformat(),
+                expires_at=h.expires_at.isoformat() if h.expires_at else None,
+                agent_id=h.agent_id,
+            )
+            for h in holds
+        ],
+        active_count=len(holds),
+    )

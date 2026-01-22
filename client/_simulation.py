@@ -170,6 +170,75 @@ class RedoResponse(BaseModel):
     message: str | None = None
 
 
+# Hold-related response models
+
+
+class HoldResponse(BaseModel):
+    """Response model for hold acquisition.
+    
+    Attributes:
+        hold_id: Unique identifier for the acquired hold.
+        reason: The reason provided for the hold.
+        timeout_seconds: The effective timeout for this hold.
+        acquired_at: ISO timestamp when the hold was acquired.
+        expires_at: ISO timestamp when the hold will expire (None if no timeout).
+        active_hold_count: Total number of active holds after acquisition.
+    """
+
+    hold_id: str
+    reason: str | None = None
+    timeout_seconds: float | None = None
+    acquired_at: str
+    expires_at: str | None = None
+    active_hold_count: int
+
+
+class HoldInfo(BaseModel):
+    """Information about a single hold.
+    
+    Attributes:
+        hold_id: Unique identifier for the hold.
+        reason: The reason provided for the hold.
+        timeout_seconds: The timeout for this hold.
+        acquired_at: ISO timestamp when the hold was acquired.
+        expires_at: ISO timestamp when the hold will expire.
+        agent_id: Identifier for the agent that acquired the hold.
+    """
+
+    hold_id: str
+    reason: str | None = None
+    timeout_seconds: float | None = None
+    acquired_at: str
+    expires_at: str | None = None
+    agent_id: str | None = None
+
+
+class HoldsListResponse(BaseModel):
+    """Response model for listing active holds.
+    
+    Attributes:
+        holds: List of active holds.
+        active_count: Number of active holds.
+    """
+
+    holds: list[HoldInfo]
+    active_count: int
+
+
+class ReleaseHoldResponse(BaseModel):
+    """Response model for releasing a hold.
+    
+    Attributes:
+        released: Whether the hold was found and released.
+        hold_id: The ID of the hold that was released.
+        active_hold_count: Number of holds remaining after release.
+    """
+
+    released: bool
+    hold_id: str
+    active_hold_count: int
+
+
 # Synchronous SimulationClient
 
 
@@ -349,6 +418,96 @@ class SimulationClient(BaseClient):
         json_body = {"count": count} if count != 1 else None
         data = self._post(f"{self._BASE_PATH}/redo", json=json_body)
         return RedoResponse(**data)
+
+    # ===== Hold Management Methods =====
+
+    def hold(
+        self,
+        reason: str | None = None,
+        timeout_seconds: float | None = None,
+        agent_id: str | None = None,
+    ) -> HoldResponse:
+        """Acquire a hold on time advancement.
+        
+        When a hold is active, time advancement operations (advance, set, skip-to-next)
+        will fail with a ConflictError until the hold is released or expires.
+        
+        This is useful for multi-agent coordination: when an agent needs time to
+        process an event (e.g., generating an LLM response), it can acquire a hold
+        to prevent other agents from advancing time.
+        
+        Args:
+            reason: Human-readable description of why the hold is needed.
+            timeout_seconds: Timeout in seconds (1-3600). If None, uses server default (300s).
+            agent_id: Optional identifier for the agent acquiring the hold.
+        
+        Returns:
+            Details of the acquired hold including the hold_id for later release.
+        
+        Raises:
+            ValidationError: If timeout_seconds is out of range.
+            APIError: If the request fails.
+        
+        Example:
+            # Agent acquires a hold while generating a response
+            hold = client.simulation.hold(
+                reason="Generating LLM response",
+                timeout_seconds=60.0,
+            )
+            
+            try:
+                # ... generate response and schedule events ...
+                pass
+            finally:
+                # Always release the hold
+                client.simulation.release(hold.hold_id)
+        """
+        json_body = {}
+        if reason is not None:
+            json_body["reason"] = reason
+        if timeout_seconds is not None:
+            json_body["timeout_seconds"] = timeout_seconds
+        if agent_id is not None:
+            json_body["agent_id"] = agent_id
+        
+        data = self._post(
+            f"{self._BASE_PATH}/hold",
+            json=json_body if json_body else None,
+        )
+        return HoldResponse(**data)
+
+    def release(self, hold_id: str) -> ReleaseHoldResponse:
+        """Release a previously acquired hold.
+        
+        After release, time advancement operations can proceed (unless other
+        holds are still active).
+        
+        Args:
+            hold_id: The ID of the hold to release.
+        
+        Returns:
+            Confirmation of the release including remaining hold count.
+        
+        Raises:
+            NotFoundError: If the hold was not found (may have expired).
+            APIError: If the request fails.
+        """
+        data = self._post(f"{self._BASE_PATH}/release/{hold_id}")
+        return ReleaseHoldResponse(**data)
+
+    def list_holds(self) -> HoldsListResponse:
+        """List all active holds.
+        
+        Returns information about all currently active (non-expired) holds.
+        
+        Returns:
+            List of active holds with their details.
+        
+        Raises:
+            APIError: If the request fails.
+        """
+        data = self._get(f"{self._BASE_PATH}/holds")
+        return HoldsListResponse(**data)
 
 
 # Asynchronous AsyncSimulationClient
@@ -532,3 +691,93 @@ class AsyncSimulationClient(AsyncBaseClient):
         json_body = {"count": count} if count != 1 else None
         data = await self._post(f"{self._BASE_PATH}/redo", json=json_body)
         return RedoResponse(**data)
+
+    # ===== Hold Management Methods =====
+
+    async def hold(
+        self,
+        reason: str | None = None,
+        timeout_seconds: float | None = None,
+        agent_id: str | None = None,
+    ) -> HoldResponse:
+        """Acquire a hold on time advancement.
+        
+        When a hold is active, time advancement operations (advance, set, skip-to-next)
+        will fail with a ConflictError until the hold is released or expires.
+        
+        This is useful for multi-agent coordination: when an agent needs time to
+        process an event (e.g., generating an LLM response), it can acquire a hold
+        to prevent other agents from advancing time.
+        
+        Args:
+            reason: Human-readable description of why the hold is needed.
+            timeout_seconds: Timeout in seconds (1-3600). If None, uses server default (300s).
+            agent_id: Optional identifier for the agent acquiring the hold.
+        
+        Returns:
+            Details of the acquired hold including the hold_id for later release.
+        
+        Raises:
+            ValidationError: If timeout_seconds is out of range.
+            APIError: If the request fails.
+        
+        Example:
+            # Agent acquires a hold while generating a response
+            hold = await client.simulation.hold(
+                reason="Generating LLM response",
+                timeout_seconds=60.0,
+            )
+            
+            try:
+                # ... generate response and schedule events ...
+                pass
+            finally:
+                # Always release the hold
+                await client.simulation.release(hold.hold_id)
+        """
+        json_body = {}
+        if reason is not None:
+            json_body["reason"] = reason
+        if timeout_seconds is not None:
+            json_body["timeout_seconds"] = timeout_seconds
+        if agent_id is not None:
+            json_body["agent_id"] = agent_id
+        
+        data = await self._post(
+            f"{self._BASE_PATH}/hold",
+            json=json_body if json_body else None,
+        )
+        return HoldResponse(**data)
+
+    async def release(self, hold_id: str) -> ReleaseHoldResponse:
+        """Release a previously acquired hold.
+        
+        After release, time advancement operations can proceed (unless other
+        holds are still active).
+        
+        Args:
+            hold_id: The ID of the hold to release.
+        
+        Returns:
+            Confirmation of the release including remaining hold count.
+        
+        Raises:
+            NotFoundError: If the hold was not found (may have expired).
+            APIError: If the request fails.
+        """
+        data = await self._post(f"{self._BASE_PATH}/release/{hold_id}")
+        return ReleaseHoldResponse(**data)
+
+    async def list_holds(self) -> HoldsListResponse:
+        """List all active holds.
+        
+        Returns information about all currently active (non-expired) holds.
+        
+        Returns:
+            List of active holds with their details.
+        
+        Raises:
+            APIError: If the request fails.
+        """
+        data = await self._get(f"{self._BASE_PATH}/holds")
+        return HoldsListResponse(**data)

@@ -17,6 +17,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from models.environment import Environment
 from models.event import EventStatus, SimulatorEvent
+from models.hold import Hold, HoldError, HoldManager
 from models.queue import EventQueue
 from models.scenario import Scenario
 from models.undo import UndoEntry, UndoStack
@@ -40,6 +41,7 @@ class SimulationEngine(BaseModel):
     - Lifecycle management (start, stop, reset)
     - Mode coordination (manual, event-driven, auto-advance)
     - Undo/redo support for reversing event executions
+    - Hold management for multi-agent coordination
     - Error handling and logging
     - API request handling
     
@@ -51,6 +53,7 @@ class SimulationEngine(BaseModel):
         simulation_id: Unique identifier for this simulation instance.
         is_running: Whether simulation is currently active.
         undo_stack: Stack of undo entries for reversing event executions.
+        hold_manager: Manager for time advancement holds (multi-agent coordination).
     """
 
     environment: Environment
@@ -58,6 +61,7 @@ class SimulationEngine(BaseModel):
     simulation_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     is_running: bool = False
     undo_stack: UndoStack = Field(default_factory=UndoStack)
+    hold_manager: HoldManager = Field(default_factory=HoldManager)
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -265,8 +269,8 @@ class SimulationEngine(BaseModel):
         """Clear simulation completely, removing all state and events.
 
         Stops simulation if running, removes all events from the queue,
-        clears all modality states to their empty defaults, and optionally
-        resets time.
+        clears all modality states to their empty defaults, clears all
+        active holds, and optionally resets time.
 
         This is a destructive operation - all simulation data is lost.
         Use this to start completely fresh.
@@ -279,6 +283,7 @@ class SimulationEngine(BaseModel):
             Summary dict with:
                 - events_removed: Number of events removed from queue.
                 - modalities_cleared: Number of modality states cleared.
+                - holds_cleared: Number of holds that were cleared.
                 - time_reset: Whether time was reset (and to what value if so).
         """
         # Stop if running
@@ -287,6 +292,9 @@ class SimulationEngine(BaseModel):
 
         # Clear undo/redo stacks since all state is being cleared
         self.undo_stack.clear()
+
+        # Clear all holds
+        holds_cleared = self.hold_manager.clear_all()
 
         # Count and remove all events
         events_removed = len(self.event_queue.events)
@@ -307,12 +315,14 @@ class SimulationEngine(BaseModel):
 
         logger.info(
             f"Simulation {self.simulation_id} cleared: "
-            f"{events_removed} events removed, {modalities_cleared} modalities cleared"
+            f"{events_removed} events removed, {modalities_cleared} modalities cleared, "
+            f"{holds_cleared} holds cleared"
         )
 
         result = {
             "events_removed": events_removed,
             "modalities_cleared": modalities_cleared,
+            "holds_cleared": holds_cleared,
             "time_reset": reset_time_to.isoformat() if reset_time_to else None,
             "current_time": self.environment.time_state.current_time.isoformat(),
         }
@@ -321,14 +331,27 @@ class SimulationEngine(BaseModel):
 
     # ===== Time Control Methods =====
 
+    def _check_holds(self) -> None:
+        """Check if any holds are active and raise HoldError if so.
+        
+        This should be called at the start of any time advancement operation.
+        
+        Raises:
+            HoldError: If any holds are currently active.
+        """
+        if self.hold_manager.has_active_holds():
+            active_holds = self.hold_manager.list_holds()
+            raise HoldError(active_holds)
+
     def advance_time(self, delta: timedelta) -> dict:
         """Manually advance simulator time by specified amount.
         
         This is the manual time control method.
-        1. Validates delta (must be positive)
-        2. Advances environment.time_state
-        3. Gets and executes due events
-        4. Returns execution summary
+        1. Checks for active holds (blocks if any)
+        2. Validates delta (must be positive)
+        3. Advances environment.time_state
+        4. Gets and executes due events
+        5. Returns execution summary
         
         Args:
             delta: Amount of simulator time to advance.
@@ -338,12 +361,16 @@ class SimulationEngine(BaseModel):
         
         Raises:
             ValueError: If delta <= 0 or simulation not running.
+            HoldError: If any holds are active (time advancement blocked).
         """
         if not self.is_running:
             raise ValueError("Cannot advance time: simulation is not running")
 
         if delta <= timedelta(0):
             raise ValueError(f"Time delta must be positive, got {delta}")
+
+        # Check for active holds before proceeding
+        self._check_holds()
 
         with self._operation_lock:
             # Advance time
@@ -396,9 +423,16 @@ class SimulationEngine(BaseModel):
         Returns:
             Dict with current_time, previous_time, skipped_events, executed_events,
             and for backward jumps: rolled_back_events.
+        
+        Raises:
+            ValueError: If simulation is not running.
+            HoldError: If any holds are active (time advancement blocked).
         """
         if not self.is_running:
             raise ValueError("Cannot set time: simulation is not running")
+
+        # Check for active holds before proceeding
+        self._check_holds()
 
         current_time = self.environment.time_state.current_time
 
@@ -573,17 +607,25 @@ class SimulationEngine(BaseModel):
         """Jump to next scheduled event and execute it.
         
         Implements event-driven time advancement:
-        1. Peek at next pending event
-        2. Jump time to that event's scheduled_time
-        3. Execute all events at that time (may be multiple with same time)
-        4. Return execution summary
+        1. Checks for active holds (blocks if any)
+        2. Peek at next pending event
+        3. Jump time to that event's scheduled_time
+        4. Execute all events at that time (may be multiple with same time)
+        5. Return execution summary
         
         Returns:
             Dict with current_time, events_executed, next_event_time
             Or {message: "No pending events"} if queue is empty.
+        
+        Raises:
+            ValueError: If simulation is not running.
+            HoldError: If any holds are active (time advancement blocked).
         """
         if not self.is_running:
             raise ValueError("Cannot skip to next event: simulation is not running")
+
+        # Check for active holds before proceeding
+        self._check_holds()
 
         with self._operation_lock:
             # Peek at next event
@@ -1469,14 +1511,23 @@ class SimulationEngine(BaseModel):
         """Execute one simulation tick (called by SimulationLoop).
         
         This is the core auto-advance operation:
-        1. Calculate time advancement since last tick
-        2. Advance environment.time_state
-        3. Execute due events
-        4. Log results
+        1. Check for active holds (skip tick if any)
+        2. Calculate time advancement since last tick
+        3. Advance environment.time_state
+        4. Execute due events
+        5. Log results
         
         Called repeatedly by SimulationLoop in auto-advance mode.
         Should not be called directly by external code.
+        
+        Note: Unlike advance_time/set_time/skip_to_next_event, this method
+        does NOT raise HoldError when holds are active. Instead, it silently
+        skips the tick, allowing the auto-advance loop to continue checking.
         """
+        # Skip tick if any holds are active (don't raise, just skip)
+        if self.hold_manager.has_active_holds():
+            return
+
         with self._operation_lock:
             # Calculate time advancement
             current_wall_time = datetime.now(timezone.utc)

@@ -71,6 +71,17 @@ result = client.simulation.clear(reset_time_to=datetime(...))  # optional
 # Undo/Redo
 result = client.simulation.undo(count=1)
 result = client.simulation.redo(count=1)
+
+# Holds (Multi-Agent Coordination)
+hold = client.simulation.hold(agent_id="my-agent", reason="Processing email", timeout_seconds=30.0)
+# Returns: HoldResponse(hold_id, reason, timeout_seconds, acquired_at, expires_at, active_hold_count)
+
+result = client.simulation.release(hold_id="...")
+# Returns: ReleaseHoldResponse(released, hold_id, active_hold_count)
+
+holds = client.simulation.list_holds()
+# Returns: HoldsListResponse(holds: list[HoldInfo], active_count)
+# HoldInfo: hold_id, reason, timeout_seconds, acquired_at, expires_at, agent_id
 ```
 
 ---
@@ -83,14 +94,17 @@ state = client.time.get_state()
 # Returns: TimeStateResponse(current_time, time_scale, is_paused, auto_advance, mode)
 
 # Advance time by duration (executes events in interval)
+# NOTE: Returns 409 Conflict if holds are active
 result = client.time.advance(seconds=3600)
 # Returns: AdvanceTimeResponse(previous_time, current_time, time_advanced, events_executed, events_failed, execution_details)
 
 # Jump to specific time (skips events, doesn't execute)
+# NOTE: Returns 409 Conflict if holds are active
 result = client.time.set(target_time=datetime(...))
 # Returns: SetTimeResponse(current_time, previous_time, skipped_events, executed_events)
 
 # Skip to next pending event
+# NOTE: Returns 409 Conflict if holds are active
 result = client.time.skip_to_next()
 # Returns: SkipToNextResponse(previous_time, current_time, events_executed, next_event_time)
 

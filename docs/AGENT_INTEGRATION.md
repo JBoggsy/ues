@@ -34,8 +34,9 @@ UES is designed as a **pure simulation engine** with no built-in LLM dependencie
 4. [Compact State Snapshots](#compact-state-snapshots)
 5. [Batch Event Submission](#batch-event-submission)
 6. [Webhook Integration](#webhook-integration)
-7. [Example Agent Patterns](#example-agent-patterns)
-8. [Best Practices](#best-practices)
+7. [Multi-Agent Coordination (Holds)](#multi-agent-coordination-holds)
+8. [Example Agent Patterns](#example-agent-patterns)
+9. [Best Practices](#best-practices)
 
 ---
 
@@ -145,7 +146,7 @@ The client organizes functionality into logical sub-clients:
 
 | Sub-Client | Purpose | Key Methods |
 |------------|---------|-------------|
-| `client.simulation` | Lifecycle control | `start()`, `stop()`, `status()`, `reset()`, `undo()`, `redo()` |
+| `client.simulation` | Lifecycle control | `start()`, `stop()`, `status()`, `reset()`, `undo()`, `redo()`, `hold()`, `release()`, `list_holds()` |
 | `client.time` | Time control | `get_state()`, `advance()`, `set()`, `skip_to_next()`, `pause()`, `resume()` |
 | `client.events` | Event management | `list()`, `create()`, `create_batch()`, `cancel()`, `get()`, `next()` |
 | `client.environment` | State queries | `get_state()`, `list_modalities()`, `validate()` |
@@ -166,7 +167,7 @@ from client import (
     TimeoutError,        # Request timeout
     NotFoundError,       # Resource not found (404)
     ValidationError,     # Invalid request (422)
-    ConflictError,       # State conflict (409)
+    ConflictError,       # State conflict (409) - also returned when holds block time
     ServerError,         # Server error (5xx)
 )
 
@@ -512,6 +513,184 @@ for d in deliveries["items"]:
 # Delete when done
 client.webhooks.delete(webhook_id)
 ```
+
+---
+
+## Multi-Agent Coordination (Holds)
+
+When multiple agents interact with the same simulation, race conditions can occur. For example:
+- Agent A receives a webhook notification about a new email
+- Agent A starts processing the email (calling LLM, deciding on response)
+- Meanwhile, another process advances simulation time
+- Events scheduled by Agent A may now be in the past
+
+**Holds** solve this by allowing agents to temporarily block time advancement while they process events.
+
+### Basic Hold Pattern
+
+```python
+from client import UESClient
+
+def process_email_safely(client: UESClient, email_data: dict):
+    """Process an email with hold protection."""
+    
+    # Acquire a hold before processing
+    hold = client.simulation.hold(
+        agent_id="email-processor",
+        reason="Processing email from " + email_data.get("from", "unknown"),
+        timeout_seconds=30.0,  # Auto-expires to prevent deadlocks
+    )
+    
+    try:
+        # Time is frozen for this simulation while we process
+        # Other agents can still acquire their own holds
+        
+        # Do potentially slow operations
+        response = call_llm_for_email_response(email_data)
+        
+        # Schedule our response
+        client.email.send(
+            from_address="user@example.com",
+            to_addresses=[email_data["from"]],
+            subject=f"Re: {email_data['subject']}",
+            body_text=response,
+        )
+        
+    finally:
+        # ALWAYS release the hold when done
+        client.simulation.release(hold.hold_id)
+```
+
+### Async Hold Pattern
+
+```python
+import asyncio
+from client import AsyncUESClient
+
+async def process_with_hold(client: AsyncUESClient):
+    """Async pattern for hold-protected processing."""
+    
+    hold = await client.simulation.hold(
+        agent_id="async-agent",
+        reason="Async processing",
+        timeout_seconds=60.0,
+    )
+    
+    try:
+        # Run multiple async operations while time is frozen
+        results = await asyncio.gather(
+            analyze_current_state(client),
+            fetch_external_data(),
+            compute_next_actions(),
+        )
+        
+        # Apply computed actions
+        for action in results[2]:
+            await apply_action(client, action)
+            
+    finally:
+        await client.simulation.release(hold.hold_id)
+```
+
+### WebSocket + Hold Integration
+
+The most common pattern: react to WebSocket events with hold protection:
+
+```python
+import asyncio
+from client import AsyncUESClient
+
+async def reactive_agent_with_holds():
+    """Agent that reacts to events with hold protection."""
+    
+    async with AsyncUESClient() as client:
+        await client.simulation.start()
+        
+        async with client.subscribe(["email.received", "sms.received"]) as events:
+            async for event in events:
+                # Acquire hold immediately when we receive an event
+                hold = await client.simulation.hold(
+                    agent_id="reactive-agent",
+                    reason=f"Processing {event.type}",
+                    timeout_seconds=30.0,
+                )
+                
+                try:
+                    if event.type == "email.received":
+                        await handle_email(client, event.data)
+                    elif event.type == "sms.received":
+                        await handle_sms(client, event.data)
+                finally:
+                    await client.simulation.release(hold.hold_id)
+
+asyncio.run(reactive_agent_with_holds())
+```
+
+### Handling Blocked Time Operations
+
+When holds are active, time operations return a `409 Conflict` error:
+
+```python
+from client import UESClient, ConflictError
+
+def advance_time_with_retry(client: UESClient, seconds: int, max_retries: int = 5):
+    """Advance time, waiting for holds to clear."""
+    
+    for attempt in range(max_retries):
+        try:
+            return client.time.advance(seconds=seconds)
+        except ConflictError as e:
+            # Extract hold info from the error
+            holds = e.detail.get("active_holds", [])
+            print(f"Blocked by {len(holds)} hold(s):")
+            for h in holds:
+                print(f"  - {h['agent_id']}: {h['reason']}")
+            
+            # Wait and retry
+            time.sleep(1.0)
+    
+    raise RuntimeError("Could not advance time - holds persist")
+```
+
+### Monitoring Active Holds
+
+```python
+# List all currently active holds
+holds = client.simulation.list_holds()
+print(f"Active holds: {holds.active_count}")
+
+for h in holds.holds:
+    print(f"  Hold {h.hold_id}:")
+    print(f"    Agent: {h.agent_id}")
+    print(f"    Reason: {h.reason}")
+    print(f"    Acquired: {h.acquired_at}")
+    print(f"    Expires: {h.expires_at}")
+```
+
+### Hold WebSocket Events
+
+Subscribe to hold events for monitoring:
+
+```python
+async with client.subscribe(["hold."]) as events:
+    async for event in events:
+        if event.type == "hold.acquired":
+            print(f"Hold acquired: {event.data['agent_id']} - {event.data['reason']}")
+        elif event.type == "hold.released":
+            print(f"Hold released: {event.data['hold_id']}")
+        elif event.type == "hold.expired":
+            print(f"Hold EXPIRED: {event.data['agent_id']} - {event.data['reason']}")
+            # Log warning - agent may have crashed without releasing
+```
+
+### Best Practices for Holds
+
+1. **Always use try/finally**: Ensure holds are released even on exceptions
+2. **Set reasonable timeouts**: Default is 30s, max is 300s. Don't set too high.
+3. **Use descriptive reasons**: Helps debugging when holds block operations
+4. **Include agent_id**: Makes it easy to identify which agent holds are from
+5. **Monitor for expired holds**: May indicate crashed agents
+6. **Don't hold during long waits**: Release before external API calls if possible
 
 ---
 

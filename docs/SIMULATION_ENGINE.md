@@ -144,6 +144,9 @@ class SimulationEngine:
     # Threading component (owned and controlled)
     _loop: Optional[SimulationLoop]
     
+    # Hold management (multi-agent coordination)
+    hold_manager: HoldManager
+    
     # Simulation state
     simulation_id: str
     is_running: bool
@@ -171,6 +174,13 @@ class SimulationEngine:
 - Created when auto_advance mode is enabled
 - Destroyed when simulation stops
 - Private attribute - external code uses start/stop methods
+
+**`hold_manager: HoldManager`**
+- Manages holds for multi-agent coordination
+- Tracks active holds that block time advancement
+- Provides `acquire()`, `release()`, `has_active_holds()` methods
+- Automatically cleans up expired holds
+- Cleared when simulation is cleared via `clear()`
 
 **`simulation_id: str`**
 - Unique identifier for this simulation instance
@@ -263,10 +273,11 @@ def advance_time(self, delta: timedelta) -> dict:
     """Manually advance simulator time by specified amount.
     
     This is the manual time control method.
-    1. Validates delta (must be positive)
-    2. Advances environment.time_state
-    3. Gets and executes due events
-    4. Returns execution summary
+    1. Checks for active holds (raises HoldError if any)
+    2. Validates delta (must be positive)
+    3. Advances environment.time_state
+    4. Gets and executes due events
+    5. Returns execution summary
     
     Args:
         delta: Amount of simulator time to advance
@@ -276,6 +287,7 @@ def advance_time(self, delta: timedelta) -> dict:
     
     Raises:
         ValueError: If delta <= 0 or simulation not running
+        HoldError: If one or more holds are blocking time advancement
     """
 ```
 
@@ -288,6 +300,7 @@ def set_time(
 ) -> dict:
     """Jump to specific simulator time.
     
+    Checks for active holds before proceeding.
     Handles events in skipped range based on execute_skipped flag.
     
     Args:
@@ -300,6 +313,7 @@ def set_time(
     
     Raises:
         ValueError: If new_time is in the past
+        HoldError: If one or more holds are blocking time advancement
     """
 ```
 
@@ -308,15 +322,20 @@ def set_time(
 def skip_to_next_event(self) -> dict:
     """Jump to next scheduled event and execute it.
     
+    Checks for active holds before proceeding.
     Implements event-driven time advancement:
-    1. Peek at next pending event
-    2. Jump time to that event's scheduled_time
-    3. Execute all events at that time (may be multiple with same time)
-    4. Return execution summary
+    1. Check for active holds (raises HoldError if any)
+    2. Peek at next pending event
+    3. Jump time to that event's scheduled_time
+    4. Execute all events at that time (may be multiple with same time)
+    5. Return execution summary
     
     Returns:
         Dict with current_time, events_executed, next_event_time
         Or {message: "No pending events"} if queue is empty
+    
+    Raises:
+        HoldError: If one or more holds are blocking time advancement
     """
 ```
 
