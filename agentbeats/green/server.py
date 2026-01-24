@@ -56,11 +56,11 @@ def create_agent_card(host: str, port: int, card_url: str | None) -> AgentCard:
         examples=[
             # Example assessment request
             '{"participants": {"assistant": "http://localhost:9010/"}, '
-            '"config": {"scenario_id": "email-triage-basic", "max_turns": 20}}',
+            '"config": {"scenario_id": "email-triage-basic"}}',
             # Example with more config options
             '{"participants": {"assistant": "http://localhost:9010/"}, '
             '"config": {"scenario_id": "calendar-conflict-resolution", '
-            '"time_limit_seconds": 300, "seed": 42}}',
+            '"verbose_updates": true, "seed": 42}}',
         ],
     )
 

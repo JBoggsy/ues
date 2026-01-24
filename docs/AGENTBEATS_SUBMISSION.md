@@ -22,7 +22,7 @@
 
 - [x] **Assessment Request Handling**: Define the `assessment_request` message format
   - **Decision**: See Section 2 of A2A Flow doc
-  - Config params: `scenario_id` (required), `time_limit_seconds`, `max_turns`, `verbose_updates`, `seed`
+  - Config params: `scenario_id` (required), `verbose_updates`, `seed`
 
 - [x] **Task Update / Streaming Design**: How does Green Agent report progress?
   - **Decision**: See Section 5 of A2A Flow doc
@@ -98,23 +98,39 @@ Implemented opt-in API key-based access control via middleware. Enabled with `UE
 
 **Documentation:** See `docs/REST_API.md` (Access Control section)
 
-#### 2.2 A2A Message Schemas (Pydantic Models)
-- [ ] `AssessmentStartMessage`:
+#### 2.2 A2A Message Schemas (Pydantic Models) ✅
+
+Implemented in `agentbeats/green/schemas.py`.
+
+- [x] `ScenarioDescription`:
+  - `description: str` (natural language overview of the scenario)
+  - `goals: list[str]` (specific measurable objectives)
+  - `constraints: list[str] | None` (optional rules/restrictions)
+- [x] `ModalityCounts`:
+  - `total: int`
+  - `unread: int | None` (for email, sms, chat)
+  - `events_today: int | None` (for calendar)
+- [x] `InitialStateSummary`:
+  - `email: ModalityCounts | None`
+  - `calendar: ModalityCounts | None`
+  - `sms: ModalityCounts | None`
+  - `chat: ModalityCounts | None`
+- [x] `AssessmentStartMessage`:
   - `ues_url: str`
   - `api_key: str`
-  - `scenario: ScenarioDescription` (description, goals, constraints)
+  - `scenario: ScenarioDescription`
   - `current_time: datetime`
-  - `initial_state_summary: dict`
-- [ ] `TurnStartMessage`:
-  - `turn_number: int`
+  - `initial_state_summary: InitialStateSummary`
+- [x] `TurnStartMessage`:
   - `current_time: datetime`
-  - `events: list[EventSummary]` (type, summary)
-- [ ] `TurnCompleteMessage`:
+  - `events_processed: int` (number of events fired during time advance)
+- [x] `TurnCompleteMessage`:
   - `actions_taken: int`
-  - `notes: str | None`
-- [ ] `AssessmentCompleteMessage`:
-  - `reason: Literal["time_limit", "max_turns", "scenario_complete", "early_completion", "timeout", "error"]`
-- [ ] `EarlyCompletionMessage`:
+  - `notes: str | None` (reasoning/comments for logging and potential scoring)
+  - `time_step: timedelta | None` (how much to advance simulator time; optional)
+- [x] `AssessmentCompleteMessage`:
+  - `reason: Literal["scenario_complete", "early_completion", "timeout", "error"]`
+- [x] `EarlyCompletionMessage`:
   - `reason: str | None`
 
 #### 2.3 Task Update Streaming

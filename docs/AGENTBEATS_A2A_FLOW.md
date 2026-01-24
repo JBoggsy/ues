@@ -49,8 +49,6 @@ This document details the A2A protocol interaction flow for the UES Green Agent 
   },
   "config": {
     "scenario_id": "email_triage_basic",
-    "time_limit_seconds": 300,
-    "max_turns": 20,
     "verbose_updates": true,
     "seed": 12345
   }
@@ -62,8 +60,6 @@ This document details the A2A protocol interaction flow for the UES Green Agent 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `scenario_id` | string | Yes | — | ID of the scenario to run |
-| `time_limit_seconds` | int | No | 300 | Maximum wall-clock assessment duration |
-| `max_turns` | int | No | 20 | Maximum turn loop iterations |
 | `verbose_updates` | bool | No | true | Stream detailed task updates |
 | `seed` | int | No | — | Random seed for reproducibility |
 
@@ -146,9 +142,17 @@ This document details the A2A protocol interaction flow for the UES Green Agent 
 │  {                                                                           │
 │    ues_url: "http://ues:8000",                                              │
 │    api_key: "user-level-token-...",                                         │
-│    scenario: { description, goals, constraints },                           │
+│    scenario: {                                                               │
+│      description: "You are a personal assistant managing a busy inbox...",  │
+│      goals: ["Reply to urgent emails", "Archive completed threads"],        │
+│      constraints: ["Do not delete any emails"]                               │
+│    },                                                                        │
 │    current_time: "2026-01-22T09:00:00Z",                                    │
-│    initial_state_summary: { unread_emails: 5, ... }                         │
+│    initial_state_summary: {                                                  │
+│      email: { total: 12, unread: 5 },                                        │
+│      calendar: { events_today: 3 },                                          │
+│      sms: { total: 8, unread: 2 }                                            │
+│    }                                                                         │
 │  }                                                                           │
 └─────────────────────────────────────────────────────────────────────────────┘
                                     │
@@ -162,17 +166,14 @@ This document details the A2A protocol interaction flow for the UES Green Agent 
 │     - etc.                                                                   │
 │                                                                              │
 │  2. Purple → Green (A2A): turn_complete                                      │
-│     { actions_taken: 3, notes: "..." }                                       │
+│     { actions_taken: 3, notes: "...", time_step: "PT1H" }                    │
 │                                                                              │
-│  3. Green: Advances simulation time, processes events                        │
+│  3. Green: Advances simulation time by time_step, processes events           │
 │                                                                              │
 │  4. Green → Purple (A2A): turn_start                                         │
 │     {                                                                        │
-│       turn_number: 2,                                                        │
 │       current_time: "2026-01-22T10:00:00Z",                                  │
-│       events: [                                                              │
-│         { type: "email.received", summary: "New email from Alice" }          │
-│       ]                                                                      │
+│       events_processed: 3                                                    │
 │     }                                                                        │
 │                                                                              │
 │  5. Repeat until termination condition                                       │
@@ -181,7 +182,7 @@ This document details the A2A protocol interaction flow for the UES Green Agent 
                                     ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │  Green → Purple (A2A): assessment_complete                                   │
-│  { reason: "time_limit" | "max_turns" | "scenario_complete" | ... }         │
+│  { reason: "scenario_complete" | "early_completion" | "timeout" | "error" } │
 └─────────────────────────────────────────────────────────────────────────────┘
                                     │
                                     ▼
@@ -194,18 +195,83 @@ This document details the A2A protocol interaction flow for the UES Green Agent 
 
 | Direction | Message Type | Content |
 |-----------|--------------|---------|
-| Green → Purple | `assessment_start` | UES URL, API key, scenario description, goals, initial state |
-| Green → Purple | `turn_start` | Turn number, current time, events that occurred |
-| Purple → Green | `turn_complete` | Optional notes, action count |
+| Green → Purple | `assessment_start` | UES URL, API key, scenario (description, goals, constraints), current time, initial state counts |
+| Green → Purple | `turn_start` | Current time, events_processed count |
+| Purple → Green | `turn_complete` | Action count, optional notes (for logging/scoring), time_step |
 | Green → Purple | `assessment_complete` | Reason for completion |
 | Purple → Green | `early_completion` | Purple signals it's done early |
+
+### Message Schema Details
+
+**AssessmentStart**
+```json
+{                                                                        
+  "ues_url": "http://ues:8000",                                            
+  "api_key": "user-level-token-...",                                       
+  "scenario": {                                                            
+    "description": "You are a personal assistant managing a busy inbox...",
+    "goals": ["Reply to urgent emails", "Archive completed threads"],      
+    "constraints": ["Do not delete any emails"]                            
+  },                                                                     
+  "current_time": "2026-01-22T09:00:00Z",                                  
+  "initial_state_summary": {                                               
+    "email": { "total": 12, "unread": 5 },                                     
+    "calendar": { "events_today": 3 },                                       
+    "sms": { "total": 8, "unread": 2 }                                         
+  }                                                                      
+}
+```
+
+**ScenarioDescription**
+```json
+{
+  "description": "You are a personal assistant managing a busy professional's inbox...",
+  "goals": [
+    "Reply to urgent emails within simulated business hours",
+    "Archive completed threads",
+    "Flag emails requiring follow-up"
+  ],
+  "constraints": [
+    "Do not delete any emails",
+    "Do not send emails to external domains"
+  ]
+}
+```
+
+**InitialStateSummary** (modality-specific counts)
+```json
+{
+  "email": { "total": 12, "unread": 5 },
+  "calendar": { "total": 8, "events_today": 3 },
+  "sms": { "total": 15, "unread": 2 },
+  "chat": { "total": 0, "unread": 0 }
+}
+```
+
+**TurnCompleteMessage**
+```json
+{
+  "actions_taken": 3,
+  "notes": "Replied to 2 urgent emails, archived 1 spam thread",
+  "time_step": "PT1H"
+}
+```
+- `notes`: Optional free-form text for agent reasoning/transparency. Logged in action history and may factor into evaluation scoring.
+- `time_step`: ISO 8601 duration format (e.g., "PT1H" = 1 hour, "PT30M" = 30 minutes). If omitted, Green uses a default step.
+
+**TurnStartMessage**
+```json
+{
+  "current_time": "2026-01-22T10:00:00Z",
+  "events_processed": 3
+}
+```
+- `events_processed`: Number of scheduled events that fired during the time advance. Purple should query UES state to see what changed.
 
 ### Termination Conditions
 
 | Condition | Result |
 |-----------|--------|
-| Wall-clock time exceeds `time_limit_seconds` | Assessment ends |
-| Turn count exceeds `max_turns` | Assessment ends |
 | Simulation time reaches scenario end | Assessment ends |
 | Purple sends `early_completion` | Assessment ends |
 | Purple timeout (no response within turn timeout) | Assessment fails |

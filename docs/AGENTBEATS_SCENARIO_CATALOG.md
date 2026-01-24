@@ -349,7 +349,6 @@ scenarios/
   "difficulty": "easy",
   "modalities": ["email"],
   "duration_estimate_minutes": 15,
-  "max_turns": 20,
   "description": "...",
   "goals": ["..."],
   "constraints": ["..."]

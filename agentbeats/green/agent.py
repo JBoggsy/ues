@@ -20,15 +20,11 @@ class AssessmentConfig(BaseModel):
 
     Attributes:
         scenario_id: ID of the scenario to run (required).
-        time_limit_seconds: Maximum wall-clock time for assessment (optional).
-        max_turns: Maximum number of turns before termination (optional).
         seed: Random seed for reproducibility (optional).
         verbose_updates: Whether to send detailed progress updates (optional).
     """
 
     scenario_id: str
-    time_limit_seconds: int | None = None
-    max_turns: int | None = None
     seed: int | None = None
     verbose_updates: bool = False
 
