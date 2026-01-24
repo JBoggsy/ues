@@ -4,7 +4,7 @@ The User Environment Simulator exposes a comprehensive RESTful API for controlli
 
 ## API Organization
 
-The API is organized into six main categories:
+The API is organized into seven main categories:
 
 1. **Time Control** - Manage simulator time advancement and scaling
 2. **Environment State** - Query current state across all modalities
@@ -12,6 +12,61 @@ The API is organized into six main categories:
 4. **Simulation Control** - Start, stop, and reset simulations
 5. **Scenario Save/Load** - Export and import simulation state
 6. **Modality-Specific Routes** - Type-safe endpoints for each modality
+7. **Admin (Access Control)** - API key management (when access control enabled)
+
+## Access Control (Optional)
+
+UES supports API key-based access control for secure assessments (e.g., AgentBeats). This is **disabled by default** for backward compatibility.
+
+### Enabling Access Control
+
+Set the environment variable before starting the server:
+
+```bash
+UES_ACCESS_CONTROL=true uv run uvicorn main:app --reload
+```
+
+### Access Levels
+
+| Level | Holder | Access |
+|-------|--------|--------|
+| `proctor` | Assessment orchestrator | Full API access |
+| `user` | Agent being tested | Restricted to user-side actions |
+
+### Authentication
+
+When access control is enabled:
+- All non-public endpoints require an `X-API-Key` header
+- Public endpoints (root, health, docs) remain accessible without authentication
+- Invalid or missing keys return `401 Unauthorized`
+- Insufficient permissions return `403 Forbidden`
+
+### Example Request
+
+```bash
+curl -H "X-API-Key: ues_user_abc123..." http://localhost:8000/email/state
+```
+
+### Endpoint Permissions
+
+**Public (no auth required):**
+- `GET /` - Root
+- `GET /health` - Health check
+- `GET /docs`, `/redoc`, `/openapi.json` - API documentation
+
+**User-allowed (user or proctor):**
+- `GET /{modality}/state` - Query state
+- `POST /{modality}/query` - Semantic queries
+- User-side actions (send email, create calendar event, etc.)
+
+**Proctor-only:**
+- Time control (`/simulator/time/*`)
+- Simulation control (`/simulation/*`)
+- Event management (`POST /events`, `DELETE /events/*`)
+- Simulator-side modality actions (`/email/receive`, `/sms/receive`, etc.)
+- Admin endpoints (`/admin/keys/*`)
+
+See [API_ACCESS_CONTROL_PLAN.md](API_ACCESS_CONTROL_PLAN.md) for complete permission mapping.
 
 ## Documentation Resources
 
@@ -642,6 +697,100 @@ POST /weather/query
 
 ---
 
+### 7. Admin Endpoints (`/admin`)
+
+Admin endpoints for API key management. **Only available when access control is enabled** (`UES_ACCESS_CONTROL=true`). All admin endpoints require proctor-level access.
+
+#### Create Key
+
+```bash
+POST /admin/keys
+```
+
+Create a new API key for assessment participants.
+
+**Request:**
+```json
+{
+  "level": "user",
+  "agent_id": "purple-agent-001",
+  "assessment_id": "assess-2024-001",
+  "metadata": {"custom_field": "value"}
+}
+```
+
+**Response:**
+```json
+{
+  "api_key": "ues_user_x9y8z7w6v5u4...",
+  "level": "user",
+  "agent_id": "purple-agent-001",
+  "assessment_id": "assess-2024-001",
+  "created_at": "2024-03-15T14:30:00Z",
+  "metadata": {"custom_field": "value"}
+}
+```
+
+#### List Keys
+
+```bash
+GET /admin/keys
+GET /admin/keys?assessment_id=assess-2024-001
+```
+
+List all registered keys, optionally filtered by assessment.
+
+**Response:**
+```json
+{
+  "keys": [
+    {
+      "api_key": "ues_user_...",
+      "level": "user",
+      "agent_id": "agent-001",
+      "assessment_id": "assess-2024-001",
+      "created_at": "2024-03-15T14:30:00Z",
+      "metadata": null
+    }
+  ],
+  "total": 1
+}
+```
+
+#### Invalidate Key
+
+```bash
+DELETE /admin/keys/{api_key}
+```
+
+Invalidate a single API key.
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Key invalidated successfully"
+}
+```
+
+#### Cleanup Assessment Keys
+
+```bash
+POST /admin/keys/cleanup/{assessment_id}
+```
+
+Invalidate all keys for a specific assessment (typically called when assessment ends).
+
+**Response:**
+```json
+{
+  "invalidated_count": 2,
+  "assessment_id": "assess-2024-001"
+}
+```
+
+---
+
 ## Design Principles
 
 ### Type Safety
@@ -755,7 +904,7 @@ The Swagger UI at `http://localhost:8000/docs` provides:
 - Request/response schemas
 - Interactive testing (try it out!)
 - Model definitions
-- Authentication (when implemented)
+- Authentication via `X-API-Key` header (when access control enabled)
 
 This is the recommended way to explore and test the API during development.
 

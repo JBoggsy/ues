@@ -8,16 +8,22 @@ To run the development server:
 
 To run in production:
     uv run uvicorn main:app --host 0.0.0.0 --port 8000
+
+To run with access control enabled (for AgentBeats assessments):
+    UES_ACCESS_CONTROL=true uv run uvicorn main:app --host 0.0.0.0 --port 8000
 """
 
+import logging
 import os
 from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import ValidationError
+from starlette.middleware.base import BaseHTTPMiddleware
 
 # Load environment variables from .env file before any other imports
 # that might depend on them (e.g., WeatherState reads OPENWEATHER_API_KEY)
@@ -35,6 +41,7 @@ from api.exceptions import (
     validation_exception_handler,
     value_error_handler,
 )
+from api.routes import admin as admin_routes
 from api.routes import calendar as calendar_routes
 from api.routes import chat as chat_routes
 from api.routes import email as email_routes
@@ -49,6 +56,90 @@ from api.routes import weather as weather_routes
 from api.routes import webhooks as webhooks_routes
 from api.routes import websocket as websocket_routes
 from api.webhooks import webhook_dispatcher
+
+# Configure logging
+logger = logging.getLogger(__name__)
+
+# Access control configuration
+# When enabled, all non-public endpoints require X-API-Key header
+ACCESS_CONTROL_ENABLED = os.getenv("UES_ACCESS_CONTROL", "false").lower() == "true"
+
+
+class AccessControlMiddleware(BaseHTTPMiddleware):
+    """Middleware for enforcing API key-based access control.
+    
+    When enabled via UES_ACCESS_CONTROL=true, this middleware:
+    1. Allows public routes (/, /health, /docs, etc.) without authentication
+    2. Requires X-API-Key header for all other routes
+    3. Validates the key and checks permissions for the endpoint
+    4. Returns 401 for missing/invalid keys, 403 for insufficient permissions
+    5. Logs request attribution for tracing
+    """
+    
+    async def dispatch(self, request: Request, call_next):
+        """Process request through access control checks."""
+        from api.access_control import (
+            get_route_permission,
+            is_access_allowed,
+            key_registry,
+        )
+        
+        method = request.method
+        path = request.url.path
+        
+        # Get required permission level for this route
+        required_level = get_route_permission(method, path)
+        
+        # Public routes - allow without authentication
+        if required_level is None:
+            return await call_next(request)
+        
+        # Extract API key from header
+        api_key = request.headers.get("X-API-Key")
+        
+        if not api_key:
+            logger.warning(f"Access denied: missing API key for {method} {path}")
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Missing X-API-Key header"},
+                headers={"WWW-Authenticate": "ApiKey"},
+            )
+        
+        # Validate the key
+        context = key_registry.validate_key(api_key)
+        
+        if context is None:
+            logger.warning(f"Access denied: invalid API key for {method} {path}")
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Invalid or expired API key"},
+                headers={"WWW-Authenticate": "ApiKey"},
+            )
+        
+        # Check permission level
+        if not is_access_allowed(required_level, context.level):
+            logger.warning(
+                f"Access denied: {context.level.value} cannot access {method} {path} "
+                f"(requires {required_level.value}) - agent_id={context.agent_id}"
+            )
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "detail": f"This endpoint requires {required_level.value}-level access"
+                },
+            )
+        
+        # Log successful access for tracing
+        logger.debug(
+            f"Access granted: {method} {path} - "
+            f"level={context.level.value}, agent_id={context.agent_id}, "
+            f"assessment_id={context.assessment_id}"
+        )
+        
+        # Store context in request state for route handlers if needed
+        request.state.access_context = context
+        
+        return await call_next(request)
 
 
 @asynccontextmanager
@@ -68,6 +159,10 @@ async def lifespan(app: FastAPI):
     print("🚀 Starting UES - Initializing SimulationEngine...")
     initialize_simulation_engine()
     print("✅ SimulationEngine initialized")
+    if ACCESS_CONTROL_ENABLED:
+        print("🔐 Access control ENABLED - API keys required")
+    else:
+        print("🔓 Access control DISABLED - open access")
     
     yield  # App runs and handles requests here
     
@@ -111,6 +206,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Add access control middleware (only when enabled)
+if ACCESS_CONTROL_ENABLED:
+    app.add_middleware(AccessControlMiddleware)
+    logger.info("🔐 Access control ENABLED - API keys required for non-public endpoints")
+else:
+    logger.info("🔓 Access control DISABLED - all endpoints accessible without authentication")
+
 # Register exception handlers
 # These convert Python exceptions into clean JSON responses
 # Order matters: specific exceptions before general ones
@@ -137,6 +239,10 @@ app.include_router(calendar_routes.router)
 app.include_router(location_routes.router)
 app.include_router(webhooks_routes.router)
 app.include_router(websocket_routes.router)
+
+# Register admin routes (only when access control is enabled)
+if ACCESS_CONTROL_ENABLED:
+    app.include_router(admin_routes.router)
 
 
 @app.get("/")

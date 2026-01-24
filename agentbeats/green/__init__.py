@@ -5,4 +5,12 @@ Simulator (UES) benchmark. It allows evaluation of AI personal assistant agents
 through the AgentBeats platform.
 """
 
+from agentbeats.green.key_manager import AssessmentKeys, KeyManager, key_manager
+
 __version__ = "0.1.0"
+
+__all__ = [
+    "AssessmentKeys",
+    "KeyManager",
+    "key_manager",
+]

@@ -84,19 +84,19 @@
 
 ### Phase 2: Green Agent Implementation
 
-#### 2.1 API Key Access Control
-- [ ] Define `AccessLevel` enum (`proctor`, `user`)
-- [ ] Define `AccessContext` model (key, level, agent_id, assessment_id, created_at)
-- [ ] Implement `KeyRegistry` class:
-  - [ ] `generate_key(level, agent_id, assessment_id) -> str`
-  - [ ] `validate_key(key) -> AccessContext | None`
-  - [ ] `invalidate_keys(assessment_id)` — cleanup on assessment end
-- [ ] Implement FastAPI dependency `get_access_context(x_api_key: Header)`
-- [ ] Implement route-level enforcement:
-  - [ ] `require_proctor` dependency
-  - [ ] `require_user_or_proctor` dependency
-- [ ] Add `X-API-Key` header requirement to all routes
-- [ ] Add request attribution logging (agent_id on each request)
+#### 2.1 API Key Access Control ✅
+
+Implemented opt-in API key-based access control via middleware. Enabled with `UES_ACCESS_CONTROL=true`.
+
+**Files created:**
+- `api/access_control.py` — `AccessLevel` enum, `AccessContext` model, `KeyRegistry` class, endpoint permission mappings
+- `api/access_dependencies.py` — FastAPI dependencies (`get_api_key`, `require_proctor`, etc.)
+- `api/routes/admin.py` — Key management endpoints (`POST/GET/DELETE /admin/keys`)
+- `agentbeats/green/key_manager.py` — `KeyManager` class for Green Agent key provisioning
+
+**Tests:** 75 tests passing (`test_access_control.py`, `test_access_middleware.py`, `test_admin_routes.py`, `test_key_manager.py`)
+
+**Documentation:** See `docs/REST_API.md` (Access Control section)
 
 #### 2.2 A2A Message Schemas (Pydantic Models)
 - [ ] `AssessmentStartMessage`:
