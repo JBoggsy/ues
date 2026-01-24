@@ -297,12 +297,12 @@ Green Agent streams task updates during assessment:
 
 | Type | When |
 |------|------|
-| `assessment_started` | Assessment begins |
-| `scenario_loaded` | Scenario imported |
-| `turn_started` | New turn begins |
-| `turn_completed` | Purple signals ready |
-| `simulation_advanced` | Time progresses |
-| `assessment_complete` | Assessment ends |
+| `log_assessment_started` | Assessment begins |
+| `log_scenario_loaded` | Scenario imported |
+| `log_turn_started` | New turn begins (after sending `turn_start` to Purple) |
+| `log_turn_completed` | Purple signals ready (after receiving `turn_complete` from Purple) |
+| `log_simulation_advanced` | Time progresses |
+| `log_assessment_complete` | Assessment ends |
 
 ---
 

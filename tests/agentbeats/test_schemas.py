@@ -17,6 +17,8 @@ from agentbeats.green.schemas import (
     InitialStateSummary,
     ModalityCounts,
     ScenarioDescription,
+    TaskUpdate,
+    TaskUpdateType,
     TurnCompleteMessage,
     TurnStartMessage,
 )
@@ -370,3 +372,131 @@ class TestEarlyCompletionMessage:
         json_str = msg.model_dump_json()
         restored = EarlyCompletionMessage.model_validate_json(json_str)
         assert restored.reason == "Task complete"
+
+
+# =============================================================================
+# TaskUpdateType Tests
+# =============================================================================
+
+
+class TestTaskUpdateType:
+    """Tests for TaskUpdateType enum."""
+
+    def test_all_values_prefixed_with_log(self):
+        """All enum values should be prefixed with 'log_'."""
+        for member in TaskUpdateType:
+            assert member.value.startswith("log_"), f"{member.name} missing log_ prefix"
+
+    def test_enum_values(self):
+        """Verify expected enum values exist."""
+        assert TaskUpdateType.LOG_ASSESSMENT_STARTED.value == "log_assessment_started"
+        assert TaskUpdateType.LOG_SCENARIO_LOADED.value == "log_scenario_loaded"
+        assert TaskUpdateType.LOG_TURN_STARTED.value == "log_turn_started"
+        assert TaskUpdateType.LOG_TURN_COMPLETED.value == "log_turn_completed"
+        assert TaskUpdateType.LOG_SIMULATION_ADVANCED.value == "log_simulation_advanced"
+        assert TaskUpdateType.LOG_ASSESSMENT_COMPLETE.value == "log_assessment_complete"
+
+    def test_string_enum_behavior(self):
+        """TaskUpdateType is a string enum (compares equal to its value)."""
+        update_type = TaskUpdateType.LOG_TURN_STARTED
+        # String enum compares equal to its value
+        assert update_type == "log_turn_started"
+        # .value gives the actual string
+        assert update_type.value == "log_turn_started"
+
+
+# =============================================================================
+# TaskUpdate Tests
+# =============================================================================
+
+
+class TestTaskUpdate:
+    """Tests for TaskUpdate model."""
+
+    def test_minimal_valid(self):
+        """Create with required fields only."""
+        now = datetime(2026, 1, 22, 10, 0, 0, tzinfo=timezone.utc)
+        update = TaskUpdate(
+            type=TaskUpdateType.LOG_TURN_STARTED,
+            timestamp=now,
+            message="Turn 1 started",
+        )
+        assert update.type == TaskUpdateType.LOG_TURN_STARTED
+        assert update.timestamp == now
+        assert update.message == "Turn 1 started"
+        assert update.details is None
+
+    def test_with_details(self):
+        """Create with optional details."""
+        now = datetime(2026, 1, 22, 10, 0, 0, tzinfo=timezone.utc)
+        update = TaskUpdate(
+            type=TaskUpdateType.LOG_TURN_COMPLETED,
+            timestamp=now,
+            message="Turn 3 completed",
+            details={"turn": 3, "actions_taken": 2, "purple_notes": "Replied to email"},
+        )
+        assert update.details["turn"] == 3
+        assert update.details["actions_taken"] == 2
+        assert update.details["purple_notes"] == "Replied to email"
+
+    def test_missing_type_fails(self):
+        """Type is required."""
+        now = datetime(2026, 1, 22, 10, 0, 0, tzinfo=timezone.utc)
+        with pytest.raises(ValidationError):
+            TaskUpdate(timestamp=now, message="Test")
+
+    def test_missing_timestamp_fails(self):
+        """Timestamp is required."""
+        with pytest.raises(ValidationError):
+            TaskUpdate(type=TaskUpdateType.LOG_TURN_STARTED, message="Test")
+
+    def test_missing_message_fails(self):
+        """Message is required."""
+        now = datetime(2026, 1, 22, 10, 0, 0, tzinfo=timezone.utc)
+        with pytest.raises(ValidationError):
+            TaskUpdate(type=TaskUpdateType.LOG_TURN_STARTED, timestamp=now)
+
+    def test_serialization_roundtrip(self):
+        """Model survives JSON serialization."""
+        now = datetime(2026, 1, 22, 10, 30, 0, tzinfo=timezone.utc)
+        update = TaskUpdate(
+            type=TaskUpdateType.LOG_ASSESSMENT_COMPLETE,
+            timestamp=now,
+            message="Assessment complete",
+            details={
+                "reason": "scenario_complete",
+                "turns_taken": 8,
+                "score": {"overall": 85.5},
+            },
+        )
+        json_str = update.model_dump_json()
+        restored = TaskUpdate.model_validate_json(json_str)
+        assert restored == update
+
+    def test_type_serialized_as_string(self):
+        """Type enum serializes to string value."""
+        now = datetime(2026, 1, 22, 10, 0, 0, tzinfo=timezone.utc)
+        update = TaskUpdate(
+            type=TaskUpdateType.LOG_SCENARIO_LOADED,
+            timestamp=now,
+            message="Scenario loaded",
+        )
+        data = update.model_dump()
+        assert data["type"] == "log_scenario_loaded"
+
+    def test_nested_details(self):
+        """Details can contain nested structures."""
+        now = datetime(2026, 1, 22, 10, 0, 0, tzinfo=timezone.utc)
+        update = TaskUpdate(
+            type=TaskUpdateType.LOG_SCENARIO_LOADED,
+            timestamp=now,
+            message="Scenario loaded",
+            details={
+                "scenario_id": "email_triage_basic",
+                "initial_state": {
+                    "email": {"total": 12, "unread": 5},
+                    "calendar": {"events_today": 3},
+                },
+            },
+        )
+        assert update.details["initial_state"]["email"]["total"] == 12

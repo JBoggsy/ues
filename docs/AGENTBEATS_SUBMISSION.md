@@ -133,10 +133,16 @@ Implemented in `agentbeats/green/schemas.py`.
 - [x] `EarlyCompletionMessage`:
   - `reason: str | None`
 
-#### 2.3 Task Update Streaming
-- [ ] Define `TaskUpdate` model (type, timestamp, message, details)
-- [ ] Define update types enum: `assessment_started`, `scenario_loaded`, `turn_started`, `turn_completed`, `simulation_advanced`, `assessment_complete`
-- [ ] Implement `TaskUpdateEmitter` that streams updates via A2A
+#### 2.3 Task Update Streaming ✅
+- [x] Define `TaskUpdate` model (type, timestamp, message, details)
+- [x] Define update types enum: `log_assessment_started`, `log_scenario_loaded`, `log_turn_started`, `log_turn_completed`, `log_simulation_advanced`, `log_assessment_complete`
+- [x] Implement `TaskUpdateEmitter` that streams updates via A2A
+
+**Files created:**
+- `agentbeats/green/schemas.py` — `TaskUpdateType` enum, `TaskUpdate` model
+- `agentbeats/green/updates.py` — `TaskUpdateEmitter` class, helper functions, A2A conversion
+
+**Tests:** 34 tests passing (`test_schemas.py` TaskUpdate tests, `test_updates.py`)
 
 #### 2.4 Results Artifact
 - [ ] Define `AssessmentResult` model:

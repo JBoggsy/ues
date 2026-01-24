@@ -244,3 +244,72 @@ class EarlyCompletionMessage(BaseModel):
 # Type aliases for message discrimination in handlers
 GreenToPurpleMessage = AssessmentStartMessage | TurnStartMessage | AssessmentCompleteMessage
 PurpleToGreenMessage = TurnCompleteMessage | EarlyCompletionMessage
+
+
+# =============================================================================
+# Task Updates (Streaming Logs)
+# =============================================================================
+
+
+class TaskUpdateType(str, Enum):
+    """Types of task updates emitted during assessment.
+
+    These are log events streamed to the AgentBeats platform for observability.
+    Prefixed with 'LOG_' to distinguish from A2A messages (e.g., LOG_TURN_STARTED
+    is a log event, whereas TurnStartMessage is the actual A2A message).
+
+    Attributes:
+        LOG_ASSESSMENT_STARTED: Assessment has begun.
+        LOG_SCENARIO_LOADED: Scenario imported into UES.
+        LOG_TURN_STARTED: New turn began (after sending turn_start to Purple).
+        LOG_TURN_COMPLETED: Turn finished (after receiving turn_complete from Purple).
+        LOG_SIMULATION_ADVANCED: Simulation time progressed.
+        LOG_ASSESSMENT_COMPLETE: Assessment ended.
+    """
+
+    LOG_ASSESSMENT_STARTED = "log_assessment_started"
+    LOG_SCENARIO_LOADED = "log_scenario_loaded"
+    LOG_TURN_STARTED = "log_turn_started"
+    LOG_TURN_COMPLETED = "log_turn_completed"
+    LOG_SIMULATION_ADVANCED = "log_simulation_advanced"
+    LOG_ASSESSMENT_COMPLETE = "log_assessment_complete"
+
+
+class TaskUpdate(BaseModel):
+    """A task update emitted during assessment execution.
+
+    Task updates are streamed to the AgentBeats platform for real-time
+    observability. They allow operators, evaluators, and spectators to
+    watch the assessment unfold.
+
+    Attributes:
+        type: The category of update (log event type).
+        timestamp: When this update was generated (wall-clock time).
+        message: Human-readable description of what happened.
+        details: Structured data specific to the update type.
+
+    Example:
+        >>> update = TaskUpdate(
+        ...     type=TaskUpdateType.LOG_TURN_COMPLETED,
+        ...     timestamp=datetime.now(timezone.utc),
+        ...     message="Turn 3 completed",
+        ...     details={"turn": 3, "actions_taken": 2},
+        ... )
+    """
+
+    type: TaskUpdateType = Field(
+        ...,
+        description="The category of task update (log event type)",
+    )
+    timestamp: datetime = Field(
+        ...,
+        description="When this update was generated (wall-clock time)",
+    )
+    message: str = Field(
+        ...,
+        description="Human-readable description of what happened",
+    )
+    details: dict[str, object] | None = Field(
+        default=None,
+        description="Structured data specific to the update type",
+    )
