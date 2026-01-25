@@ -19,6 +19,7 @@ This document details the A2A protocol interaction flow for the UES Green Agent 
 │  • Receives assessment_request                                               │
 │  • Creates A2A task                                                          │
 │  • Orchestrates assessment via turn-based loop                               │
+│  • Runs response generator sub-agents (character-based replies)              │
 │  • Produces task updates (logs)                                              │
 │  • Evaluates performance                                                     │
 │  • Produces artifacts (results JSON)                                         │
@@ -34,7 +35,7 @@ This document details the A2A protocol interaction flow for the UES Green Agent 
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Pattern**: Traced Environment — Purple Agent interacts directly with UES REST API; Green Agent observes via event history.
+**Pattern**: Traced Environment — Purple Agent interacts directly with UES REST API; Green Agent observes via event history and generates character responses to Purple's actions.
 
 ---
 
@@ -174,15 +175,17 @@ This document details the A2A protocol interaction flow for the UES Green Agent 
 │  2. Purple → Green (A2A): turn_complete                                      │
 │     { actions_taken: 3, notes: "...", time_step: "PT1H" }                    │
 │                                                                              │
-│  3. Green: Advances simulation time by time_step, processes events           │
+│  3. Green: Runs response generator sub-agents for character replies          │
 │                                                                              │
-│  4. Green → Purple (A2A): turn_start                                         │
+│  4. Green: Advances simulation time by time_step, processes events           │
+│                                                                              │
+│  5. Green → Purple (A2A): turn_start                                         │
 │     {                                                                        │
 │       current_time: "2026-01-22T10:00:00Z",                                  │
 │       events_processed: 3                                                    │
 │     }                                                                        │
 │                                                                              │
-│  5. Repeat until termination condition                                       │
+│  6. Repeat until termination condition                                       │
 └ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┘
                                     │
                                     ▼
@@ -306,6 +309,136 @@ Note: `chat.total` and `chat.unread` will always be at least 1 because the initi
 
 ---
 
+## 4.1 Response Generator Sub-agents
+
+A critical responsibility of the Green Agent is managing **response generator sub-agents** that create realistic character responses to Purple Agent actions. This transforms the simulation from a static environment into a dynamic, interactive world.
+
+### Why Response Generation Matters
+
+Without response generation, assessments would be limited to:
+- Pre-scripted email/SMS sequences
+- Static calendar states
+- No ability to test negotiation, follow-up, or conversation tracking
+
+With response generation, scenarios can test:
+- **Multi-turn conversations**: Agent tracks ongoing email threads
+- **Negotiation**: Vendor pricing discussions, scheduling conflicts
+- **Uncertainty handling**: Different characters respond differently
+- **Time management**: Responses arrive with realistic delays
+
+### Response Generation Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    Response Generation (Between Turns)                       │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  1. Purple completes turn → Green receives turn_complete                     │
+│                                                                              │
+│  2. Green scans Purple's actions for outgoing messages:                      │
+│     • Emails sent to known character addresses                               │
+│     • SMS to character phone numbers or group chats                          │
+│     • Calendar invites to character attendees                                │
+│                                                                              │
+│  3. For each detected message, Response Generator Sub-agent:                 │
+│     a) Evaluates if message warrants a response (see below)                  │
+│     b) If no response needed → skip (conversation ends naturally)            │
+│     c) If response needed:                                                   │
+│        - Loads character profile from scenario definition                    │
+│        - Retrieves conversation context (thread history)                     │
+│        - Generates in-character response via LLM                             │
+│        - Schedules response event with character-appropriate delay           │
+│                                                                              │
+│  4. Green advances simulation time                                           │
+│                                                                              │
+│  5. Scheduled responses fire → appear in Purple's next state query           │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Response Necessity Check
+
+Not every outgoing message should trigger a character reply. Before generating a response, the sub-agent evaluates whether one is appropriate:
+
+**Messages that warrant a response:**
+- Questions or requests ("Can you make it Saturday?")
+- Initial outreach requiring acknowledgment ("You're invited!")
+- Ongoing negotiation ("What about $20/person?")
+- Information requests ("What flavors do you have?")
+
+**Messages that should NOT trigger a response:**
+- Final acknowledgments ("Sounds good, see you then!")
+- Simple confirmations ("Got it, thanks!")
+- Closing statements ("Looking forward to it!")
+- One-word affirmatives at conversation end ("Perfect!")
+
+This check prevents unrealistic infinite reply chains and models how real conversations naturally conclude. The LLM evaluates message content and conversation context to make this determination.
+
+### Character Profiles
+
+Each scenario defines characters with profiles that control response behavior:
+
+```json
+{
+  "characters": {
+    "jamie.walsh@email.com": {
+      "name": "Jamie Walsh",
+      "role": "Friend",
+      "personality": "Casual and friendly, uses lots of exclamation points",
+      "response_timing": {
+        "base_delay": "PT2H",
+        "variance": "PT30M"
+      },
+      "rsvp_behavior": "quick_yes",
+      "special_instructions": "Always offers to help with setup"
+    },
+    "orders@coastalcatering.com": {
+      "name": "Coastal Catering",
+      "role": "Vendor",
+      "personality": "Professional, slightly formal, focused on upselling",
+      "response_timing": {
+        "base_delay": "PT4H",
+        "variance": "PT2H"
+      },
+      "pricing": {
+        "base_per_person": 25,
+        "negotiation_floor": 20
+      }
+    }
+  }
+}
+```
+
+### Response Types by Modality
+
+| Modality | Purple Action | Green Response |
+|----------|---------------|----------------|
+| Email | `send` to character | Character sends reply email |
+| Email | `reply` to character thread | Character continues conversation |
+| SMS | `send` to character | Character sends reply SMS |
+| SMS | `send` to group chat | Multiple characters may respond |
+| Calendar | `create` invite with character attendee | Character RSVPs (accept/decline/tentative) |
+
+### LLM Integration
+
+Response generators use LLMs to produce contextually appropriate replies:
+
+1. **System Prompt**: Character profile + response guidelines
+2. **Context**: Full conversation thread + relevant state
+3. **Constraints**: Response format, length limits, required elements
+4. **Output**: Generated message content + metadata (delay, read receipts, etc.)
+
+The Green Agent uses its proctor-level API key to inject responses via simulator-side endpoints (e.g., `/email/receive`) that Purple cannot access directly.
+
+### Determinism and Reproducibility
+
+For reproducible assessments:
+- `seed` parameter in assessment config seeds LLM temperature
+- Response delays use deterministic pseudo-random variance
+- Same scenario + seed produces identical character responses
+
+---
+
 ## 5. Task Updates (Streaming Logs)
 
 Green Agent streams task updates during assessment:
@@ -327,6 +460,7 @@ Green Agent streams task updates during assessment:
 | `log_scenario_loaded` | Scenario imported | |
 | `log_turn_started` | New turn begins (after sending `turn_start` to Purple) | |
 | `log_turn_completed` | Purple signals ready (after receiving `turn_complete` from Purple) | |
+| `log_responses_generated` | Character responses created | Count and types of responses scheduled |
 | `log_simulation_advanced` | Time progresses | |
 | `log_assessment_complete` | Assessment ends | |
 

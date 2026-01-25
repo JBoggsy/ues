@@ -48,6 +48,7 @@ uv run python server.py --host 0.0.0.0 --port 9009 --card-url http://myserver:90
 │  • Resets and loads scenario into UES                                    │
 │  • Provisions API keys (proctor + user)                                  │
 │  • Orchestrates turn-based assessment loop                               │
+│  • Runs response generator sub-agents (character-based replies)          │
 │  • Streams task updates to platform                                      │
 │  • Evaluates results and produces scoring artifact                       │
 └─────────────────────────────────────────────────────────────────────────┘
@@ -84,6 +85,7 @@ uv run python server.py --host 0.0.0.0 --port 9009 --card-url http://myserver:90
 4. **Turn Loop**:
    - Purple queries UES state and performs actions via REST API
    - Purple sends `TurnCompleteMessage` with action count and optional time step
+   - Green runs response generator sub-agents to create character responses (reply emails, SMS, etc.)
    - Green advances simulator time and processes scheduled events
    - Green sends `TurnStartMessage` with new time and events processed
    - Loop repeats until termination
@@ -107,6 +109,7 @@ uv run python server.py --host 0.0.0.0 --port 9009 --card-url http://myserver:90
 | `messenger.py` | A2A messaging utilities for Purple communication |
 | `key_manager.py` | API key provisioning and lifecycle management |
 | `updates.py` | Task update streaming for platform observability |
+| `response_agents.py` | Character-based response generation sub-agents |
 
 ## A2A Message Schemas
 
@@ -190,6 +193,81 @@ The Green Agent uses API key-based access control to enforce what Purple Agents 
 - Simulation control (`/simulator/reset`, `/simulator/clear`)
 - Event history, undo/redo, holds, webhooks
 
+## Response Generator Sub-agents
+
+A key capability of the Green Agent is managing **response generator sub-agents** that simulate realistic character responses to Purple Agent actions. When Purple sends an email, SMS, or other message to a simulated character, the Green Agent generates context-appropriate responses.
+
+### How It Works
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           Turn Processing                                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  1. Purple Agent sends email to "jamie.walsh@email.com"                      │
+│                                    │                                         │
+│                                    ▼                                         │
+│  2. Green Agent detects outgoing message to known character                  │
+│                                    │                                         │
+│                                    ▼                                         │
+│  3. Response Generator Sub-agent:                                            │
+│     • Checks if message warrants a response (not all do!)                    │
+│     • If yes: loads character profile, generates reply, schedules event     │
+│     • If no: conversation ends naturally (e.g., "See you then!")            │
+│                                    │                                         │
+│                                    ▼                                         │
+│  4. Time advances → scheduled reply fires → Purple sees response             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Response Necessity Check
+
+Not every outgoing message should trigger a character reply. The response generator first evaluates whether a response is appropriate:
+
+| Message Type | Response Needed? | Example |
+|--------------|------------------|----------|
+| Question or request | ✅ Yes | "Can you bring a dessert?" |
+| Initial outreach | ✅ Yes | "You're invited to my party!" |
+| Negotiation/discussion | ✅ Yes | "Can you do $20/person instead?" |
+| Final acknowledgment | ❌ No | "Sounds good, see you Saturday!" |
+| Simple confirmation | ❌ No | "Got it, thanks!" |
+| Closing statement | ❌ No | "Looking forward to it!" |
+
+This prevents unrealistic infinite reply chains and models how real conversations naturally conclude.
+
+### Character Profiles
+
+Each scenario defines characters with profiles that control response behavior:
+
+```json
+{
+  "jamie.walsh@email.com": {
+    "name": "Jamie Walsh",
+    "personality": "Casual and friendly, uses lots of exclamation points",
+    "response_delay": "PT2H",
+    "rsvp_behavior": "Quick YES, offers help"
+  }
+}
+```
+
+### Supported Response Types
+
+| Modality | Trigger | Response |
+|----------|---------|----------|
+| Email | Purple sends/replies to character | Character sends reply email |
+| SMS | Purple texts character or group | Character(s) send reply SMS |
+| Calendar | Purple sends meeting invite | Character RSVPs (accept/decline/tentative) |
+
+### Why This Matters
+
+Response generation is essential for realistic assessment scenarios:
+
+- **Realism**: Agents must handle asynchronous, unpredictable responses
+- **Multi-turn Interactions**: Tests agent ability to track conversations over time
+- **Negotiation**: Vendor/scheduling scenarios require back-and-forth dialogue
+- **Dynamic Evaluation**: Agent behavior adapts based on character responses
+
+This makes the Green Agent more than a passive observer—it actively participates in creating a dynamic, realistic simulation environment.
+
 ## Task Updates (Streaming)
 
 Green Agent streams task updates to the AgentBeats platform for real-time observability:
@@ -200,6 +278,7 @@ Green Agent streams task updates to the AgentBeats platform for real-time observ
 | `log_scenario_loaded` | Scenario imported into UES |
 | `log_turn_started` | New turn begins |
 | `log_turn_completed` | Purple signals ready |
+| `log_responses_generated` | Character responses created and scheduled |
 | `log_simulation_advanced` | Time progresses |
 | `log_assessment_complete` | Assessment ends |
 

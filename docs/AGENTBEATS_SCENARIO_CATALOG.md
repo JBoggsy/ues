@@ -32,6 +32,28 @@ In the AgentBeats assessment model:
 
 For full protocol details, see [AGENTBEATS_A2A_FLOW.md](AGENTBEATS_A2A_FLOW.md).
 
+### Character-Based Response Generation
+
+Some scenarios include **simulated characters** that respond to Purple Agent actions. This is managed by the Green Agent's response generator sub-agents.
+
+**How It Works**:
+1. Purple Agent sends email/SMS to a character (e.g., `jamie.walsh@email.com`)
+2. Green Agent detects the outgoing message to a known character
+3. Response generator loads the character's profile and generates an in-character reply
+4. Reply is scheduled with a realistic delay
+5. When time advances, the reply appears in Purple's next state query
+
+**Character Profiles** define:
+- **Personality**: Tone, style, typical phrases
+- **Response timing**: How quickly they respond (with variance)
+- **Behavior patterns**: RSVP tendencies, negotiation style, etc.
+
+**Scenario Types**:
+- **Static scenarios** (e.g., `email_summary`): No character responses needed; emails arrive via pre-scheduled events
+- **Interactive scenarios** (e.g., `party_planner`): Characters respond dynamically to Purple's messages
+
+For technical details on response generation, see [AGENTBEATS_A2A_FLOW.md](AGENTBEATS_A2A_FLOW.md) Section 4.1.
+
 ### Scoring System
 
 Each scenario includes a **scoring rubric** that defines how the agent's performance is evaluated. The scoring uses a pyramid structure:
@@ -64,18 +86,20 @@ Scenario designers control dimension weighting by allocating more or fewer point
 
 ## Scenario Overview
 
-| ID | Name | Difficulty | Modalities | Agent Type | Status |
-|----|------|------------|------------|------------|--------|
-| `email_summary` | Email Triage & Summary | 🟢 Easy | Email, Chat | User-side | ✅ Adapted |
-| `calendar_conflict` | Calendar Conflict Resolution | 🟡 Medium | Calendar, Chat | User-side | ✅ Adapted |
-| `party_planner` | Multi-Modal Party Coordination | 🔴 Hard | Email, SMS, Calendar, Chat | User-side | ✅ Adapted |
-| `email_triage_basic` | Basic Email Triage | 🟢 Easy | Email, Chat | User-side | ⏳ Planned |
-| `sms_planning` | SMS Group Decision Making | 🟡 Medium | SMS, Chat | User-side | ⏳ Planned |
-| `daily_briefing` | Morning Briefing Generation | 🟢 Easy | Email, Calendar, Chat | User-side | ⏳ Planned |
-| `vendor_negotiation` | Vendor Communication | 🟡 Medium | Email, Chat | User-side | ⏳ Planned |
-| `crisis_response` | Multi-Channel Crisis Response | 🔴 Hard | Email, SMS, Calendar, Chat | User-side | ⏳ Planned |
+| ID | Name | Difficulty | Modalities | Response Gen | Status |
+|----|------|------------|------------|--------------|--------|
+| `email_summary` | Email Triage & Summary | 🟢 Easy | Email, Chat | No | ✅ Adapted |
+| `calendar_conflict` | Calendar Conflict Resolution | 🟡 Medium | Calendar, Chat | No | ✅ Adapted |
+| `party_planner` | Multi-Modal Party Coordination | 🔴 Hard | Email, SMS, Calendar, Chat | Yes | ✅ Adapted |
+| `email_triage_basic` | Basic Email Triage | 🟢 Easy | Email, Chat | No | ⏳ Planned |
+| `sms_planning` | SMS Group Decision Making | 🟡 Medium | SMS, Chat | Yes | ⏳ Planned |
+| `daily_briefing` | Morning Briefing Generation | 🟢 Easy | Email, Calendar, Chat | No | ⏳ Planned |
+| `vendor_negotiation` | Vendor Communication | 🟡 Medium | Email, Chat | Yes | ⏳ Planned |
+| `crisis_response` | Multi-Channel Crisis Response | 🔴 Hard | Email, SMS, Calendar, Chat | Yes | ⏳ Planned |
 
 > **Note**: All scenarios include Chat modality because user instructions are delivered via chat.
+> 
+> **Response Gen**: Indicates if the scenario uses response generator sub-agents for dynamic character responses. "No" means emails/messages arrive via pre-scheduled events only.
 
 ---
 
@@ -335,6 +359,8 @@ Thanks so much!
 
 #### Characters
 
+This scenario uses **response generator sub-agents** to simulate realistic character responses. When Purple sends a message to a character, the Green Agent generates an in-character reply with appropriate timing.
+
 **Guests:**
 
 | Character | Contact | Response Pattern | RSVP Behavior |
@@ -374,6 +400,7 @@ The agent is expected to:
 
 - **Multi-modal coordination**: Must use email for some contacts, SMS for others
 - **Asynchronous responses**: Guests and vendors respond at different rates (agent must advance time and re-query)
+- **Character response generation**: Green Agent dynamically generates in-character replies (not pre-scripted)
 - **Vendor negotiation**: Back-and-forth communication required
 - **RSVP tracking**: Must maintain accurate state across channels
 - **Time pressure**: 5-day window with party deadline

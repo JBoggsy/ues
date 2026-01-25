@@ -39,6 +39,13 @@
   - Green Agent gets proctor key, Purple Agent gets user key in `assessment_start`
   - Middleware enforces access, attributes requests for tracing
 
+- [x] **Response Generator Sub-agents**: How does Green Agent simulate character responses?
+  - **Decision**: LLM-powered sub-agents generate in-character responses
+  - Character profiles defined per-scenario (personality, timing, behavior)
+  - Green detects Purple's outgoing messages and schedules character replies
+  - Uses proctor-level API to inject responses via simulator-side endpoints
+  - See [AGENTBEATS_A2A_FLOW.md](AGENTBEATS_A2A_FLOW.md) Section 4.1 for full design
+
 ### Medium Priority (Benchmark Design)
 
 - [ ] **Scenario Catalog Design**: Define the set of evaluation scenarios
@@ -191,9 +198,51 @@ Implemented in `agentbeats/green/schemas.py`.
 
 **Tests:** 77 tests passing (`test_schemas.py`)
 
-#### 2.5 AgentExecutor Implementation
+#### 2.5 Response Generator Sub-agents ✅
+- [x] Implement `ResponseAgentManager` class:
+  - [x] `__init__(ues_client, characters, llm_provider, seed, user_email, user_phone)`
+  - [x] `process_turn() -> list[ScheduledResponse]`
+  - [x] `reset_state()` — clear tracking for new assessment
+  - [x] `get_scheduled_responses()` — retrieve all scheduled responses
+- [x] Implement character profile loading:
+  - [x] `CharacterProfile` model with personality, communication_style, response_timing
+  - [x] `ResponseTiming` model with base_delay, variance, work_hours config
+  - [x] `CharacterRegistry` for lookup by email/phone
+  - [x] Support legacy party_planner format conversion
+- [x] Implement response necessity check:
+  - [x] `ResponseNecessityChecker` class with LLM-based analysis
+  - [x] `ResponseDecision` dataclass (needs_response, reason)
+  - [x] System prompt for detecting questions vs acknowledgments
+  - [x] Prevent infinite reply chains
+- [x] Implement response generation:
+  - [x] `_detect_outgoing_messages()` — scan email/SMS sent folders
+  - [x] `_build_email_thread_context()` / `_build_sms_thread_context()`
+  - [x] `_generate_response()` — LLM call with character system prompt
+  - [x] `_calculate_delay()` — deterministic delay from seed + message_id
+- [x] Implement response injection:
+  - [x] `_schedule_email_response()` — create email.receive event
+  - [x] `_schedule_sms_response()` — create sms.receive event
+  - [ ] Calendar RSVP updates (future enhancement)
+- [x] Implement determinism:
+  - [x] `LLMConfig.get_temperature()` — seed-based temperature calculation
+  - [x] Hash-based delay variance for reproducibility
+- [x] Implement LLM abstraction:
+  - [x] `LLMProvider` ABC with `generate(prompt, system_prompt)` method
+  - [x] `OllamaProvider` for local Ollama inference
+  - [x] `MockLLMProvider` for deterministic testing
+
+**Files created:**
+- `agentbeats/green/characters.py` — `CharacterProfile`, `ResponseTiming`, `RSVPBehavior`, `ContactType`, `CharacterRegistry`
+- `agentbeats/green/llm.py` — `LLMConfig`, `LLMProvider`, `OllamaProvider`, `MockLLMProvider`, `ResponseNecessityChecker`, `ResponseDecision`
+- `agentbeats/green/response_agents.py` — `ResponseAgentManager`, `ScheduledResponse`, `OutgoingMessage`, `create_response_agent_manager()`
+
+**Tests:** 114 tests passing (`test_characters.py` 57 tests, `test_response_agents.py` 26 tests, `test_llm.py` 31 tests)
+
+**Dependencies added:** `email-validator` for Pydantic `EmailStr` support
+
+#### 2.6 AgentExecutor Implementation
 - [ ] Implement `AgentExecutor` class:
-  - [ ] `__init__(ues_client, scenario_loader, evaluator)`
+  - [ ] `__init__(ues_client, scenario_loader, evaluator, response_manager)`
   - [ ] `run_assessment(participants, config) -> AssessmentResult`
 - [ ] Implement assessment lifecycle:
   - [ ] Parse and validate `assessment_request`
@@ -204,8 +253,9 @@ Implemented in `agentbeats/green/schemas.py`.
   - [ ] Send `assessment_start` to Purple Agent via A2A
 - [ ] Implement turn loop:
   - [ ] Wait for `turn_complete` from Purple Agent (with timeout)
+  - [ ] Run response generator sub-agents for character replies
   - [ ] Advance simulation time
-  - [ ] Process scheduled events
+  - [ ] Process scheduled events (including character responses)
   - [ ] Check termination conditions
   - [ ] Send `turn_start` with new events
 - [ ] Implement termination handling:
