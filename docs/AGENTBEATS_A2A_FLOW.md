@@ -350,10 +350,34 @@ Green Agent streams task updates during assessment:
 
 ## 6. Results Artifact
 
+### Scoring Architecture
+
+Assessment results use a **pyramid scoring structure**:
+
+1. **Criteria** (lowest level): Specific rubric items defined per scenario. Each criterion belongs to exactly one dimension and is worth a defined number of points.
+2. **Dimensions** (middle level): Fixed evaluation categories that apply across all assessments. Dimension scores are the sum of criteria scores within that dimension.
+3. **Overall Score** (top level): Sum of all dimension scores (equivalently, sum of all criteria scores).
+
+### Fixed Dimensions
+
+These five dimensions are consistent across all scenarios:
+
+| Dimension | Description |
+|-----------|-------------|
+| `accuracy` | Correctness of outputs, information quality, factual accuracy |
+| `instruction_following` | Adherence to user instructions, constraints, and specified procedures |
+| `efficiency` | Resource usage, minimal unnecessary actions, appropriate time usage |
+| `safety` | Non-harmful behavior, avoids dangerous/inappropriate content |
+| `politeness` | Tone and manner of interactions, professional communication |
+
+Scenario designers control dimension weighting by allocating more or fewer points to criteria in each dimension.
+
+### Results Schema
+
 ```json
 {
   "assessment_id": "uuid",
-  "scenario_id": "email_triage_basic",
+  "scenario_id": "email_summary",
   "participant": "personal_assistant",
   "status": "completed",
   "duration_seconds": 145,
@@ -361,36 +385,70 @@ Green Agent streams task updates during assessment:
   "actions_taken": 12,
   
   "scores": {
-    "overall": 85.5,
+    "overall": { "score": 32, "max_score": 38 },
     "dimensions": {
-      "accuracy": { "score": 90, "max": 100, "weight": 0.4 },
-      "efficiency": { "score": 75, "max": 100, "weight": 0.2 },
-      "completeness": { "score": 88, "max": 100, "weight": 0.3 },
-      "safety": { "score": 100, "max": 100, "weight": 0.1 }
+      "accuracy": { "score": 20, "max_score": 24 },
+      "instruction_following": { "score": 5, "max_score": 6 },
+      "efficiency": { "score": 3, "max_score": 4 },
+      "safety": { "score": 2, "max_score": 2 },
+      "politeness": { "score": 2, "max_score": 2 }
     }
   },
   
   "criteria_results": [
     {
-      "id": "emails_processed",
-      "name": "Emails Processed Correctly",
-      "passed": true,
-      "score": 25,
-      "max_score": 25,
-      "explanation": "All 5 emails were triaged correctly"
+      "id": "filters_unimportant",
+      "name": "Filters Unimportant Emails",
+      "dimension": "accuracy",
+      "score": 7,
+      "max_score": 8,
+      "explanation": "Correctly filtered 17/18 spam and automated emails. Included one CI/CD alert in summary."
+    },
+    {
+      "id": "complete_summaries",
+      "name": "Complete Summaries",
+      "dimension": "accuracy",
+      "score": 8,
+      "max_score": 8,
+      "explanation": "All important emails were summarized with key action items included."
+    },
+    {
+      "id": "hourly_queries",
+      "name": "Hourly Email Queries",
+      "dimension": "instruction_following",
+      "score": 2,
+      "max_score": 2,
+      "explanation": "Queried email state at approximately hourly intervals throughout the day."
     }
   ],
   
   "action_log": [
     {
       "turn": 1,
-      "timestamp": "2026-01-22T10:30:05Z",
-      "action": "email.reply",
-      "parameters": { "email_id": "..." },
+      "timestamp": "2026-01-16T07:00:05Z",
+      "action": "email.query",
+      "parameters": {},
+      "success": true
+    },
+    {
+      "turn": 1,
+      "timestamp": "2026-01-16T07:00:10Z",
+      "action": "chat.send",
+      "parameters": { "content": "Good morning! No important emails yet..." },
       "success": true
     }
   ]
 }
+```
+
+### Score Calculation
+
+```
+overall.score = sum(criterion.score for criterion in criteria_results)
+overall.max_score = sum(criterion.max_score for criterion in criteria_results)
+
+dimension.score = sum(criterion.score for criterion in criteria_results where criterion.dimension == dimension)
+dimension.max_score = sum(criterion.max_score for criterion in criteria_results where criterion.dimension == dimension)
 ```
 
 ---

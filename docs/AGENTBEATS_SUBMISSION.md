@@ -143,17 +143,53 @@ Implemented in `agentbeats/green/schemas.py`.
 
 **Tests:** 34 tests passing (`test_schemas.py` TaskUpdate tests, `test_updates.py`)
 
-#### 2.4 Results Artifact
-- [ ] Define `AssessmentResult` model:
-  - `assessment_id`, `scenario_id`, `participant`, `status`
-  - `duration_seconds`, `turns_taken`, `actions_taken`
-  - `scores: Scores` (overall, dimensions)
+#### 2.4 Results Artifact ✅
+
+**Scoring Architecture**: Pyramid structure where criteria → dimensions → overall score.
+- **Criteria**: Specific rubric items per scenario, each belonging to one dimension
+- **Dimensions**: Fixed categories across all assessments (accuracy, instruction_following, efficiency, safety, politeness)
+- **Overall**: Sum of all criteria scores
+
+See [AGENTBEATS_A2A_FLOW.md](AGENTBEATS_A2A_FLOW.md) Section 6 for full schema.
+
+Implemented in `agentbeats/green/schemas.py`.
+
+- [x] `EvaluationDimension` enum: `accuracy`, `instruction_following`, `efficiency`, `safety`, `politeness`
+- [x] `ScoreSummary` model:
+  - `score: int` (points earned)
+  - `max_score: int` (points possible)
+  - `percentage: float` (computed property)
+- [x] `Scores` model:
+  - `overall: ScoreSummary`
+  - `dimensions: dict[EvaluationDimension, ScoreSummary]`
+  - `from_criteria()` class method for computing scores from criteria list
+- [x] `CriterionResult` model:
+  - `id: str` (unique identifier from rubric)
+  - `name: str` (human-readable name)
+  - `dimension: EvaluationDimension`
+  - `score: int` (points earned, 0 to max_score)
+  - `max_score: int` (points possible)
+  - `explanation: str` (justification for score)
+- [x] `ActionLogEntry` model:
+  - `turn: int`
+  - `timestamp: datetime`
+  - `action: str` (e.g., "email.query", "chat.send")
+  - `parameters: dict`
+  - `success: bool`
+- [x] `AssessmentStatus` enum: `completed`, `timeout`, `error`
+- [x] `AssessmentResult` model:
+  - `assessment_id: str`
+  - `scenario_id: str`
+  - `participant: str`
+  - `status: AssessmentStatus`
+  - `duration_seconds: float`
+  - `turns_taken: int`
+  - `actions_taken: int`
+  - `scores: Scores`
   - `criteria_results: list[CriterionResult]`
   - `action_log: list[ActionLogEntry]`
-- [ ] Define `Scores` model (overall, dimensions dict)
-- [ ] Define `DimensionScore` model (score, max, weight)
-- [ ] Define `CriterionResult` model (id, name, passed, score, max_score, explanation)
-- [ ] Define `ActionLogEntry` model (turn, timestamp, action, parameters, success)
+
+**Tests:** 77 tests passing (`test_schemas.py`)
 
 #### 2.5 AgentExecutor Implementation
 - [ ] Implement `AgentExecutor` class:

@@ -10,13 +10,20 @@ import pytest
 from pydantic import ValidationError
 
 from agentbeats.green.schemas import (
+    ActionLogEntry,
     AssessmentCompleteMessage,
     AssessmentCompleteReason,
+    AssessmentResult,
     AssessmentStartMessage,
+    AssessmentStatus,
+    CriterionResult,
     DEFAULT_ASSESSMENT_INSTRUCTIONS,
     EarlyCompletionMessage,
+    EvaluationDimension,
     InitialStateSummary,
     ModalityCounts,
+    Scores,
+    ScoreSummary,
     TaskUpdate,
     TaskUpdateType,
     TurnCompleteMessage,
@@ -450,3 +457,501 @@ class TestTaskUpdate:
             },
         )
         assert update.details["initial_state"]["email"]["total"] == 12
+
+
+# =============================================================================
+# Results Artifact Tests
+# =============================================================================
+
+
+class TestEvaluationDimension:
+    """Tests for EvaluationDimension enum."""
+
+    def test_all_dimensions_defined(self):
+        """All expected dimensions exist."""
+        expected = {"accuracy", "instruction_following", "efficiency", "safety", "politeness"}
+        actual = {d.value for d in EvaluationDimension}
+        assert actual == expected
+
+    def test_string_coercion(self):
+        """String values can be used."""
+        assert EvaluationDimension("accuracy") == EvaluationDimension.ACCURACY
+        assert EvaluationDimension("instruction_following") == EvaluationDimension.INSTRUCTION_FOLLOWING
+
+
+class TestScoreSummary:
+    """Tests for ScoreSummary model."""
+
+    def test_basic_creation(self):
+        """Create with valid values."""
+        summary = ScoreSummary(score=20, max_score=24)
+        assert summary.score == 20
+        assert summary.max_score == 24
+
+    def test_percentage_calculation(self):
+        """Percentage computed correctly."""
+        summary = ScoreSummary(score=20, max_score=25)
+        assert summary.percentage == 80.0
+
+    def test_percentage_perfect_score(self):
+        """Perfect score gives 100%."""
+        summary = ScoreSummary(score=10, max_score=10)
+        assert summary.percentage == 100.0
+
+    def test_percentage_zero_score(self):
+        """Zero score gives 0%."""
+        summary = ScoreSummary(score=0, max_score=10)
+        assert summary.percentage == 0.0
+
+    def test_percentage_zero_max_with_zero_score(self):
+        """Zero max with zero score gives 100% (vacuously true)."""
+        summary = ScoreSummary(score=0, max_score=0)
+        assert summary.percentage == 100.0
+
+    def test_percentage_zero_max_with_nonzero_score(self):
+        """Zero max with nonzero score gives 0% (impossible scenario)."""
+        summary = ScoreSummary(score=5, max_score=0)
+        assert summary.percentage == 0.0
+
+    def test_percentage_rounding(self):
+        """Percentage rounds to 1 decimal place."""
+        summary = ScoreSummary(score=1, max_score=3)
+        assert summary.percentage == 33.3
+
+    def test_negative_score_fails(self):
+        """Negative score is invalid."""
+        with pytest.raises(ValidationError):
+            ScoreSummary(score=-1, max_score=10)
+
+    def test_negative_max_score_fails(self):
+        """Negative max_score is invalid."""
+        with pytest.raises(ValidationError):
+            ScoreSummary(score=5, max_score=-10)
+
+    def test_serialization_includes_percentage(self):
+        """Percentage is included in serialization."""
+        summary = ScoreSummary(score=7, max_score=10)
+        data = summary.model_dump()
+        assert "percentage" in data
+        assert data["percentage"] == 70.0
+
+
+class TestCriterionResult:
+    """Tests for CriterionResult model."""
+
+    def test_valid_creation(self):
+        """Create with all required fields."""
+        result = CriterionResult(
+            id="hourly_queries",
+            name="Hourly Email Queries",
+            dimension=EvaluationDimension.INSTRUCTION_FOLLOWING,
+            score=2,
+            max_score=2,
+            explanation="Agent queried email state at hourly intervals.",
+        )
+        assert result.id == "hourly_queries"
+        assert result.dimension == EvaluationDimension.INSTRUCTION_FOLLOWING
+        assert result.score == 2
+
+    def test_partial_score(self):
+        """Partial credit is valid."""
+        result = CriterionResult(
+            id="filters_unimportant",
+            name="Filters Unimportant Emails",
+            dimension=EvaluationDimension.ACCURACY,
+            score=7,
+            max_score=8,
+            explanation="Correctly filtered 17/18 spam emails. Included one CI/CD alert.",
+        )
+        assert result.score == 7
+        assert result.max_score == 8
+
+    def test_zero_score(self):
+        """Zero score is valid."""
+        result = CriterionResult(
+            id="safety_check",
+            name="Non-Harmful Interactions",
+            dimension=EvaluationDimension.SAFETY,
+            score=0,
+            max_score=2,
+            explanation="Agent included inappropriate content in response.",
+        )
+        assert result.score == 0
+
+    def test_dimension_as_string(self):
+        """Dimension can be specified as string."""
+        result = CriterionResult(
+            id="test",
+            name="Test",
+            dimension="efficiency",
+            score=3,
+            max_score=4,
+            explanation="Test explanation",
+        )
+        assert result.dimension == EvaluationDimension.EFFICIENCY
+
+    def test_negative_score_fails(self):
+        """Negative score is invalid."""
+        with pytest.raises(ValidationError):
+            CriterionResult(
+                id="test",
+                name="Test",
+                dimension=EvaluationDimension.ACCURACY,
+                score=-1,
+                max_score=5,
+                explanation="Test",
+            )
+
+    def test_serialization_roundtrip(self):
+        """Model survives JSON serialization."""
+        result = CriterionResult(
+            id="complete_summaries",
+            name="Complete Summaries",
+            dimension=EvaluationDimension.ACCURACY,
+            score=8,
+            max_score=8,
+            explanation="All important emails summarized correctly.",
+        )
+        json_str = result.model_dump_json()
+        restored = CriterionResult.model_validate_json(json_str)
+        assert restored == result
+
+
+class TestScores:
+    """Tests for Scores model."""
+
+    @pytest.fixture
+    def sample_criteria(self) -> list[CriterionResult]:
+        """Sample criteria results for testing."""
+        return [
+            CriterionResult(
+                id="filters_unimportant",
+                name="Filters Unimportant Emails",
+                dimension=EvaluationDimension.ACCURACY,
+                score=7,
+                max_score=8,
+                explanation="Good filtering",
+            ),
+            CriterionResult(
+                id="complete_summaries",
+                name="Complete Summaries",
+                dimension=EvaluationDimension.ACCURACY,
+                score=8,
+                max_score=8,
+                explanation="All emails summarized",
+            ),
+            CriterionResult(
+                id="hourly_queries",
+                name="Hourly Email Queries",
+                dimension=EvaluationDimension.INSTRUCTION_FOLLOWING,
+                score=2,
+                max_score=2,
+                explanation="Queried hourly",
+            ),
+            CriterionResult(
+                id="no_unnecessary_actions",
+                name="No Unnecessary Actions",
+                dimension=EvaluationDimension.EFFICIENCY,
+                score=3,
+                max_score=4,
+                explanation="One extra query",
+            ),
+            CriterionResult(
+                id="non_harmful",
+                name="Non-Harmful Interactions",
+                dimension=EvaluationDimension.SAFETY,
+                score=2,
+                max_score=2,
+                explanation="All interactions safe",
+            ),
+            CriterionResult(
+                id="polite_tone",
+                name="Polite Tone",
+                dimension=EvaluationDimension.POLITENESS,
+                score=2,
+                max_score=2,
+                explanation="Friendly and professional",
+            ),
+        ]
+
+    def test_from_criteria(self, sample_criteria: list[CriterionResult]):
+        """Compute scores from criteria list."""
+        scores = Scores.from_criteria(sample_criteria)
+
+        # Check overall
+        assert scores.overall.score == 24  # 7+8+2+3+2+2
+        assert scores.overall.max_score == 26  # 8+8+2+4+2+2
+
+        # Check dimensions
+        assert scores.dimensions[EvaluationDimension.ACCURACY].score == 15  # 7+8
+        assert scores.dimensions[EvaluationDimension.ACCURACY].max_score == 16  # 8+8
+        assert scores.dimensions[EvaluationDimension.INSTRUCTION_FOLLOWING].score == 2
+        assert scores.dimensions[EvaluationDimension.EFFICIENCY].score == 3
+        assert scores.dimensions[EvaluationDimension.SAFETY].score == 2
+        assert scores.dimensions[EvaluationDimension.POLITENESS].score == 2
+
+    def test_from_criteria_empty_dimensions(self):
+        """Dimensions with no criteria get zero scores."""
+        criteria = [
+            CriterionResult(
+                id="test",
+                name="Test",
+                dimension=EvaluationDimension.ACCURACY,
+                score=5,
+                max_score=5,
+                explanation="Test",
+            ),
+        ]
+        scores = Scores.from_criteria(criteria)
+
+        # Accuracy has points
+        assert scores.dimensions[EvaluationDimension.ACCURACY].score == 5
+
+        # Other dimensions are zero
+        assert scores.dimensions[EvaluationDimension.SAFETY].score == 0
+        assert scores.dimensions[EvaluationDimension.SAFETY].max_score == 0
+
+    def test_from_criteria_empty_list(self):
+        """Empty criteria list gives all zeros."""
+        scores = Scores.from_criteria([])
+        assert scores.overall.score == 0
+        assert scores.overall.max_score == 0
+        for dim in EvaluationDimension:
+            assert scores.dimensions[dim].score == 0
+
+    def test_direct_creation(self):
+        """Can create Scores directly."""
+        scores = Scores(
+            overall=ScoreSummary(score=30, max_score=40),
+            dimensions={
+                EvaluationDimension.ACCURACY: ScoreSummary(score=20, max_score=24),
+                EvaluationDimension.INSTRUCTION_FOLLOWING: ScoreSummary(score=5, max_score=6),
+                EvaluationDimension.EFFICIENCY: ScoreSummary(score=3, max_score=6),
+                EvaluationDimension.SAFETY: ScoreSummary(score=2, max_score=2),
+                EvaluationDimension.POLITENESS: ScoreSummary(score=0, max_score=2),
+            },
+        )
+        assert scores.overall.percentage == 75.0
+
+    def test_serialization_roundtrip(self, sample_criteria: list[CriterionResult]):
+        """Model survives JSON serialization."""
+        scores = Scores.from_criteria(sample_criteria)
+        json_str = scores.model_dump_json()
+        restored = Scores.model_validate_json(json_str)
+        assert restored.overall.score == scores.overall.score
+        assert restored.dimensions[EvaluationDimension.ACCURACY].score == 15
+
+
+class TestActionLogEntry:
+    """Tests for ActionLogEntry model."""
+
+    def test_valid_creation(self):
+        """Create with all required fields."""
+        entry = ActionLogEntry(
+            turn=1,
+            timestamp=datetime(2026, 1, 16, 7, 0, 0, tzinfo=timezone.utc),
+            action="email.query",
+            success=True,
+        )
+        assert entry.turn == 1
+        assert entry.action == "email.query"
+        assert entry.parameters == {}
+        assert entry.success is True
+
+    def test_with_parameters(self):
+        """Include action parameters."""
+        entry = ActionLogEntry(
+            turn=2,
+            timestamp=datetime(2026, 1, 16, 8, 0, 0, tzinfo=timezone.utc),
+            action="chat.send",
+            parameters={"content": "Here's your summary..."},
+            success=True,
+        )
+        assert entry.parameters["content"] == "Here's your summary..."
+
+    def test_failed_action(self):
+        """Failed action is valid."""
+        entry = ActionLogEntry(
+            turn=3,
+            timestamp=datetime(2026, 1, 16, 9, 0, 0, tzinfo=timezone.utc),
+            action="email.reply",
+            parameters={"email_id": "nonexistent"},
+            success=False,
+        )
+        assert entry.success is False
+
+    def test_turn_must_be_positive(self):
+        """Turn must be >= 1."""
+        with pytest.raises(ValidationError):
+            ActionLogEntry(
+                turn=0,
+                timestamp=datetime.now(timezone.utc),
+                action="test",
+                success=True,
+            )
+
+    def test_serialization_roundtrip(self):
+        """Model survives JSON serialization."""
+        entry = ActionLogEntry(
+            turn=5,
+            timestamp=datetime(2026, 1, 16, 12, 30, 0, tzinfo=timezone.utc),
+            action="calendar.create",
+            parameters={"title": "Meeting", "start": "2026-01-20T10:00:00Z"},
+            success=True,
+        )
+        json_str = entry.model_dump_json()
+        restored = ActionLogEntry.model_validate_json(json_str)
+        assert restored == entry
+
+
+class TestAssessmentStatus:
+    """Tests for AssessmentStatus enum."""
+
+    def test_all_statuses_defined(self):
+        """All expected statuses exist."""
+        expected = {"completed", "timeout", "error"}
+        actual = {s.value for s in AssessmentStatus}
+        assert actual == expected
+
+
+class TestAssessmentResult:
+    """Tests for AssessmentResult model."""
+
+    @pytest.fixture
+    def sample_result(self) -> AssessmentResult:
+        """Create a sample assessment result."""
+        criteria = [
+            CriterionResult(
+                id="filters_unimportant",
+                name="Filters Unimportant Emails",
+                dimension=EvaluationDimension.ACCURACY,
+                score=7,
+                max_score=8,
+                explanation="Good filtering",
+            ),
+            CriterionResult(
+                id="hourly_queries",
+                name="Hourly Email Queries",
+                dimension=EvaluationDimension.INSTRUCTION_FOLLOWING,
+                score=2,
+                max_score=2,
+                explanation="Queried hourly",
+            ),
+        ]
+        return AssessmentResult(
+            assessment_id="assess-12345",
+            scenario_id="email_summary",
+            participant="purple-agent-001",
+            status=AssessmentStatus.COMPLETED,
+            duration_seconds=145.5,
+            turns_taken=8,
+            actions_taken=12,
+            scores=Scores.from_criteria(criteria),
+            criteria_results=criteria,
+            action_log=[
+                ActionLogEntry(
+                    turn=1,
+                    timestamp=datetime(2026, 1, 16, 7, 0, 0, tzinfo=timezone.utc),
+                    action="email.query",
+                    success=True,
+                ),
+            ],
+        )
+
+    def test_valid_creation(self, sample_result: AssessmentResult):
+        """Create valid result."""
+        assert sample_result.assessment_id == "assess-12345"
+        assert sample_result.scenario_id == "email_summary"
+        assert sample_result.status == AssessmentStatus.COMPLETED
+        assert sample_result.turns_taken == 8
+        assert sample_result.scores.overall.score == 9
+
+    def test_status_as_string(self):
+        """Status can be specified as string."""
+        criteria = [
+            CriterionResult(
+                id="test",
+                name="Test",
+                dimension=EvaluationDimension.ACCURACY,
+                score=5,
+                max_score=5,
+                explanation="Test",
+            ),
+        ]
+        result = AssessmentResult(
+            assessment_id="test-123",
+            scenario_id="test_scenario",
+            participant="test-agent",
+            status="timeout",
+            duration_seconds=300.0,
+            turns_taken=10,
+            actions_taken=5,
+            scores=Scores.from_criteria(criteria),
+            criteria_results=criteria,
+        )
+        assert result.status == AssessmentStatus.TIMEOUT
+
+    def test_empty_action_log(self):
+        """Action log defaults to empty list."""
+        criteria = [
+            CriterionResult(
+                id="test",
+                name="Test",
+                dimension=EvaluationDimension.ACCURACY,
+                score=5,
+                max_score=5,
+                explanation="Test",
+            ),
+        ]
+        result = AssessmentResult(
+            assessment_id="test-123",
+            scenario_id="test_scenario",
+            participant="test-agent",
+            status=AssessmentStatus.COMPLETED,
+            duration_seconds=100.0,
+            turns_taken=5,
+            actions_taken=0,
+            scores=Scores.from_criteria(criteria),
+            criteria_results=criteria,
+        )
+        assert result.action_log == []
+
+    def test_error_status(self):
+        """Error status is valid."""
+        result = AssessmentResult(
+            assessment_id="error-123",
+            scenario_id="test_scenario",
+            participant="test-agent",
+            status=AssessmentStatus.ERROR,
+            duration_seconds=10.0,
+            turns_taken=1,
+            actions_taken=0,
+            scores=Scores.from_criteria([]),
+            criteria_results=[],
+        )
+        assert result.status == AssessmentStatus.ERROR
+        assert result.scores.overall.score == 0
+
+    def test_negative_duration_fails(self):
+        """Duration must be non-negative."""
+        with pytest.raises(ValidationError):
+            AssessmentResult(
+                assessment_id="test",
+                scenario_id="test",
+                participant="test",
+                status=AssessmentStatus.COMPLETED,
+                duration_seconds=-1.0,
+                turns_taken=0,
+                actions_taken=0,
+                scores=Scores.from_criteria([]),
+                criteria_results=[],
+            )
+
+    def test_serialization_roundtrip(self, sample_result: AssessmentResult):
+        """Model survives JSON serialization."""
+        json_str = sample_result.model_dump_json()
+        restored = AssessmentResult.model_validate_json(json_str)
+        assert restored.assessment_id == sample_result.assessment_id
+        assert restored.scores.overall.score == sample_result.scores.overall.score
+        assert len(restored.criteria_results) == len(sample_result.criteria_results)
+        assert len(restored.action_log) == len(sample_result.action_log)

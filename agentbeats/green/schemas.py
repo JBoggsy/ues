@@ -9,13 +9,19 @@ Message Flow:
     3. Purple → Green: TurnCompleteMessage (after taking actions)
     4. Green → Purple: AssessmentCompleteMessage (assessment finished)
     5. Purple → Green: EarlyCompletionMessage (optional early exit)
+
+Results:
+    After assessment, Green produces an AssessmentResult artifact containing:
+    - Assessment metadata (id, scenario, participant, status, timing)
+    - Scores (overall, by dimension, by criterion)
+    - Action log (all actions taken by Purple agent)
 """
 
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 
 
 # =============================================================================
@@ -293,4 +299,209 @@ class TaskUpdate(BaseModel):
     details: dict[str, object] | None = Field(
         default=None,
         description="Structured data specific to the update type",
+    )
+
+
+# =============================================================================
+# Results Artifact (Assessment Output)
+# =============================================================================
+
+
+class EvaluationDimension(str, Enum):
+    """Fixed evaluation dimensions used across all assessments.
+
+    These five dimensions are consistent across all scenarios. Scenario designers
+    control dimension weighting by allocating more or fewer points to criteria
+    in each dimension.
+
+    Attributes:
+        ACCURACY: Correctness of outputs, information quality, factual accuracy.
+        INSTRUCTION_FOLLOWING: Adherence to user instructions, constraints, and procedures.
+        EFFICIENCY: Resource usage, minimal unnecessary actions, time management.
+        SAFETY: Non-harmful behavior, avoids dangerous/inappropriate content.
+        POLITENESS: Tone and manner of interactions, professional communication.
+    """
+
+    ACCURACY = "accuracy"
+    INSTRUCTION_FOLLOWING = "instruction_following"
+    EFFICIENCY = "efficiency"
+    SAFETY = "safety"
+    POLITENESS = "politeness"
+
+
+class ScoreSummary(BaseModel):
+    """Summary of points earned vs. points possible.
+
+    Used for both overall scores and dimension-level scores.
+
+    Attributes:
+        score: Points earned.
+        max_score: Maximum points possible.
+    """
+
+    score: int = Field(..., ge=0, description="Points earned")
+    max_score: int = Field(..., ge=0, description="Maximum points possible")
+
+    @computed_field
+    @property
+    def percentage(self) -> float:
+        """Calculate score as a percentage (0.0 to 100.0)."""
+        if self.max_score == 0:
+            return 100.0 if self.score == 0 else 0.0
+        return round((self.score / self.max_score) * 100, 1)
+
+
+class CriterionResult(BaseModel):
+    """Result for a single evaluation criterion from the scenario rubric.
+
+    Each criterion belongs to exactly one dimension and contributes its
+    score to that dimension's total.
+
+    Attributes:
+        id: Unique identifier from the rubric (e.g., "hourly_queries").
+        name: Human-readable name (e.g., "Hourly Email Queries").
+        dimension: Which evaluation dimension this criterion belongs to.
+        score: Points earned (0 to max_score).
+        max_score: Maximum points possible for this criterion.
+        explanation: Justification for the score assigned.
+    """
+
+    id: str = Field(..., description="Unique identifier from rubric")
+    name: str = Field(..., description="Human-readable criterion name")
+    dimension: EvaluationDimension = Field(..., description="Evaluation dimension")
+    score: int = Field(..., ge=0, description="Points earned")
+    max_score: int = Field(..., ge=0, description="Maximum points possible")
+    explanation: str = Field(..., description="Justification for score")
+
+
+class Scores(BaseModel):
+    """Complete scoring breakdown for an assessment.
+
+    Implements pyramid scoring: criteria → dimensions → overall.
+    Dimension scores are computed as the sum of criteria scores
+    within that dimension. Overall score is the sum of all dimension scores.
+
+    Attributes:
+        overall: Total score across all dimensions.
+        dimensions: Score breakdown by evaluation dimension.
+    """
+
+    overall: ScoreSummary = Field(..., description="Total score across all dimensions")
+    dimensions: dict[EvaluationDimension, ScoreSummary] = Field(
+        ...,
+        description="Score breakdown by evaluation dimension",
+    )
+
+    @classmethod
+    def from_criteria(cls, criteria_results: list[CriterionResult]) -> "Scores":
+        """Compute scores from a list of criterion results.
+
+        Args:
+            criteria_results: List of scored criteria from the evaluation.
+
+        Returns:
+            Scores object with computed dimension and overall scores.
+        """
+        # Initialize dimension accumulators
+        dimension_scores: dict[EvaluationDimension, dict[str, int]] = {
+            dim: {"score": 0, "max_score": 0} for dim in EvaluationDimension
+        }
+
+        # Accumulate scores by dimension
+        for criterion in criteria_results:
+            dimension_scores[criterion.dimension]["score"] += criterion.score
+            dimension_scores[criterion.dimension]["max_score"] += criterion.max_score
+
+        # Build dimension summaries
+        dimensions = {
+            dim: ScoreSummary(score=acc["score"], max_score=acc["max_score"])
+            for dim, acc in dimension_scores.items()
+        }
+
+        # Compute overall
+        total_score = sum(acc["score"] for acc in dimension_scores.values())
+        total_max = sum(acc["max_score"] for acc in dimension_scores.values())
+
+        return cls(
+            overall=ScoreSummary(score=total_score, max_score=total_max),
+            dimensions=dimensions,
+        )
+
+
+class ActionLogEntry(BaseModel):
+    """Record of a single action taken by the Purple Agent.
+
+    Captures what the agent did, when, and whether it succeeded.
+    Used for debugging, analysis, and potential scoring.
+
+    Attributes:
+        turn: Which turn this action occurred in (1-indexed).
+        timestamp: Simulator time when the action was taken.
+        action: Action identifier (e.g., "email.query", "chat.send").
+        parameters: Parameters passed to the action.
+        success: Whether the action completed successfully.
+    """
+
+    turn: int = Field(..., ge=1, description="Turn number (1-indexed)")
+    timestamp: datetime = Field(..., description="Simulator time of action")
+    action: str = Field(..., description="Action identifier (e.g., 'email.query')")
+    parameters: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Parameters passed to the action",
+    )
+    success: bool = Field(..., description="Whether action completed successfully")
+
+
+class AssessmentStatus(str, Enum):
+    """Final status of an assessment.
+
+    Attributes:
+        COMPLETED: Assessment finished normally (scenario complete or early completion).
+        TIMEOUT: Assessment exceeded time limit.
+        ERROR: Assessment failed due to an error.
+    """
+
+    COMPLETED = "completed"
+    TIMEOUT = "timeout"
+    ERROR = "error"
+
+
+class AssessmentResult(BaseModel):
+    """Complete results artifact for an assessment.
+
+    This is the primary output of the Green Agent after evaluating a Purple Agent.
+    Contains all metadata, scores, and logs needed to understand agent performance.
+
+    Attributes:
+        assessment_id: Unique identifier for this assessment run.
+        scenario_id: ID of the scenario that was evaluated.
+        participant: Identifier for the Purple Agent being evaluated.
+        status: Final status of the assessment.
+        duration_seconds: Wall-clock time taken for the assessment.
+        turns_taken: Number of turns completed.
+        actions_taken: Total number of actions the agent performed.
+        scores: Complete scoring breakdown (overall, dimensions, criteria implied).
+        criteria_results: Detailed results for each rubric criterion.
+        action_log: Chronological log of all actions taken.
+    """
+
+    assessment_id: str = Field(..., description="Unique assessment identifier")
+    scenario_id: str = Field(..., description="Scenario that was evaluated")
+    participant: str = Field(..., description="Purple Agent identifier")
+    status: AssessmentStatus = Field(..., description="Final assessment status")
+    duration_seconds: float = Field(
+        ...,
+        ge=0,
+        description="Wall-clock time for assessment",
+    )
+    turns_taken: int = Field(..., ge=0, description="Number of turns completed")
+    actions_taken: int = Field(..., ge=0, description="Total actions performed")
+    scores: Scores = Field(..., description="Complete scoring breakdown")
+    criteria_results: list[CriterionResult] = Field(
+        ...,
+        description="Detailed results for each rubric criterion",
+    )
+    action_log: list[ActionLogEntry] = Field(
+        default_factory=list,
+        description="Chronological log of all actions",
     )
