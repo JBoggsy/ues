@@ -142,19 +142,25 @@ This document details the A2A protocol interaction flow for the UES Green Agent 
 │  {                                                                           │
 │    ues_url: "http://ues:8000",                                              │
 │    api_key: "user-level-token-...",                                         │
-│    scenario: {                                                               │
-│      description: "You are a personal assistant managing a busy inbox...",  │
-│      goals: ["Reply to urgent emails", "Archive completed threads"],        │
-│      constraints: ["Do not delete any emails"]                               │
-│    },                                                                        │
+│    assessment_instructions: "You are a personal assistant AI being          │
+│      evaluated... Query the chat state (GET /chat/state) to find the        │
+│      most recent message from the user and follow the instructions...",     │
 │    current_time: "2026-01-22T09:00:00Z",                                    │
 │    initial_state_summary: {                                                  │
 │      email: { total: 12, unread: 5 },                                        │
-│      calendar: { events_today: 3 },                                          │
-│      sms: { total: 8, unread: 2 }                                            │
+│      calendar: { total: 8, events_today: 3 },                                │
+│      sms: { total: 15, unread: 2 },                                          │
+│      chat: { total: 1, unread: 1 }                                           │
 │    }                                                                         │
 │  }                                                                           │
 └─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                          ┌─────────┴─────────┐
+                          │ Purple queries    │
+                          │ GET /chat/state   │
+                          │ to get user       │
+                          │ instructions      │
+                          └─────────┬─────────┘
                                     │
                                     ▼
 ┌ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┐
@@ -195,7 +201,7 @@ This document details the A2A protocol interaction flow for the UES Green Agent 
 
 | Direction | Message Type | Content |
 |-----------|--------------|---------|
-| Green → Purple | `assessment_start` | UES URL, API key, scenario (description, goals, constraints), current time, initial state counts |
+| Green → Purple | `assessment_start` | UES URL, API key, assessment_instructions (fixed string), current time, initial state counts |
 | Green → Purple | `turn_start` | Current time, events_processed count |
 | Purple → Green | `turn_complete` | Action count, optional notes (for logging/scoring), time_step |
 | Green → Purple | `assessment_complete` | Reason for completion |
@@ -208,33 +214,51 @@ This document details the A2A protocol interaction flow for the UES Green Agent 
 {                                                                        
   "ues_url": "http://ues:8000",                                            
   "api_key": "user-level-token-...",                                       
-  "scenario": {                                                            
-    "description": "You are a personal assistant managing a busy inbox...",
-    "goals": ["Reply to urgent emails", "Archive completed threads"],      
-    "constraints": ["Do not delete any emails"]                            
-  },                                                                     
+  "assessment_instructions": "You are a personal assistant AI being evaluated on your ability to help a user. Your instructions for this assessment have been provided by the user via the chat modality. Query the chat state (GET /chat/state) to find the most recent message from the user and follow the instructions provided there. The message will contain your goals, constraints, and any other relevant context for this assessment.",
   "current_time": "2026-01-22T09:00:00Z",                                  
   "initial_state_summary": {                                               
     "email": { "total": 12, "unread": 5 },                                     
-    "calendar": { "events_today": 3 },                                       
-    "sms": { "total": 8, "unread": 2 }                                         
+    "calendar": { "total": 8, "events_today": 3 },                                       
+    "sms": { "total": 15, "unread": 2 },
+    "chat": { "total": 1, "unread": 1 }
   }                                                                      
 }
 ```
 
-**ScenarioDescription**
+The `assessment_instructions` field is a fixed string that is the same for all assessments. It directs the Purple Agent to query the chat modality to find the user's actual instructions. This design:
+- Makes the assessment feel more realistic (agent receives instructions from "user")
+- Tests the agent's ability to understand and extract goals from natural language
+- Allows scenario designers to craft varied, natural-sounding prompts
+
+**User Prompt via Chat** (what Purple finds in `GET /chat/state`)
+
+The scenario's initial state includes a chat message from the "user" containing the actual assessment instructions. The `/chat/state` endpoint returns:
 ```json
 {
-  "description": "You are a personal assistant managing a busy professional's inbox...",
-  "goals": [
-    "Reply to urgent emails within simulated business hours",
-    "Archive completed threads",
-    "Flag emails requiring follow-up"
+  "modality_type": "chat",
+  "current_time": "2026-01-22T09:00:00Z",
+  "conversations": {
+    "user-assistant": {
+      "conversation_id": "user-assistant",
+      "created_at": "2026-01-22T08:55:00Z",
+      "last_message_at": "2026-01-22T08:55:00Z",
+      "message_count": 1,
+      "participant_roles": ["user"]
+    }
+  },
+  "messages": [
+    {
+      "message_id": "user-instructions-001",
+      "conversation_id": "user-assistant",
+      "role": "user",
+      "content": "Hi! I need your help managing my inbox today. Here's what I need:\n\n**Goals:**\n- Reply to all urgent emails (marked with [URGENT] in subject)\n- Archive any completed threads\n- Flag emails that need follow-up for later\n\n**Rules:**\n- Don't delete any emails\n- Don't send emails to external domains\n- Be professional in all responses\n\nMy schedule is busy today, so prioritize anything time-sensitive. Thanks!",
+      "timestamp": "2026-01-22T08:55:00Z",
+      "metadata": {}
+    }
   ],
-  "constraints": [
-    "Do not delete any emails",
-    "Do not send emails to external domains"
-  ]
+  "total_message_count": 1,
+  "conversation_count": 1,
+  "max_history_size": 1000
 }
 ```
 
@@ -244,9 +268,11 @@ This document details the A2A protocol interaction flow for the UES Green Agent 
   "email": { "total": 12, "unread": 5 },
   "calendar": { "total": 8, "events_today": 3 },
   "sms": { "total": 15, "unread": 2 },
-  "chat": { "total": 0, "unread": 0 }
+  "chat": { "total": 1, "unread": 1 }
 }
 ```
+
+Note: `chat.total` and `chat.unread` will always be at least 1 because the initial user prompt is delivered via chat.
 
 **TurnCompleteMessage**
 ```json
@@ -295,14 +321,30 @@ Green Agent streams task updates during assessment:
 
 ### Update Types
 
-| Type | When |
-|------|------|
-| `log_assessment_started` | Assessment begins |
-| `log_scenario_loaded` | Scenario imported |
-| `log_turn_started` | New turn begins (after sending `turn_start` to Purple) |
-| `log_turn_completed` | Purple signals ready (after receiving `turn_complete` from Purple) |
-| `log_simulation_advanced` | Time progresses |
-| `log_assessment_complete` | Assessment ends |
+| Type | When | Details |
+|------|------|---------|
+| `log_assessment_started` | Assessment begins | Includes `user_prompt` (the initial chat message from user) |
+| `log_scenario_loaded` | Scenario imported | |
+| `log_turn_started` | New turn begins (after sending `turn_start` to Purple) | |
+| `log_turn_completed` | Purple signals ready (after receiving `turn_complete` from Purple) | |
+| `log_simulation_advanced` | Time progresses | |
+| `log_assessment_complete` | Assessment ends | |
+
+**Example: log_assessment_started**
+```json
+{
+  "type": "log_assessment_started",
+  "timestamp": "2026-01-22T09:00:05Z",
+  "message": "Assessment started for scenario 'email_triage_basic'",
+  "details": {
+    "assessment_id": "assess-123",
+    "scenario_id": "email_triage_basic",
+    "participant": "personal_assistant",
+    "user_prompt": "Hi! I need your help managing my inbox today...",
+    "verbose_updates": true
+  }
+}
+```
 
 ---
 

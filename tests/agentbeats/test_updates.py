@@ -216,10 +216,12 @@ class TestCreateUpdateHelpers:
 
     def test_create_assessment_started_update(self):
         """create_assessment_started_update creates correct structure."""
+        user_prompt = "Please manage my inbox. Reply to urgent emails and archive completed threads."
         update = create_assessment_started_update(
             assessment_id="assess-123",
             scenario_id="email_triage_basic",
             participant="personal_assistant",
+            user_prompt=user_prompt,
             verbose_updates=True,
         )
         assert update.type == TaskUpdateType.LOG_ASSESSMENT_STARTED
@@ -227,7 +229,18 @@ class TestCreateUpdateHelpers:
         assert update.details["assessment_id"] == "assess-123"
         assert update.details["scenario_id"] == "email_triage_basic"
         assert update.details["participant"] == "personal_assistant"
+        assert update.details["user_prompt"] == user_prompt
         assert update.details["verbose_updates"] is True
+
+    def test_create_assessment_started_update_minimal(self):
+        """create_assessment_started_update works with minimal user prompt."""
+        update = create_assessment_started_update(
+            assessment_id="assess-456",
+            scenario_id="sms_basic",
+            participant="test_agent",
+            user_prompt="Handle my messages.",
+        )
+        assert update.details["user_prompt"] == "Handle my messages."
 
     def test_create_scenario_loaded_update(self):
         """create_scenario_loaded_update creates correct structure."""

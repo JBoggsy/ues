@@ -13,72 +13,15 @@ from agentbeats.green.schemas import (
     AssessmentCompleteMessage,
     AssessmentCompleteReason,
     AssessmentStartMessage,
+    DEFAULT_ASSESSMENT_INSTRUCTIONS,
     EarlyCompletionMessage,
     InitialStateSummary,
     ModalityCounts,
-    ScenarioDescription,
     TaskUpdate,
     TaskUpdateType,
     TurnCompleteMessage,
     TurnStartMessage,
 )
-
-
-# =============================================================================
-# ScenarioDescription Tests
-# =============================================================================
-
-
-class TestScenarioDescription:
-    """Tests for ScenarioDescription model."""
-
-    def test_minimal_valid(self):
-        """Create with required fields only."""
-        scenario = ScenarioDescription(
-            description="Test scenario",
-            goals=["Goal 1", "Goal 2"],
-        )
-        assert scenario.description == "Test scenario"
-        assert scenario.goals == ["Goal 1", "Goal 2"]
-        assert scenario.constraints is None
-
-    def test_with_constraints(self):
-        """Create with optional constraints."""
-        scenario = ScenarioDescription(
-            description="Test scenario",
-            goals=["Goal 1"],
-            constraints=["No deleting", "No external emails"],
-        )
-        assert scenario.constraints == ["No deleting", "No external emails"]
-
-    def test_empty_goals_allowed(self):
-        """Empty goals list is valid (though unusual)."""
-        scenario = ScenarioDescription(
-            description="Test",
-            goals=[],
-        )
-        assert scenario.goals == []
-
-    def test_missing_description_fails(self):
-        """Description is required."""
-        with pytest.raises(ValidationError):
-            ScenarioDescription(goals=["Goal"])
-
-    def test_missing_goals_fails(self):
-        """Goals is required."""
-        with pytest.raises(ValidationError):
-            ScenarioDescription(description="Test")
-
-    def test_serialization_roundtrip(self):
-        """Model survives JSON serialization."""
-        scenario = ScenarioDescription(
-            description="You are managing an inbox",
-            goals=["Reply to urgent", "Archive spam"],
-            constraints=["No deletions"],
-        )
-        json_str = scenario.model_dump_json()
-        restored = ScenarioDescription.model_validate_json(json_str)
-        assert restored == scenario
 
 
 # =============================================================================
@@ -174,10 +117,6 @@ class TestAssessmentStartMessage:
         return AssessmentStartMessage(
             ues_url="http://localhost:8000",
             api_key="test-api-key-12345",
-            scenario=ScenarioDescription(
-                description="Test scenario",
-                goals=["Complete task"],
-            ),
             current_time=datetime(2026, 1, 22, 9, 0, 0, tzinfo=timezone.utc),
             initial_state_summary=InitialStateSummary(
                 email=ModalityCounts(total=5, unread=2),
@@ -189,21 +128,32 @@ class TestAssessmentStartMessage:
         msg = valid_start_message
         assert msg.ues_url == "http://localhost:8000"
         assert msg.api_key == "test-api-key-12345"
-        assert msg.scenario.goals == ["Complete task"]
+        assert msg.assessment_instructions == DEFAULT_ASSESSMENT_INSTRUCTIONS
+
+    def test_custom_instructions(self):
+        """Can override default assessment instructions."""
+        custom = "Custom instructions for this test."
+        msg = AssessmentStartMessage(
+            ues_url="http://localhost:8000",
+            api_key="test-key",
+            assessment_instructions=custom,
+            current_time=datetime(2026, 1, 22, 9, 0, 0, tzinfo=timezone.utc),
+            initial_state_summary=InitialStateSummary(),
+        )
+        assert msg.assessment_instructions == custom
 
     def test_serialization_roundtrip(self, valid_start_message: AssessmentStartMessage):
         """Model survives JSON serialization."""
         json_str = valid_start_message.model_dump_json()
         restored = AssessmentStartMessage.model_validate_json(json_str)
         assert restored.ues_url == valid_start_message.ues_url
-        assert restored.scenario.description == valid_start_message.scenario.description
+        assert restored.assessment_instructions == valid_start_message.assessment_instructions
 
     def test_missing_ues_url_fails(self):
         """UES URL is required."""
         with pytest.raises(ValidationError):
             AssessmentStartMessage(
                 api_key="key",
-                scenario=ScenarioDescription(description="x", goals=[]),
                 current_time=datetime.now(timezone.utc),
                 initial_state_summary=InitialStateSummary(),
             )

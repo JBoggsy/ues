@@ -46,6 +46,7 @@
   - Modality coverage (single-modal vs multi-modal)
   - Task types (reactive, proactive, multi-step planning)
   - Suggested: 3 easy, 3 medium, 2 hard scenarios
+  - **Each scenario must include a user prompt via chat modality** that contains the assessment instructions (goals, constraints, context)
 
 - [ ] **Evaluation Criteria Design**: Define scoring dimensions
   - Leverage existing `agent_testing/` criteria system
@@ -102,10 +103,6 @@ Implemented opt-in API key-based access control via middleware. Enabled with `UE
 
 Implemented in `agentbeats/green/schemas.py`.
 
-- [x] `ScenarioDescription`:
-  - `description: str` (natural language overview of the scenario)
-  - `goals: list[str]` (specific measurable objectives)
-  - `constraints: list[str] | None` (optional rules/restrictions)
 - [x] `ModalityCounts`:
   - `total: int`
   - `unread: int | None` (for email, sms, chat)
@@ -118,9 +115,10 @@ Implemented in `agentbeats/green/schemas.py`.
 - [x] `AssessmentStartMessage`:
   - `ues_url: str`
   - `api_key: str`
-  - `scenario: ScenarioDescription`
+  - `assessment_instructions: str` (fixed string directing agent to check chat for user instructions)
   - `current_time: datetime`
   - `initial_state_summary: InitialStateSummary`
+- [x] `DEFAULT_ASSESSMENT_INSTRUCTIONS`: Constant string telling agent to query `/chat/state` for user instructions
 - [x] `TurnStartMessage`:
   - `current_time: datetime`
   - `events_processed: int` (number of events fired during time advance)
@@ -137,6 +135,7 @@ Implemented in `agentbeats/green/schemas.py`.
 - [x] Define `TaskUpdate` model (type, timestamp, message, details)
 - [x] Define update types enum: `log_assessment_started`, `log_scenario_loaded`, `log_turn_started`, `log_turn_completed`, `log_simulation_advanced`, `log_assessment_complete`
 - [x] Implement `TaskUpdateEmitter` that streams updates via A2A
+- [x] `log_assessment_started` includes `user_prompt` field with initial chat message from user
 
 **Files created:**
 - `agentbeats/green/schemas.py` — `TaskUpdateType` enum, `TaskUpdate` model

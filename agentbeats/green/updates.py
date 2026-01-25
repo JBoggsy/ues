@@ -137,6 +137,7 @@ def create_assessment_started_update(
     assessment_id: str,
     scenario_id: str,
     participant: str,
+    user_prompt: str,
     verbose_updates: bool = True,
 ) -> TaskUpdate:
     """Create a LOG_ASSESSMENT_STARTED task update.
@@ -145,6 +146,7 @@ def create_assessment_started_update(
         assessment_id: Unique identifier for this assessment.
         scenario_id: ID of the scenario being run.
         participant: Name/ID of the participant agent.
+        user_prompt: The initial user instructions from the chat modality.
         verbose_updates: Whether verbose mode is enabled.
 
     Returns:
@@ -158,6 +160,7 @@ def create_assessment_started_update(
             "assessment_id": assessment_id,
             "scenario_id": scenario_id,
             "participant": participant,
+            "user_prompt": user_prompt,
             "verbose_updates": verbose_updates,
         },
     )

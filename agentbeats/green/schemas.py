@@ -19,37 +19,6 @@ from pydantic import BaseModel, Field
 
 
 # =============================================================================
-# Scenario Description
-# =============================================================================
-
-
-class ScenarioDescription(BaseModel):
-    """Description of the assessment scenario provided to the Purple Agent.
-
-    Attributes:
-        description: Natural language overview of the scenario context.
-        goals: List of specific, measurable objectives the agent should achieve.
-        constraints: Optional rules or restrictions the agent must follow.
-    """
-
-    description: str = Field(
-        ...,
-        description="Natural language overview of the scenario context",
-        examples=["You are a personal assistant managing a busy professional's inbox..."],
-    )
-    goals: list[str] = Field(
-        ...,
-        description="Specific measurable objectives the agent should achieve",
-        examples=[["Reply to urgent emails", "Archive completed threads"]],
-    )
-    constraints: list[str] | None = Field(
-        default=None,
-        description="Optional rules or restrictions the agent must follow",
-        examples=[["Do not delete any emails", "Do not send emails to external domains"]],
-    )
-
-
-# =============================================================================
 # Initial State Summary
 # =============================================================================
 
@@ -99,17 +68,29 @@ class InitialStateSummary(BaseModel):
 # Green → Purple Messages
 # =============================================================================
 
+# Fixed instructions sent to Purple Agent in every assessment.
+# Directs them to check the chat modality for user-provided scenario instructions.
+DEFAULT_ASSESSMENT_INSTRUCTIONS: str = (
+    "You are a personal assistant AI being evaluated on your ability to help a user. "
+    "Your instructions for this assessment have been provided by the user via the chat modality. "
+    "Query the chat state (GET /chat/state) to find the most recent message from the user "
+    "and follow the instructions provided there. The message will contain your goals, "
+    "constraints, and any other relevant context for this assessment."
+)
+
 
 class AssessmentStartMessage(BaseModel):
     """Message sent from Green to Purple to begin an assessment.
 
     Contains all information Purple Agent needs to connect to UES
-    and understand the assessment objectives.
+    and begin the assessment. The actual scenario instructions (goals,
+    constraints, context) are delivered via the chat modality - the agent
+    should query /chat/state to find the user's instructions.
 
     Attributes:
         ues_url: Base URL of the UES REST API.
         api_key: User-level API key for UES authentication.
-        scenario: Description of goals and constraints.
+        assessment_instructions: Fixed instructions telling agent to check chat for user prompt.
         current_time: Current simulator time at assessment start.
         initial_state_summary: Counts of items in each modality.
     """
@@ -123,9 +104,9 @@ class AssessmentStartMessage(BaseModel):
         ...,
         description="User-level API key for UES authentication",
     )
-    scenario: ScenarioDescription = Field(
-        ...,
-        description="Scenario description with goals and constraints",
+    assessment_instructions: str = Field(
+        default=DEFAULT_ASSESSMENT_INSTRUCTIONS,
+        description="Fixed instructions directing agent to check chat modality for user prompt",
     )
     current_time: datetime = Field(
         ...,

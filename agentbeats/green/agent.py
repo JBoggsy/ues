@@ -116,11 +116,11 @@ class Agent:
         # TODO: Implement full assessment lifecycle
         # 1. Reset UES to clean state
         # 2. Generate proctor API key (for self) and user API key (for purple agent)
-        # 3. Load scenario from scenario_id
+        # 3. Load scenario from scenario_id (includes user prompt in chat modality)
         # 4. Send assessment_start message to purple agent with:
         #    - UES URL
         #    - API key
-        #    - Scenario description
+        #    - assessment_instructions (fixed string directing to check chat)
         #    - Current simulator time
         #    - Initial state summary
         # 5. Turn loop:

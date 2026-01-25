@@ -10,10 +10,10 @@ from agentbeats.green.schemas import (
     AssessmentCompleteMessage,
     AssessmentCompleteReason,
     AssessmentStartMessage,
+    DEFAULT_ASSESSMENT_INSTRUCTIONS,
     EarlyCompletionMessage,
     InitialStateSummary,
     ModalityCounts,
-    ScenarioDescription,
     TurnCompleteMessage,
     TurnStartMessage,
 )
@@ -29,10 +29,10 @@ __all__ = [
     "AssessmentCompleteMessage",
     "AssessmentCompleteReason",
     "AssessmentStartMessage",
+    "DEFAULT_ASSESSMENT_INSTRUCTIONS",
     "EarlyCompletionMessage",
     "InitialStateSummary",
     "ModalityCounts",
-    "ScenarioDescription",
     "TurnCompleteMessage",
     "TurnStartMessage",
 ]
