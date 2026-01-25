@@ -259,8 +259,6 @@ Implemented in `agentbeats/green/schemas.py`.
   - [ ] Check termination conditions
   - [ ] Send `turn_start` with new events
 - [ ] Implement termination handling:
-  - [ ] Time limit exceeded
-  - [ ] Max turns exceeded
   - [ ] Scenario end reached
   - [ ] Early completion from Purple
   - [ ] Timeout/crash detection

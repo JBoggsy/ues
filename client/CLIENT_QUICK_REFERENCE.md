@@ -13,6 +13,10 @@ with UESClient(base_url="http://localhost:8000") as client:
 # Asynchronous
 async with AsyncUESClient(base_url="http://localhost:8000") as client:
     await client.simulation.start()
+
+# With API key authentication (when UES_ACCESS_CONTROL is enabled)
+with UESClient(api_key="ues_user_abc123...") as client:
+    client.simulation.start()
 ```
 
 **Constructor parameters:**
@@ -20,6 +24,7 @@ async with AsyncUESClient(base_url="http://localhost:8000") as client:
 - `timeout`: Request timeout in seconds (default: `30.0`)
 - `retry_enabled`: Auto-retry on transient failures (default: `False`)
 - `max_retries`: Max retry attempts (default: `3`)
+- `api_key`: API key for authenticated requests (default: `None`)
 
 ---
 
@@ -29,10 +34,12 @@ Access via properties on `UESClient` / `AsyncUESClient`:
 
 | Property | Description | Base Path |
 |----------|-------------|-----------|
+| `client.admin` | API key management | `/admin` |
 | `client.time` | Time control | `/simulator/time` |
 | `client.simulation` | Simulation lifecycle | `/simulation` |
 | `client.events` | Event queue management | `/events` |
 | `client.environment` | Environment state | `/environment` |
+| `client.scenario` | Scenario import/export | `/scenario` |
 | `client.email` | Email modality | `/email` |
 | `client.sms` | SMS/RCS modality | `/sms` |
 | `client.chat` | Chat modality | `/chat` |
@@ -40,8 +47,6 @@ Access via properties on `UESClient` / `AsyncUESClient`:
 | `client.location` | Location modality | `/location` |
 | `client.weather` | Weather modality | `/weather` |
 | `client.webhooks` | Webhook management | `/webhooks` |
-
-**Note:** There is NO `client.scenario` sub-client. Use `httpx` directly for scenario import/export (see below).
 
 ---
 
@@ -253,37 +258,62 @@ result = client.environment.validate()
 
 ---
 
-## Scenario Import/Export (Direct HTTP - No Sub-client)
-
-**Note:** The client library does NOT have a `client.scenario` sub-client. Use `httpx` directly:
+## Scenario Import/Export (`client.scenario`)
 
 ```python
-import httpx
-import json
-
-# Import full scenario
-with open("scenario.ues-scenario.json") as f:
-    scenario_data = json.load(f)
-
-response = httpx.post(
-    "http://localhost:8000/scenario/import/full",
-    json={"scenario": scenario_data},
-    timeout=30.0,
+# Export complete scenario
+scenario = client.scenario.export_full(
+    author="Developer",
+    description="Test scenario for email workflow",
 )
-response.raise_for_status()
-result = response.json()
-# Returns: {"success": true, "environment_loaded": true, "events_loaded": 10, ...}
+# Returns: ExportScenarioResponse(scenario)
+# scenario.scenario contains: metadata, environment, events
 
-# Export full scenario
-response = httpx.get(
-    "http://localhost:8000/scenario/export/full",
-    params={"author": "Name", "description": "Description"},
-    timeout=30.0,
+# Export environment only
+env = client.scenario.export_environment()
+# Returns: ExportEnvironmentResponse(environment, modalities_exported)
+
+# Export events only
+events = client.scenario.export_events()
+# Returns: ExportEventsResponse(events, total_events, pending_events, executed_events)
+
+# Import complete scenario (simulation must be stopped)
+result = client.scenario.import_full(
+    scenario=scenario.scenario.model_dump(),
+    strict_modalities=False,  # If True, fail on unknown modality types
 )
-scenario = response.json()
+# Returns: LoadScenarioResponse(success, environment_loaded, events_loaded, modalities_loaded, modalities_skipped, warnings, scenario_metadata)
+
+# Import environment only
+result = client.scenario.import_environment(
+    data=env.environment.model_dump(),
+    historic_event_handling="ignore",  # "ignore", "delete", or "apply"
+    strict_modalities=False,
+)
+# Returns: LoadEnvironmentResponse(success, modalities_loaded, modalities_skipped, warnings, historic_events_count, historic_events_action)
+
+# Import events only
+result = client.scenario.import_events(
+    data=events.events.model_dump(),
+    merge=False,  # If True, add to existing queue; if False, replace
+)
+# Returns: LoadEventsResponse(success, events_loaded, events_merged, previous_events, historic_events_warning, historic_event_count)
+
+# Convenience: Save to file
+client.scenario.save_to_file(
+    "fixtures/my-scenario.ues-scenario.json",
+    author="QA Team",
+    description="Integration test fixture",
+)
+
+# Convenience: Load from file (simulation must be stopped)
+result = client.scenario.load_from_file(
+    "fixtures/my-scenario.ues-scenario.json",
+    strict_modalities=False,
+)
 ```
 
-**Scenario file structure (required fields):**
+**Scenario file structure:**
 ```json
 {
   "metadata": {
@@ -299,21 +329,11 @@ scenario = response.json()
       "time_scale": 1.0,
       "is_paused": true,
       "auto_advance": false,
-      "last_wall_time_update": "2024-03-15T07:00:00+00:00"  // Required!
+      "last_wall_time_update": "2024-03-15T07:00:00+00:00"
     },
     "modality_states": {
-      "email": {
-        "modality_type": "email",           // Required for all modalities
-        "last_updated": "2024-03-15T07:00:00+00:00",  // Required
-        "update_count": 0,                  // Required
-        "user_email_address": "user@example.com",
-        "emails": {},
-        "threads": {},
-        "folders": {},
-        "labels": {},
-        "drafts": {}
-      }
-      // ... other modalities follow same pattern
+      "email": { ... },
+      "sms": { ... }
     }
   },
   "events": {
@@ -322,15 +342,39 @@ scenario = response.json()
 }
 ```
 
-**Tip:** Export an existing scenario using `GET /scenario/export/full` to see the correct format.
+**Tip:** Export an existing scenario using `client.scenario.export_full()` to see the correct format.
 
-**Available endpoints:**
-- `GET /scenario/export/environment` - Export environment state only
-- `GET /scenario/export/events` - Export event queue only
-- `GET /scenario/export/full` - Export complete scenario
-- `POST /scenario/import/environment` - Import environment state
-- `POST /scenario/import/events` - Import event queue
-- `POST /scenario/import/full` - Import complete scenario
+---
+
+## Admin/API Key Management (`client.admin`)
+
+**Note:** These endpoints require `UES_ACCESS_CONTROL` to be enabled and a master key or admin key.
+
+```python
+# Create a new API key (requires admin access)
+key = client.admin.create_key(
+    access_level="user",  # "user", "admin", or "master"
+    description="Key for agent testing",
+)
+# Returns: KeyResponse(key, access_level, created_at, description)
+# IMPORTANT: Store the returned key.key - it cannot be retrieved later!
+
+# List active API keys
+keys = client.admin.list_keys()
+# Returns: KeyListResponse(keys, total)
+# keys: list of KeyInfo(key_prefix, access_level, created_at, description, last_used, usage_count)
+
+# Invalidate a key
+result = client.admin.invalidate_key(key_prefix="ues_user_abc123")
+# Returns: InvalidateKeyResponse(invalidated, key_prefix)
+
+# Assess which keys could be cleaned up
+assessment = client.admin.cleanup_assessment(
+    unused_days=30,  # Keys unused for this many days
+    include_never_used=True,
+)
+# Returns: CleanupResponse(candidates, total_keys, assessment_criteria)
+```
 
 ---
 
@@ -399,23 +443,15 @@ from client import (
 
 ### Load scenario and run simulation loop
 ```python
-import json
-import httpx
 from datetime import timedelta
 from client import UESClient
 
-# Load scenario via direct HTTP
-with open("scenario.ues-scenario.json") as f:
-    scenario = json.load(f)
-
-httpx.post(
-    "http://localhost:8000/scenario/import/full",
-    json={"scenario": scenario},
-    timeout=30.0,
-).raise_for_status()
-
-# Run simulation
 with UESClient() as client:
+    # Load scenario
+    result = client.scenario.load_from_file("scenario.ues-scenario.json")
+    print(f"Loaded scenario by {result.scenario_metadata.author}")
+    
+    # Start simulation
     client.simulation.start(auto_advance=False)
     
     for _ in range(10):
@@ -432,5 +468,7 @@ with UESClient() as client:
         for email in emails.emails:
             print(f"  - {email.from_address}: {email.subject}")
     
+    # Save final state
+    client.scenario.save_to_file("final-state.ues-scenario.json")
     client.simulation.stop()
 ```

@@ -42,6 +42,15 @@ Exports:
         ServerError: Server-side error (HTTP 5xx).
 """
 
+from client._admin import (
+    AccessLevel,
+    AdminClient,
+    AsyncAdminClient,
+    CleanupResponse,
+    InvalidateKeyResponse,
+    KeyListResponse,
+    KeyResponse,
+)
 from client._events import (
     AsyncEventsClient,
     BatchCreateEventResponse,
@@ -116,6 +125,22 @@ from client._environment import (
     ModalityListResponse,
     ModalitySummary,
 )
+from client._scenario import (
+    AsyncScenarioClient,
+    ExportedEnvironmentData,
+    ExportedEventQueueData,
+    ExportedScenarioData,
+    ExportedTimeState,
+    ExportEnvironmentResponse,
+    ExportEventsResponse,
+    ExportScenarioResponse,
+    LoadedScenarioMetadata,
+    LoadEnvironmentResponse,
+    LoadEventsResponse,
+    LoadScenarioResponse,
+    ScenarioClient,
+    ScenarioMetadata,
+)
 from client._webhooks import (
     AsyncWebhooksClient,
     WebhooksClient,
@@ -151,6 +176,8 @@ __all__ = [
     "WebSocketSubscription",
     "WSEvent",
     # Sub-clients (for direct use or Phase 4 integration)
+    "AdminClient",
+    "AsyncAdminClient",
     "EventsClient",
     "AsyncEventsClient",
     "EmailClient",
@@ -165,6 +192,8 @@ __all__ = [
     "AsyncLocationClient",
     "WeatherClient",
     "AsyncWeatherClient",
+    "ScenarioClient",
+    "AsyncScenarioClient",
     "WebhooksClient",
     "AsyncWebhooksClient",
     # Exceptions
@@ -236,4 +265,23 @@ __all__ = [
     "CompactSnapshotResponse",
     "ModalityListResponse",
     "ModalitySummary",
+    # Response models - Admin
+    "AccessLevel",
+    "KeyResponse",
+    "KeyListResponse",
+    "InvalidateKeyResponse",
+    "CleanupResponse",
+    # Response models - Scenario
+    "ExportedTimeState",
+    "ExportedEnvironmentData",
+    "ExportEnvironmentResponse",
+    "ExportedEventQueueData",
+    "ExportEventsResponse",
+    "ScenarioMetadata",
+    "ExportedScenarioData",
+    "ExportScenarioResponse",
+    "LoadEnvironmentResponse",
+    "LoadEventsResponse",
+    "LoadedScenarioMetadata",
+    "LoadScenarioResponse",
 ]

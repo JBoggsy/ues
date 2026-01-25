@@ -243,8 +243,8 @@ Manage simulation lifecycle:
 - `POST /simulation/start` - Start simulation
 - `POST /simulation/stop` - Stop simulation gracefully
 - `GET /simulation/status` - Get status and metrics
-- `POST /simulation/reset` - Reset to initial state (**NOT YET IMPLEMENTED**)
-- `POST /simulation/clear` - Clear all events and states (**NOT YET IMPLEMENTED**)
+- `POST /simulation/reset` - Reset to initial state (undo all executed events)
+- `POST /simulation/clear` - Clear all events and modality states
 - `POST /simulation/hold` - Acquire a hold (blocks time advancement)
 - `POST /simulation/release/{hold_id}` - Release a specific hold
 - `GET /simulation/holds` - List all active holds

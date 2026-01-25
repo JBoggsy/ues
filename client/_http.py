@@ -188,6 +188,7 @@ class HTTPClient:
         retry_enabled: bool = False,
         max_retries: int = 3,
         transport: httpx.BaseTransport | None = None,
+        api_key: str | None = None,
     ) -> None:
         """Initialize the HTTP client.
         
@@ -197,16 +198,25 @@ class HTTPClient:
             retry_enabled: Whether to retry on transient failures.
             max_retries: Maximum number of retry attempts.
             transport: Custom transport (e.g., ASGITransport for testing).
+            api_key: API key for authenticated requests. When provided,
+                the X-API-Key header is sent with all requests. Required
+                when UES_ACCESS_CONTROL is enabled on the server.
         """
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
         self.retry_enabled = retry_enabled
         self.max_retries = max_retries
         
+        # Build headers with optional API key
+        headers = {}
+        if api_key:
+            headers["X-API-Key"] = api_key
+        
         self._client = httpx.Client(
             base_url=self.base_url,
             timeout=timeout,
             transport=transport,
+            headers=headers if headers else None,
         )
     
     def close(self) -> None:
@@ -408,6 +418,7 @@ class AsyncHTTPClient:
         retry_enabled: bool = False,
         max_retries: int = 3,
         transport: httpx.AsyncBaseTransport | None = None,
+        api_key: str | None = None,
     ) -> None:
         """Initialize the async HTTP client.
         
@@ -417,16 +428,25 @@ class AsyncHTTPClient:
             retry_enabled: Whether to retry on transient failures.
             max_retries: Maximum number of retry attempts.
             transport: Custom transport (e.g., ASGITransport for testing).
+            api_key: API key for authenticated requests. When provided,
+                the X-API-Key header is sent with all requests. Required
+                when UES_ACCESS_CONTROL is enabled on the server.
         """
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
         self.retry_enabled = retry_enabled
         self.max_retries = max_retries
         
+        # Build headers with optional API key
+        headers = {}
+        if api_key:
+            headers["X-API-Key"] = api_key
+        
         self._client = httpx.AsyncClient(
             base_url=self.base_url,
             timeout=timeout,
             transport=transport,
+            headers=headers if headers else None,
         )
     
     async def close(self) -> None:

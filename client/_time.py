@@ -77,17 +77,26 @@ class AdvanceTimeResponse(BaseModel):
 class SetTimeResponse(BaseModel):
     """Response model for set_time endpoint.
     
+    Supports both forward and backward time jumps:
+    - Forward jumps: Events in the skipped range are marked as SKIPPED.
+    - Backward jumps: Executed events after the target time are undone
+      and reset to PENDING status.
+    
     Attributes:
         current_time: The new current simulator time.
         previous_time: The time before the jump.
-        skipped_events: Number of events that were skipped.
+        skipped_events: Number of events that were skipped (forward jumps only).
         executed_events: Number of events that were executed (if execute_skipped=True).
+        rolled_back_events: Number of executed events that were undone (backward jumps only).
+        reset_skipped_events: Number of skipped events reset to pending (backward jumps only).
     """
 
     current_time: datetime
     previous_time: datetime
     skipped_events: int
     executed_events: int
+    rolled_back_events: int = 0
+    reset_skipped_events: int = 0
 
 
 class SkipToNextResponse(BaseModel):

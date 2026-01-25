@@ -33,6 +33,7 @@ Example:
 
 from typing import Any, Optional
 
+from client._admin import AdminClient, AsyncAdminClient
 from client._calendar import AsyncCalendarClient, CalendarClient
 from client._chat import AsyncChatClient, ChatClient
 from client._email import AsyncEmailClient, EmailClient
@@ -40,6 +41,7 @@ from client._environment import AsyncEnvironmentClient, EnvironmentClient
 from client._events import AsyncEventsClient, EventsClient
 from client._http import AsyncHTTPClient, HTTPClient
 from client._location import AsyncLocationClient, LocationClient
+from client._scenario import AsyncScenarioClient, ScenarioClient
 from client._simulation import AsyncSimulationClient, SimulationClient
 from client._sms import AsyncSMSClient, SMSClient
 from client._time import AsyncTimeClient, TimeClient
@@ -100,6 +102,7 @@ class UESClient:
         retry_enabled: bool = False,
         max_retries: int = 3,
         transport: Any = None,
+        api_key: str | None = None,
     ) -> None:
         """Initialize the UES client.
         
@@ -112,6 +115,9 @@ class UESClient:
             max_retries: Maximum number of retry attempts when retry is enabled
                 (default: 3).
             transport: Custom HTTP transport (e.g., ASGITransport for testing).
+            api_key: API key for authenticated requests. Required when
+                UES_ACCESS_CONTROL is enabled on the server. See docs/REST_API.md
+                for access control details.
         """
         self._base_url = base_url
         self._timeout = timeout
@@ -125,13 +131,16 @@ class UESClient:
             retry_enabled=retry_enabled,
             max_retries=max_retries,
             transport=transport,
+            api_key=api_key,
         )
         
         # Initialize sub-clients (lazy initialization via properties)
+        self._admin: AdminClient | None = None
         self._time: TimeClient | None = None
         self._simulation: SimulationClient | None = None
         self._events: EventsClient | None = None
         self._environment: EnvironmentClient | None = None
+        self._scenario: ScenarioClient | None = None
         self._email: EmailClient | None = None
         self._sms: SMSClient | None = None
         self._chat: ChatClient | None = None
@@ -161,6 +170,26 @@ class UESClient:
         self._http.close()
     
     # Sub-client properties (lazy initialization)
+    
+    @property
+    def admin(self) -> AdminClient:
+        """Access admin/access control endpoints (/admin/*).
+        
+        Provides methods for:
+        - Creating API keys
+        - Listing active API keys
+        - Invalidating API keys
+        - Assessing key cleanup status
+        
+        Note: These endpoints require UES_ACCESS_CONTROL to be enabled
+        and a master key or existing admin key.
+        
+        Returns:
+            AdminClient instance for admin operations.
+        """
+        if self._admin is None:
+            self._admin = AdminClient(self._http)
+        return self._admin
     
     @property
     def time(self) -> TimeClient:
@@ -235,6 +264,26 @@ class UESClient:
         if self._environment is None:
             self._environment = EnvironmentClient(self._http)
         return self._environment
+    
+    @property
+    def scenario(self) -> ScenarioClient:
+        """Access scenario import/export endpoints (/scenario/*).
+        
+        Provides methods for:
+        - Exporting environment state
+        - Exporting event queue
+        - Exporting complete scenarios (environment + events + metadata)
+        - Importing environment state
+        - Importing events
+        - Importing complete scenarios
+        - Convenience file I/O methods
+        
+        Returns:
+            ScenarioClient instance for scenario operations.
+        """
+        if self._scenario is None:
+            self._scenario = ScenarioClient(self._http)
+        return self._scenario
     
     @property
     def email(self) -> EmailClient:
@@ -419,6 +468,7 @@ class AsyncUESClient:
         retry_enabled: bool = False,
         max_retries: int = 3,
         transport: Any = None,
+        api_key: str | None = None,
     ) -> None:
         """Initialize the async UES client.
         
@@ -431,6 +481,9 @@ class AsyncUESClient:
             max_retries: Maximum number of retry attempts when retry is enabled
                 (default: 3).
             transport: Custom HTTP transport (e.g., ASGITransport for testing).
+            api_key: API key for authenticated requests. Required when
+                UES_ACCESS_CONTROL is enabled on the server. See docs/REST_API.md
+                for access control details.
         """
         self._base_url = base_url
         self._timeout = timeout
@@ -444,13 +497,16 @@ class AsyncUESClient:
             retry_enabled=retry_enabled,
             max_retries=max_retries,
             transport=transport,
+            api_key=api_key,
         )
         
         # Initialize sub-clients (lazy initialization via properties)
+        self._admin: AsyncAdminClient | None = None
         self._time: AsyncTimeClient | None = None
         self._simulation: AsyncSimulationClient | None = None
         self._events: AsyncEventsClient | None = None
         self._environment: AsyncEnvironmentClient | None = None
+        self._scenario: AsyncScenarioClient | None = None
         self._email: AsyncEmailClient | None = None
         self._sms: AsyncSMSClient | None = None
         self._chat: AsyncChatClient | None = None
@@ -480,6 +536,26 @@ class AsyncUESClient:
         await self._http.close()
     
     # Sub-client properties (lazy initialization)
+    
+    @property
+    def admin(self) -> AsyncAdminClient:
+        """Access admin/access control endpoints (/admin/*).
+        
+        Provides async methods for:
+        - Creating API keys
+        - Listing active API keys
+        - Invalidating API keys
+        - Assessing key cleanup status
+        
+        Note: These endpoints require UES_ACCESS_CONTROL to be enabled
+        and a master key or existing admin key.
+        
+        Returns:
+            AsyncAdminClient instance for admin operations.
+        """
+        if self._admin is None:
+            self._admin = AsyncAdminClient(self._http)
+        return self._admin
     
     @property
     def time(self) -> AsyncTimeClient:
@@ -554,6 +630,26 @@ class AsyncUESClient:
         if self._environment is None:
             self._environment = AsyncEnvironmentClient(self._http)
         return self._environment
+    
+    @property
+    def scenario(self) -> AsyncScenarioClient:
+        """Access scenario import/export endpoints (/scenario/*).
+        
+        Provides async methods for:
+        - Exporting environment state
+        - Exporting event queue
+        - Exporting complete scenarios (environment + events + metadata)
+        - Importing environment state
+        - Importing events
+        - Importing complete scenarios
+        - Convenience file I/O methods
+        
+        Returns:
+            AsyncScenarioClient instance for scenario operations.
+        """
+        if self._scenario is None:
+            self._scenario = AsyncScenarioClient(self._http)
+        return self._scenario
     
     @property
     def email(self) -> AsyncEmailClient:
