@@ -241,33 +241,96 @@ Implemented in `agentbeats/green/schemas.py`.
 **Dependencies added:** `email-validator` for Pydantic `EmailStr` support
 
 #### 2.6 AgentExecutor Implementation
-- [ ] Implement `AgentExecutor` class:
-  - [ ] `__init__(ues_client, scenario_loader, evaluator, response_manager)`
-  - [ ] `run_assessment(participants, config) -> AssessmentResult`
-- [ ] Implement assessment lifecycle:
-  - [ ] Parse and validate `assessment_request`
-  - [ ] Generate proctor API key for self
-  - [ ] Generate user API key for Purple Agent
-  - [ ] Reset UES to clean state
-  - [ ] Load scenario from `scenario_id`
-  - [ ] Send `assessment_start` to Purple Agent via A2A
-- [ ] Implement turn loop:
-  - [ ] Wait for `turn_complete` from Purple Agent (with timeout)
-  - [ ] Run response generator sub-agents for character replies
-  - [ ] Advance simulation time
-  - [ ] Process scheduled events (including character responses)
-  - [ ] Check termination conditions
-  - [ ] Send `turn_start` with new events
-- [ ] Implement termination handling:
-  - [ ] Scenario end reached
-  - [ ] Early completion from Purple
-  - [ ] Timeout/crash detection
-- [ ] Implement evaluation:
-  - [ ] Retrieve full event trace from UES
-  - [ ] Run evaluation criteria
-  - [ ] Compute dimension scores
-  - [ ] Generate results artifact
-- [ ] Cleanup: invalidate API keys
+
+> **Detailed implementation plan:** See [AGENT_EXECUTOR_IMPLEMENTATION.md](AGENT_EXECUTOR_IMPLEMENTATION.md)
+
+##### 2.6.0 Event Attribution Infrastructure ✅
+
+The AgentExecutor tracks which events were created by the Purple agent vs. scenario/Green events via `agent_id` injection and filtering.
+
+**Files modified:**
+- `api/access_dependencies.py` — Added `get_optional_access_context()`, `OptionalAccessContextDep`
+- `api/routes/events.py` — Added `resolve_agent_id()` helper, agent_id injection, filter support
+- `client/_events.py` — Added `agent_id` to `EventResponse` and `list_events()` methods
+
+**Files created:**
+- `tests/api/events/test_event_attribution.py` — 11 tests for attribution
+
+**Tests:** All 11 attribution tests passing, 99 events API tests passing
+
+##### 2.6.1 Core Infrastructure ✅
+
+**Files created:**
+- `agentbeats/green/session.py` — `AssessmentSession` dataclass, `ActionLogEntry` model
+- `agentbeats/green/scenarios.py` — `ScenarioRegistry`, `ScenarioData`, `ScenarioNotFoundError`
+- `agentbeats/green/tracking.py` — `ActionTracker` for Purple action tracking via agent_id filter
+
+**Tests:** 18 tests in `tests/agentbeats/green/test_tracking.py`
+
+##### 2.6.2 Assessment Lifecycle ✅
+
+**Files created:**
+- `agentbeats/green/runner.py` — `AssessmentRunner` class with full lifecycle
+
+**Implemented:**
+- Setup phase: reset UES, load scenario, provision keys via `setup_assessment()`
+- Send `assessment_start` to Purple Agent via A2A via `send_assessment_start()`
+- Turn loop with timeout handling via `run_turn_loop()`
+- Cleanup: invalidate API keys via `cleanup_assessment()`
+- Convenience method `run_assessment()` for full lifecycle
+
+**Tests:** 13 tests in `tests/agentbeats/green/test_runner.py`
+
+##### 2.6.3 Turn Processing ✅
+
+Implemented in `AssessmentRunner.run_turn_loop()`:
+- Wait for `turn_complete` from Purple Agent (placeholder, full A2A integration pending)
+- Track Purple's actions via `ActionTracker.get_actions_since()`
+- Advance simulation time via `time.advance()`
+- Check termination conditions via `_should_terminate()`
+- Send `turn_start` with event counts via `_send_turn_start()`
+
+**Note:** Response generator sub-agent integration is separate from runner.
+
+##### 2.6.4 Evaluation ✅
+
+Implemented in `agentbeats/green/evaluation.py`:
+- `CriterionDefinition` model for parsing criteria from scenario JSON
+- `EvaluationContext` context object with state caching and action filtering
+- `Evaluator` class for running criteria against session
+- Built-in evaluators in `BUILTIN_EVALUATORS` registry:
+  - `check_email_sent`, `check_sms_sent`, `check_calendar_event_created`
+  - `check_action_count`, `check_no_actions`, `check_state_contains`
+- Custom evaluator module loading support
+- Score computation via `Scores.from_criteria()`
+
+**Tests:** 45 tests in `tests/agentbeats/green/test_evaluation.py`
+
+##### 2.6.5 A2A Integration ✅
+
+**Files created:**
+- `agentbeats/green/a2a_integration.py` — A2A message serialization, parsing, and result artifact production
+
+**Implemented:**
+- `serialize_message(message)` — Pydantic model to JSON for A2A transmission
+- `parse_purple_response(response)` — Parse Purple's response into `TurnCompleteMessage` or `EarlyCompletionMessage`
+- `MessageParseError` — Custom exception for parse failures
+- `parse_time_step(time_step)` — ISO 8601 duration parsing (e.g., "PT1H30M")
+- `TurnResult` — Unified class for handling Purple responses with `from_message()`, `from_response()`, `to_dict()` methods
+- `produce_result_artifact(session, reason, criteria_results)` — Build final `AssessmentResult`
+- `reason_to_status(reason)` — Map `AssessmentCompleteReason` to `AssessmentStatus`
+- `AssessmentUpdateEmitter` — High-level wrapper for streaming lifecycle events:
+  - `emit_assessment_started()`, `emit_scenario_loaded()`, `emit_turn_started()`
+  - `emit_turn_completed()`, `emit_simulation_advanced()`, `emit_assessment_complete()`
+
+**Files modified:**
+- `agentbeats/green/runner.py` — Updated to use A2A integration module:
+  - `_wait_for_purple_response()` now returns `TurnResult`
+  - Added `parse_a2a_response()` and `produce_result()` convenience methods
+
+**Tests:** 45 tests in `tests/agentbeats/green/test_a2a_integration.py`
+
+**Total agentbeats/green tests:** 121 passing
 
 ### Phase 3: Baseline Purple Agent
 

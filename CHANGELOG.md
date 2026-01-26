@@ -8,16 +8,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Project organization for public GitHub release
-- CLI entry point (`ues server`) for easy server startup
-- MIT License
-- Contributing guidelines (CONTRIBUTING.md)
-- Issue and PR templates
-- Startup scripts in `scripts/` directory
+
+#### AgentBeats Green Agent (Assessment Orchestrator)
+- **Event Attribution Infrastructure**: `agent_id` injection and filtering for tracking Purple agent actions
+  - `api/access_dependencies.py`: `get_optional_access_context()`, `OptionalAccessContextDep`
+  - `api/routes/events.py`: `resolve_agent_id()` helper, agent_id query parameter
+  - `client/_events.py`: `agent_id` support in `EventResponse` and `list_events()`
+  - 11 new tests in `tests/api/events/test_event_attribution.py`
+
+- **Core Infrastructure** (`agentbeats/green/`)
+  - `session.py`: `AssessmentSession` state container, `ActionLogEntry` model
+  - `scenarios.py`: `ScenarioRegistry` for loading scenario definitions from filesystem
+  - `tracking.py`: `ActionTracker` for Purple agent action attribution via event queries
+  - 18 tests in `tests/agentbeats/green/test_tracking.py`
+
+- **Assessment Lifecycle** (`agentbeats/green/runner.py`)
+  - `AssessmentRunner` class orchestrating full assessment lifecycle
+  - Setup phase: UES reset, scenario loading, API key provisioning
+  - Turn loop with timeout handling and action tracking
+  - Cleanup with API key invalidation
+  - 13 tests in `tests/agentbeats/green/test_runner.py`
+
+- **Evaluation Framework** (`agentbeats/green/evaluation.py`)
+  - `CriterionDefinition` model for parsing criteria from scenario JSON
+  - `EvaluationContext` with state caching and action log filtering
+  - `Evaluator` class for running criteria against assessment sessions
+  - Built-in evaluators: `check_email_sent`, `check_sms_sent`, `check_calendar_event_created`, `check_action_count`, `check_no_actions`, `check_state_contains`
+  - Custom evaluator module loading support
+  - 45 tests in `tests/agentbeats/green/test_evaluation.py`
+
+- **A2A Integration** (`agentbeats/green/a2a_integration.py`)
+  - Message serialization and parsing for Purple agent communication
+  - `TurnResult` class for unified Purple response handling
+  - `parse_time_step()` for ISO 8601 duration parsing (e.g., "PT1H30M")
+  - `produce_result_artifact()` for building final `AssessmentResult`
+  - `AssessmentUpdateEmitter` for streaming lifecycle events
+  - 45 tests in `tests/agentbeats/green/test_a2a_integration.py`
+  - Updated `runner.py` to use A2A integration module
 
 ### Changed
-- Updated README with installation instructions and quickstart guide
-- Enhanced pyproject.toml with full project metadata and entry points
+- Project organization for public GitHub release
+- CLI entry point (`ues server`) for easy server startup
+
+### Documentation
+- Updated `agentbeats/green/README.md` with new modules and test information
+- Updated `docs/AGENT_EXECUTOR_IMPLEMENTATION.md` with completed Phase A-E status (all phases complete)
+- Updated `docs/AGENTBEATS_SUBMISSION.md` with implementation progress
 
 ## [0.1.0] - 2025-01-13
 

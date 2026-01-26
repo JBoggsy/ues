@@ -105,11 +105,19 @@ uv run python server.py --host 0.0.0.0 --port 9009 --card-url http://myserver:90
 | `server.py` | A2A server entry point, creates Agent Card |
 | `executor.py` | A2A AgentExecutor, manages assessment sessions |
 | `agent.py` | Core Agent class, orchestrates assessment lifecycle |
+| `runner.py` | AssessmentRunner, manages setup/turn loop/cleanup |
+| `session.py` | AssessmentSession state container, ActionLogEntry model |
+| `scenarios.py` | ScenarioRegistry for loading scenario definitions |
+| `tracking.py` | ActionTracker for Purple agent action attribution |
+| `evaluation.py` | Evaluator class and built-in criterion evaluators |
+| `a2a_integration.py` | A2A message serialization, parsing, and result artifact production |
 | `schemas.py` | Pydantic models for A2A message schemas |
 | `messenger.py` | A2A messaging utilities for Purple communication |
 | `key_manager.py` | API key provisioning and lifecycle management |
+| `characters.py` | CharacterRegistry for character profile management |
 | `updates.py` | Task update streaming for platform observability |
 | `response_agents.py` | Character-based response generation sub-agents |
+| `llm.py` | LLM provider abstraction for response generation |
 
 ## A2A Message Schemas
 
@@ -304,12 +312,29 @@ Set `verbose_updates: false` in config to only emit start/complete updates.
 ### Running Tests
 
 ```bash
-# From project root
-uv run pytest tests/ -k "green" -v
+# From project root - run all green agent tests
+uv run pytest tests/agentbeats/green/ -v
+
+# Run specific test modules
+uv run pytest tests/agentbeats/green/test_tracking.py -v  # ActionTracker tests
+uv run pytest tests/agentbeats/green/test_runner.py -v    # AssessmentRunner tests
+
+# Run event attribution tests
+uv run pytest tests/api/events/test_event_attribution.py -v
 ```
+
+### Test Coverage
+
+| Test File | Coverage |
+|-----------|----------|
+| `test_tracking.py` | ActionTracker (18 tests): event queries, conversion, summaries |
+| `test_runner.py` | AssessmentRunner (13 tests): setup, turn loop, cleanup |
+| `test_evaluation.py` | Evaluator (45 tests): context, built-in evaluators, scoring |
+| `test_event_attribution.py` | Event API agent_id (11 tests): injection, filtering |
 
 ### Related Documentation
 
+- [Agent Executor Implementation Plan](../../docs/AGENT_EXECUTOR_IMPLEMENTATION.md)
 - [AgentBeats Submission Plan](../../docs/AGENTBEATS_SUBMISSION.md)
 - [A2A Flow Design](../../docs/AGENTBEATS_A2A_FLOW.md)
 - [UES REST API](../../docs/REST_API.md)
