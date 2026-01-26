@@ -16,8 +16,15 @@ Usage in routes:
     async def get_state(access: AccessContextDep):
         # Any valid key can reach here
         return {"level": access.level}
+    
+    # For endpoints that need agent attribution but work without access control
+    @router.post("/events")
+    async def create_event(access: OptionalAccessContextDep):
+        # access is None if access control is disabled
+        agent_id = access.agent_id if access else None
 """
 
+import os
 from typing import Annotated
 
 from fastapi import Depends, Header, HTTPException, status
@@ -27,6 +34,12 @@ from api.access_control import (
     AccessLevel,
     key_registry,
 )
+
+
+# Check if access control is enabled
+def _is_access_control_enabled() -> bool:
+    """Check if access control is enabled via environment variable."""
+    return os.getenv("UES_ACCESS_CONTROL", "false").lower() == "true"
 
 
 async def get_api_key(
@@ -120,8 +133,56 @@ async def require_user_or_proctor(
     return context
 
 
+async def get_optional_access_context(
+    x_api_key: Annotated[str | None, Header(description="API key for authentication")] = None,
+) -> AccessContext | None:
+    """Get access context if available, or None if access control is disabled.
+    
+    This dependency is useful for endpoints that need to track agent attribution
+    but should still work when access control is disabled.
+    
+    Behavior:
+    - If access control is disabled: returns None (no authentication required)
+    - If access control is enabled and key is missing: raises 401
+    - If access control is enabled and key is invalid: raises 401
+    - If access control is enabled and key is valid: returns AccessContext
+    
+    Args:
+        x_api_key: The API key from the X-API-Key header (optional).
+    
+    Returns:
+        The AccessContext for the validated key, or None if access control
+        is disabled.
+    
+    Raises:
+        HTTPException: 401 if access control is enabled and key is missing/invalid.
+    """
+    # If access control is disabled, return None (allow all requests)
+    if not _is_access_control_enabled():
+        return None
+    
+    # Access control is enabled - require valid key
+    if x_api_key is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing X-API-Key header",
+            headers={"WWW-Authenticate": "ApiKey"},
+        )
+    
+    context = key_registry.validate_key(x_api_key)
+    if context is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired API key",
+            headers={"WWW-Authenticate": "ApiKey"},
+        )
+    
+    return context
+
+
 # Type aliases for cleaner route handler signatures
 ApiKeyDep = Annotated[str, Depends(get_api_key)]
 AccessContextDep = Annotated[AccessContext, Depends(get_access_context)]
 ProctorDep = Annotated[AccessContext, Depends(require_proctor)]
 UserOrProctorDep = Annotated[AccessContext, Depends(require_user_or_proctor)]
+OptionalAccessContextDep = Annotated[AccessContext | None, Depends(get_optional_access_context)]

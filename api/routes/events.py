@@ -1,14 +1,29 @@
 """Event management endpoints.
 
 These endpoints allow clients to create, query, and manage simulation events.
+
+Event Attribution:
+    When access control is enabled (UES_ACCESS_CONTROL=true), events created
+    through these endpoints are automatically attributed to the calling agent
+    via the agent_id field. This enables tracking of which agent created which
+    events, useful for:
+    - AgentBeats assessments (tracking Purple agent actions)
+    - Audit trails
+    - Debugging multi-agent scenarios
+    
+    The agent_id is extracted from the validated API key's AccessContext.
+    If access control is disabled, agent_id can still be provided in the
+    request body (for backward compatibility and testing).
 """
 
 from datetime import datetime
 from typing import Any, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, ValidationError
 
+from api.access_control import AccessContext
+from api.access_dependencies import OptionalAccessContextDep
 from api.broadcast import broadcast_event
 from api.dependencies import SimulationEngineDep
 from api.websocket import WSEventType
@@ -89,6 +104,31 @@ def deserialize_modality_input(
         )
 
 
+def resolve_agent_id(
+    request_agent_id: str | None,
+    access_context: AccessContext | None,
+) -> str | None:
+    """Resolve the agent_id to use for an event.
+    
+    When access control is enabled, the agent_id from the access context
+    (derived from the API key) takes precedence over any agent_id provided
+    in the request body. This ensures accurate attribution in AgentBeats
+    assessments.
+    
+    Args:
+        request_agent_id: The agent_id provided in the request body (if any).
+        access_context: The access context from the validated API key (if any).
+    
+    Returns:
+        The agent_id to use, or None if neither source provides one.
+    """
+    # Access context takes precedence (when access control is enabled)
+    if access_context is not None and access_context.agent_id is not None:
+        return access_context.agent_id
+    # Fall back to request-provided agent_id
+    return request_agent_id
+
+
 # Request/Response Models
 
 
@@ -101,7 +141,8 @@ class CreateEventRequest(BaseModel):
         data: The ModalityInput payload for this event.
         priority: Optional execution priority (0-100, higher = first).
         metadata: Optional custom metadata.
-        agent_id: Optional ID of agent creating this event.
+        agent_id: Optional ID of agent creating this event. When access control
+            is enabled, this is overridden by the agent_id from the API key.
     """
 
     scheduled_time: datetime
@@ -118,10 +159,13 @@ class ImmediateEventRequest(BaseModel):
     Attributes:
         modality: Which modality this event affects.
         data: The ModalityInput payload for this event.
+        agent_id: Optional ID of agent creating this event. When access control
+            is enabled, this is overridden by the agent_id from the API key.
     """
 
     modality: str
     data: dict[str, Any]
+    agent_id: Optional[str] = None
 
 
 class EventResponse(BaseModel):
@@ -137,6 +181,7 @@ class EventResponse(BaseModel):
         executed_at: When the event was executed (if applicable).
         error_message: Error details if execution failed.
         data: The event payload (ModalityInput data).
+        agent_id: ID of the agent that created this event (if set).
     """
 
     event_id: str
@@ -148,6 +193,7 @@ class EventResponse(BaseModel):
     data: dict[str, Any] = None
     executed_at: Optional[datetime] = None
     error_message: Optional[str] = None
+    agent_id: Optional[str] = None
 
 
 class EventListResponse(BaseModel):
@@ -305,12 +351,13 @@ async def list_events(
     start_time: Optional[datetime] = None,
     end_time: Optional[datetime] = None,
     modality: Optional[str] = None,
+    agent_id: Optional[str] = None,
     limit: Optional[int] = None,
     offset: int = 0,
 ):
     """List events with optional filters.
     
-    Query parameters allow filtering by status, time range, and modality.
+    Query parameters allow filtering by status, time range, modality, and agent.
     
     Args:
         engine: The SimulationEngine instance (injected by FastAPI).
@@ -318,6 +365,9 @@ async def list_events(
         start_time: Filter by scheduled_time >= start_time.
         end_time: Filter by scheduled_time <= end_time.
         modality: Filter by modality type.
+        agent_id: Filter by the agent that created the event. Useful for
+            tracking which events were created by a specific agent in
+            AgentBeats assessments.
         limit: Maximum number of events to return.
         offset: Number of events to skip (for pagination).
     
@@ -343,6 +393,10 @@ async def list_events(
         modality=modality,
     )
     
+    # Filter by agent_id if provided
+    if agent_id is not None:
+        events = [e for e in events if e.agent_id == agent_id]
+    
     # Apply pagination
     total = len(events)
     if limit:
@@ -361,6 +415,7 @@ async def list_events(
             created_at=e.created_at,
             executed_at=e.executed_at,
             error_message=e.error_message,
+            agent_id=e.agent_id,
             data=e.data.model_dump(),
         )
         for e in events
@@ -384,15 +439,23 @@ async def list_events(
 
 
 @router.post("", response_model=EventResponse)
-async def create_event(request: CreateEventRequest, engine: SimulationEngineDep):
+async def create_event(
+    request: CreateEventRequest,
+    engine: SimulationEngineDep,
+    access: OptionalAccessContextDep,
+):
     """Create a new scheduled event.
     
     The event will be added to the queue and executed when simulator
     time reaches the scheduled_time.
     
+    When access control is enabled, the agent_id is automatically set from
+    the authenticated API key, enabling event attribution for tracking.
+    
     Args:
         request: Event details including modality and data.
-        engine: The SimulationEngine i  nstance (injected by FastAPI).
+        engine: The SimulationEngine instance (injected by FastAPI).
+        access: Optional access context from API key (for agent attribution).
     
     Returns:
         The created event details.
@@ -418,6 +481,9 @@ async def create_event(request: CreateEventRequest, engine: SimulationEngineDep)
             timestamp=request.scheduled_time,
         )
         
+        # Resolve agent_id (access context takes precedence)
+        agent_id = resolve_agent_id(request.agent_id, access)
+        
         # Create the event
         event = SimulatorEvent(
             scheduled_time=request.scheduled_time,
@@ -425,7 +491,7 @@ async def create_event(request: CreateEventRequest, engine: SimulationEngineDep)
             data=modality_input,
             priority=request.priority,
             created_at=current_time,
-            agent_id=request.agent_id,
+            agent_id=agent_id,
             metadata=request.metadata,
         )
         
@@ -448,6 +514,7 @@ async def create_event(request: CreateEventRequest, engine: SimulationEngineDep)
             created_at=event.created_at,
             executed_at=event.executed_at,
             error_message=event.error_message,
+            agent_id=event.agent_id,
         )
     except HTTPException:
         raise
@@ -464,15 +531,23 @@ async def create_event(request: CreateEventRequest, engine: SimulationEngineDep)
 
 
 @router.post("/immediate", response_model=EventResponse)
-async def create_immediate_event(request: ImmediateEventRequest, engine: SimulationEngineDep):
+async def create_immediate_event(
+    request: ImmediateEventRequest,
+    engine: SimulationEngineDep,
+    access: OptionalAccessContextDep,
+):
     """Submit an event for immediate execution.
     
     This is a convenience endpoint that creates an event scheduled
     at the current simulator time with high priority.
     
+    When access control is enabled, the agent_id is automatically set from
+    the authenticated API key, enabling event attribution for tracking.
+    
     Args:
         request: Event details (modality and data).
         engine: The SimulationEngine instance (injected by FastAPI).
+        access: Optional access context from API key (for agent attribution).
     
     Returns:
         The created event details.
@@ -490,6 +565,9 @@ async def create_immediate_event(request: ImmediateEventRequest, engine: Simulat
             timestamp=current_time,
         )
         
+        # Resolve agent_id (access context takes precedence)
+        agent_id = resolve_agent_id(request.agent_id, access)
+        
         # Create event at current time with high priority
         event = SimulatorEvent(
             scheduled_time=current_time,
@@ -497,6 +575,7 @@ async def create_immediate_event(request: ImmediateEventRequest, engine: Simulat
             data=modality_input,
             priority=100,  # High priority for immediate execution
             created_at=current_time,
+            agent_id=agent_id,
         )
         
         # Add to simulation
@@ -518,6 +597,7 @@ async def create_immediate_event(request: ImmediateEventRequest, engine: Simulat
             created_at=event.created_at,
             executed_at=event.executed_at,
             error_message=event.error_message,
+            agent_id=event.agent_id,
         )
     except HTTPException:
         raise
@@ -537,12 +617,17 @@ async def create_immediate_event(request: ImmediateEventRequest, engine: Simulat
 async def create_batch_events(
     request: BatchCreateEventRequest,
     engine: SimulationEngineDep,
+    access: OptionalAccessContextDep,
 ):
     """Create multiple events in a single batch operation.
     
     This endpoint enables efficient bulk event scheduling, reducing network
     overhead when creating many events. Events are validated before creation,
     and the response includes per-event success/failure information.
+    
+    When access control is enabled, the agent_id is automatically set from
+    the authenticated API key for all events in the batch, enabling event
+    attribution for tracking.
     
     Behavior modes:
     - Default: Create all valid events, report failures (HTTP 207 if mixed)
@@ -601,6 +686,9 @@ async def create_batch_events(
                     timestamp=event_request.scheduled_time,
                 )
                 
+                # Resolve agent_id (access context takes precedence over request)
+                agent_id = resolve_agent_id(event_request.agent_id, access)
+                
                 # Create the event object
                 event = SimulatorEvent(
                     scheduled_time=event_request.scheduled_time,
@@ -608,7 +696,7 @@ async def create_batch_events(
                     data=modality_input,
                     priority=event_request.priority,
                     created_at=current_time,
-                    agent_id=event_request.agent_id,
+                    agent_id=agent_id,
                     metadata=event_request.metadata,
                 )
         except HTTPException as e:
@@ -815,6 +903,7 @@ async def get_event(event_id: str, engine: SimulationEngineDep):
         executed_at=event.executed_at,
         error_message=event.error_message,
         data=event_data,
+        agent_id=event.agent_id,
     )
 
 

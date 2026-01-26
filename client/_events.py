@@ -33,6 +33,7 @@ class EventResponse(BaseModel):
         executed_at: When the event was executed (if applicable).
         error_message: Error details if execution failed.
         data: The event payload (ModalityInput data).
+        agent_id: ID of the agent that created this event (if set).
     """
 
     event_id: str
@@ -44,6 +45,7 @@ class EventResponse(BaseModel):
     executed_at: datetime | None = None
     error_message: str | None = None
     data: dict[str, Any] | None = None
+    agent_id: str | None = None
 
 
 class EventListResponse(BaseModel):
@@ -233,6 +235,7 @@ class EventsClient(BaseClient):
         end_time: datetime | None = None,
         limit: int | None = None,
         offset: int = 0,
+        agent_id: str | None = None,
     ) -> EventListResponse:
         """List events with optional filters.
         
@@ -246,6 +249,7 @@ class EventsClient(BaseClient):
             end_time: Filter by scheduled_time <= end_time.
             limit: Maximum number of events to return.
             offset: Number of events to skip (for pagination).
+            agent_id: Filter by agent that created the event.
         
         Returns:
             List of events matching the filters with status counts.
@@ -261,6 +265,7 @@ class EventsClient(BaseClient):
             end_time=end_time.isoformat() if end_time else None,
             limit=limit,
             offset=offset if offset != 0 else None,
+            agent_id=agent_id,
         )
         data = self._get(self._BASE_PATH, params=params)
         return EventListResponse(**data)
@@ -534,6 +539,7 @@ class AsyncEventsClient(AsyncBaseClient):
         end_time: datetime | None = None,
         limit: int | None = None,
         offset: int = 0,
+        agent_id: str | None = None,
     ) -> EventListResponse:
         """List events with optional filters.
         
@@ -547,6 +553,7 @@ class AsyncEventsClient(AsyncBaseClient):
             end_time: Filter by scheduled_time <= end_time.
             limit: Maximum number of events to return.
             offset: Number of events to skip (for pagination).
+            agent_id: Filter by agent that created the event.
         
         Returns:
             List of events matching the filters with status counts.
@@ -562,6 +569,7 @@ class AsyncEventsClient(AsyncBaseClient):
             end_time=end_time.isoformat() if end_time else None,
             limit=limit,
             offset=offset if offset != 0 else None,
+            agent_id=agent_id,
         )
         data = await self._get(self._BASE_PATH, params=params)
         return EventListResponse(**data)
