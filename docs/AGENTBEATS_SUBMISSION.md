@@ -67,10 +67,10 @@
 
 ### Lower Priority (Implementation Details)
 
-- [ ] **Baseline Purple Agent Design**: Design a simple reference agent
-  - Must be A2A-compatible
-  - Should demonstrate benchmark capabilities without being optimal
-  - Could be rule-based or simple LLM-based
+- [x] **Baseline Purple Agent Design**: Design a simple reference agent ✅
+  - A2A-compatible via PurpleExecutor infrastructure
+  - SimpleEmailAgent (rule-based) + LLMAgent (LLM-based) examples
+  - Full infrastructure: schemas, context, executor, server, tracked client
 
 - [ ] **Docker Architecture**: Single container vs multi-container
   - Green Agent + UES in one container, or separate?
@@ -332,17 +332,29 @@ Implemented in `agentbeats/green/evaluation.py`:
 
 **Total agentbeats/green tests:** 121 passing
 
-### Phase 3: Baseline Purple Agent
+### Phase 3: Baseline Purple Agent ✅
 
-- [ ] Create simple A2A-compatible Purple Agent
-- [ ] Implement assessment_start handler (connect to UES)
-- [ ] Implement turn loop:
-  - [ ] Query UES state
-  - [ ] Make simple decisions (rule-based or LLM-based)
-  - [ ] Execute actions via UES REST API
-  - [ ] Send turn_complete
-- [ ] Handle assessment_complete message
-- [ ] Document agent behavior and limitations
+- [x] Create simple A2A-compatible Purple Agent infrastructure
+- [x] Implement assessment_start handler (connect to UES)
+- [x] Implement turn loop:
+  - [x] Query UES state
+  - [x] Make simple decisions (rule-based or LLM-based)
+  - [x] Execute actions via UES REST API
+  - [x] Send turn_complete
+- [x] Handle assessment_complete message
+- [x] Document agent behavior and limitations
+
+**Files created in `agentbeats/purple/`:**
+- `schemas.py` — Re-exports green schemas + purple-specific models
+- `context.py` — AssessmentContext for state tracking
+- `base_agent.py` — BaseAgent ABC + SimpleAgent reference
+- `executor.py` — PurpleExecutor (A2A lifecycle management)
+- `server.py` — Server setup utilities (create_agent_card, run_purple_agent)
+- `ues_client.py` — TrackedAsyncUESClient with automatic action tracking
+- `examples/simple_agent.py` — Minimal working example
+- `examples/llm_agent.py` — LLM-powered reference agent
+
+**Tests:** 211 tests in `tests/agentbeats/purple/`
 
 ### Phase 4: Docker & Deployment
 
@@ -376,10 +388,10 @@ Implemented in `agentbeats/green/evaluation.py`:
     - [ ] Scenario descriptions
     - [ ] Scoring methodology
 
-- [ ] **Baseline Purple Agent(s)**
-  - [ ] Source code in repository
-  - [ ] A2A-compatible implementation
-  - [ ] Documentation on how it works
+- [x] **Baseline Purple Agent(s)** ✅
+  - [x] Source code in `agentbeats/purple/`
+  - [x] A2A-compatible implementation via PurpleExecutor
+  - [x] Documentation in `agentbeats/purple/README.md`
 
 - [ ] **Docker Image**
   - [ ] Dockerfile for Green Agent (must accept `--host`, `--port`, `--card-url`)
