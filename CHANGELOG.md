@@ -7,7 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-01-28
+
 ### Added
+- **API Access Control** - Complete key-based authentication and authorization system
+  - `APIKey` model with fine-grained permissions and wildcard support (`*`, `email:*`)
+  - `APIKeyRegistry` for in-memory key storage with admin key auto-generation at startup
+  - `require_permission()` FastAPI dependency for route protection
+  - `Permissions` constants class covering all 94 API endpoints
+  - Key management endpoints: `POST /keys`, `GET /keys`, `GET /keys/{key_id}`, `DELETE /keys/{key_id}`
+  - Access logging middleware with queryable logs (`GET /access-logs`, `GET /access-logs/stats`)
+  - Event attribution: auto-sets `agent_id` and `created_by_key` on event creation
+  - Python client updated with `api_key` parameter support
+  - Documentation: `docs/api/AUTHENTICATION.md`, `docs/api/MIGRATION_AUTH.md`
+
+- **Python Client `scenario` Sub-client** (`client.scenario`)
+  - `export_full()` / `export_full_async()` - Export complete scenario
+  - `export_environment()` / `export_environment_async()` - Export environment only
+  - `export_events()` / `export_events_async()` - Export events only
+  - `import_full()` / `import_full_async()` - Import complete scenario
+  - `import_environment()` / `import_environment_async()` - Import environment
+  - `import_events()` / `import_events_async()` - Import events
+  - 695 tests for scenario client functionality
+
 - **Agent Testing Harness** (`agent_testing` package)
   - JSON-defined test criteria referencing Python evaluator functions
   - `EvalRunner` orchestrates test execution lifecycle
@@ -41,10 +63,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Startup scripts in `scripts/` directory
 
 ### Changed
+- **Project structure reorganization**: Source code moved to `src/ues/` following Python packaging best practices
+  - All imports updated from `models.`, `api.`, `client.` to `ues.models.`, `ues.api.`, `ues.client.`
+  - Documentation reorganized into subdirectories: `docs/api/`, `docs/models/`, `docs/client/`, `docs/guides/`, `docs/integration/`
+  - Agent testing moved to `src/ues/agent_testing/`
 - Updated README with installation instructions and quickstart guide
 - Enhanced pyproject.toml with full project metadata and entry points
-- Test count increased from 1,242 to 3,325 tests
-- REST API now has 89 endpoints (up from 85+)
+- Test count increased from 1,242 to 3,560 tests
+- REST API now has 94 endpoints (up from 85+)
+- API tests increased to 1,408 (was 1,388)
+- Client tests increased to 542 (was 514)
 
 ### Fixed
 - Email threading support improvements
@@ -92,5 +120,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - React 18 + TypeScript + Vite for modern web UI
 - 1,242+ tests with comprehensive coverage
 
-[Unreleased]: https://github.com/JBoggsy/ues/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/JBoggsy/ues/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/JBoggsy/ues/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/JBoggsy/ues/releases/tag/v0.1.0

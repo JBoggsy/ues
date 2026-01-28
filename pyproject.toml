@@ -1,6 +1,6 @@
 [project]
 name = "ues"
-version = "0.1.0"
+version = "0.2.0"
 description = "An AI-driven testing tool for AI personal assistants, simulating multiple input modalities via a RESTful API"
 readme = "README.md"
 license = {text = "MIT"}
