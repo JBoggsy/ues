@@ -1,17 +1,21 @@
 """Event management endpoints.
 
 These endpoints allow clients to create, query, and manage simulation events.
+
+All endpoints require authentication via X-API-Key header.
 """
 
 from datetime import datetime
-from typing import Any, Optional
+from typing import Annotated, Any, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, ValidationError
 
+from ues.api.auth import Permissions, require_permission
 from ues.api.broadcast import broadcast_event
 from ues.api.dependencies import SimulationEngineDep
 from ues.api.websocket import WSEventType
+from ues.models.api_key import APIKey
 from ues.models.base_input import ModalityInput
 from ues.models.event import EventStatus, SimulatorEvent
 from ues.models.modalities.calendar_input import CalendarInput
@@ -301,6 +305,7 @@ class BatchErrorResponse(BaseModel):
 @router.get("", response_model=EventListResponse)
 async def list_events(
     engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.EVENTS_LIST))],
     status: Optional[str] = None,
     start_time: Optional[datetime] = None,
     end_time: Optional[datetime] = None,
@@ -323,6 +328,9 @@ async def list_events(
     
     Returns:
         List of events matching the filters.
+    
+    Requires:
+        Permission: events:list
     """
     # Parse status if provided
     event_status = None
@@ -384,18 +392,30 @@ async def list_events(
 
 
 @router.post("", response_model=EventResponse)
-async def create_event(request: CreateEventRequest, engine: SimulationEngineDep):
+async def create_event(
+    request: CreateEventRequest,
+    engine: SimulationEngineDep,
+    api_key: Annotated[APIKey, Depends(require_permission(Permissions.EVENTS_CREATE))],
+):
     """Create a new scheduled event.
     
     The event will be added to the queue and executed when simulator
     time reaches the scheduled_time.
     
+    Event Attribution:
+        - If agent_id is not provided in the request, it defaults to the API key's key_id
+        - The creating key's key_id is always stored in metadata["created_by_key"]
+    
     Args:
         request: Event details including modality and data.
-        engine: The SimulationEngine i  nstance (injected by FastAPI).
+        engine: The SimulationEngine instance (injected by FastAPI).
+        api_key: The authenticated API key (injected by FastAPI).
     
     Returns:
         The created event details.
+    
+    Requires:
+        Permission: events:create
     
     Raises:
         HTTPException: If event creation fails.
@@ -418,6 +438,15 @@ async def create_event(request: CreateEventRequest, engine: SimulationEngineDep)
             timestamp=request.scheduled_time,
         )
         
+        # Event attribution: use request agent_id if provided, otherwise use API key's key_id
+        agent_id = request.agent_id if request.agent_id else api_key.key_id
+        
+        # Build metadata with created_by_key attribution
+        event_metadata = {
+            **request.metadata,
+            "created_by_key": api_key.key_id,
+        }
+        
         # Create the event
         event = SimulatorEvent(
             scheduled_time=request.scheduled_time,
@@ -425,8 +454,8 @@ async def create_event(request: CreateEventRequest, engine: SimulationEngineDep)
             data=modality_input,
             priority=request.priority,
             created_at=current_time,
-            agent_id=request.agent_id,
-            metadata=request.metadata,
+            agent_id=agent_id,
+            metadata=event_metadata,
         )
         
         # Add to simulation
@@ -464,18 +493,30 @@ async def create_event(request: CreateEventRequest, engine: SimulationEngineDep)
 
 
 @router.post("/immediate", response_model=EventResponse)
-async def create_immediate_event(request: ImmediateEventRequest, engine: SimulationEngineDep):
+async def create_immediate_event(
+    request: ImmediateEventRequest,
+    engine: SimulationEngineDep,
+    api_key: Annotated[APIKey, Depends(require_permission(Permissions.EVENTS_EXECUTE))],
+):
     """Submit an event for immediate execution.
     
     This is a convenience endpoint that creates an event scheduled
     at the current simulator time with high priority.
     
+    Event Attribution:
+        - agent_id is set to the API key's key_id
+        - The creating key's key_id is stored in metadata["created_by_key"]
+    
     Args:
         request: Event details (modality and data).
         engine: The SimulationEngine instance (injected by FastAPI).
+        api_key: The authenticated API key (injected by FastAPI).
     
     Returns:
         The created event details.
+    
+    Requires:
+        Permission: events:execute
     
     Raises:
         HTTPException: If event creation fails.
@@ -491,12 +532,15 @@ async def create_immediate_event(request: ImmediateEventRequest, engine: Simulat
         )
         
         # Create event at current time with high priority
+        # Event attribution: set agent_id and created_by_key from API key
         event = SimulatorEvent(
             scheduled_time=current_time,
             modality=request.modality,
             data=modality_input,
             priority=100,  # High priority for immediate execution
             created_at=current_time,
+            agent_id=api_key.key_id,
+            metadata={"created_by_key": api_key.key_id},
         )
         
         # Add to simulation
@@ -537,6 +581,7 @@ async def create_immediate_event(request: ImmediateEventRequest, engine: Simulat
 async def create_batch_events(
     request: BatchCreateEventRequest,
     engine: SimulationEngineDep,
+    api_key: Annotated[APIKey, Depends(require_permission(Permissions.EVENTS_BATCH))],
 ):
     """Create multiple events in a single batch operation.
     
@@ -549,13 +594,21 @@ async def create_batch_events(
     - stop_on_first_error=True: Abort on first failure, create nothing (HTTP 400)
     - validate_only=True: Validate without creating, return validation results
     
+    Event Attribution:
+        - If agent_id is not provided in individual events, it defaults to the API key's key_id
+        - The creating key's key_id is stored in metadata["created_by_key"] for all events
+    
     Args:
         request: Batch request with events and options.
         engine: The SimulationEngine instance (injected by FastAPI).
+        api_key: The authenticated API key (injected by FastAPI).
     
     Returns:
         BatchCreateEventResponse (201/207) or BatchValidationResponse (200)
         or raises HTTPException (400) for strict mode failures.
+    
+    Requires:
+        Permission: events:batch
     
     Raises:
         HTTPException 400: Batch too large, empty batch, or strict mode failure.
@@ -601,6 +654,15 @@ async def create_batch_events(
                     timestamp=event_request.scheduled_time,
                 )
                 
+                # Event attribution: use request agent_id if provided, else API key's key_id
+                agent_id = event_request.agent_id if event_request.agent_id else api_key.key_id
+                
+                # Build metadata with created_by_key attribution
+                event_metadata = {
+                    **event_request.metadata,
+                    "created_by_key": api_key.key_id,
+                }
+                
                 # Create the event object
                 event = SimulatorEvent(
                     scheduled_time=event_request.scheduled_time,
@@ -608,8 +670,8 @@ async def create_batch_events(
                     data=modality_input,
                     priority=event_request.priority,
                     created_at=current_time,
-                    agent_id=event_request.agent_id,
-                    metadata=event_request.metadata,
+                    agent_id=agent_id,
+                    metadata=event_metadata,
                 )
         except HTTPException as e:
             error = e.detail
@@ -695,7 +757,10 @@ async def create_batch_events(
 
 
 @router.get("/next", response_model=EventResponse)
-async def peek_next_event(engine: SimulationEngineDep):
+async def peek_next_event(
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.EVENTS_READ))],
+):
     """Peek at the next pending event without executing it.
     
     Returns the next event that will be executed when time advances.
@@ -705,6 +770,9 @@ async def peek_next_event(engine: SimulationEngineDep):
     
     Returns:
         Next pending event details.
+    
+    Requires:
+        Permission: events:read
     
     Raises:
         HTTPException: If no pending events exist.
@@ -730,7 +798,10 @@ async def peek_next_event(engine: SimulationEngineDep):
 
 
 @router.get("/summary", response_model=EventSummaryResponse)
-async def get_event_summary(engine: SimulationEngineDep):
+async def get_event_summary(
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.EVENTS_SUMMARY))],
+):
     """Get event execution statistics.
     
     Provides counts and statistics about events in the simulation.
@@ -740,6 +811,9 @@ async def get_event_summary(engine: SimulationEngineDep):
     
     Returns:
         Event summary statistics.
+    
+    Requires:
+        Permission: events:summary
     """
     all_events = engine.event_queue.events
     
@@ -771,7 +845,11 @@ async def get_event_summary(engine: SimulationEngineDep):
 
 
 @router.get("/{event_id}", response_model=EventResponse)
-async def get_event(event_id: str, engine: SimulationEngineDep):
+async def get_event(
+    event_id: str,
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.EVENTS_READ))],
+):
     """Get details for a specific event.
     
     Args:
@@ -780,6 +858,9 @@ async def get_event(event_id: str, engine: SimulationEngineDep):
     
     Returns:
         Full event details including the event data payload.
+    
+    Requires:
+        Permission: events:read
     
     Raises:
         HTTPException: If event is not found.
@@ -819,7 +900,11 @@ async def get_event(event_id: str, engine: SimulationEngineDep):
 
 
 @router.delete("/{event_id}")
-async def cancel_event(event_id: str, engine: SimulationEngineDep):
+async def cancel_event(
+    event_id: str,
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.EVENTS_DELETE))],
+):
     """Cancel a pending event.
     
     Only pending events can be cancelled. Executed or failed events
@@ -831,6 +916,9 @@ async def cancel_event(event_id: str, engine: SimulationEngineDep):
     
     Returns:
         Confirmation of cancellation.
+    
+    Requires:
+        Permission: events:delete
     
     Raises:
         HTTPException: If event not found or cannot be cancelled.

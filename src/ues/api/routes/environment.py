@@ -2,17 +2,21 @@
 
 These endpoints allow clients to query the current state of the simulated environment,
 including all modality states.
+
+All endpoints require authentication via X-API-Key header.
 """
 
 from datetime import datetime
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 
+from ues.api.auth import Permissions, require_permission
 from ues.api.dependencies import SimulationEngineDep
 from ues.api.exceptions import ModalityNotFoundError
+from ues.models.api_key import APIKey
 
 # Create router for environment-related endpoints
 router = APIRouter(
@@ -91,6 +95,7 @@ class ModalityListResponse(BaseModel):
 @router.get("/state")
 async def get_environment_state(
     engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.ENVIRONMENT_READ))],
     compact: bool = Query(
         False,
         description="Return compact LLM-optimized snapshot instead of full state"
@@ -115,6 +120,9 @@ async def get_environment_state(
         - Default: Full EnvironmentStateResponse with all modality data
         - compact=true, format=json: CompactSnapshotResponse with LLM-optimized data
         - compact=true, format=text: Plain text representation for direct LLM injection
+    
+    Requires:
+        Permission: environment:read
     
     Examples:
         GET /environment/state
@@ -184,7 +192,10 @@ async def get_environment_state(
 
 
 @router.get("/modalities", response_model=ModalityListResponse)
-async def list_modalities(engine: SimulationEngineDep):
+async def list_modalities(
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.ENVIRONMENT_LIST))],
+):
     """Get a list of all available modalities in the environment.
     
     This is a lightweight endpoint that just lists what modalities are present
@@ -195,6 +206,9 @@ async def list_modalities(engine: SimulationEngineDep):
     
     Returns:
         List of modality names and the total count.
+    
+    Requires:
+        Permission: environment:list
     """
     env = engine.environment
     modality_names = list(env.modality_states.keys())
@@ -220,7 +234,10 @@ class ValidationResponse(BaseModel):
 
 
 @router.post("/validate", response_model=ValidationResponse)
-async def validate_environment(engine: SimulationEngineDep):
+async def validate_environment(
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.ENVIRONMENT_VALIDATE))],
+):
     """Validate the current environment state for consistency.
     
     Checks all modalities for internal consistency and cross-modality
@@ -231,6 +248,9 @@ async def validate_environment(engine: SimulationEngineDep):
     
     Returns:
         Validation results with any errors found.
+    
+    Requires:
+        Permission: environment:validate
     """
     errors = engine.validate()
     

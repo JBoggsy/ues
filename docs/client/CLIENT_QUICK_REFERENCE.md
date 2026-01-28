@@ -3,15 +3,15 @@
 ## Basic Usage
 
 ```python
-from client import UESClient, AsyncUESClient
+from ues.client import UESClient, AsyncUESClient
 
 # Synchronous (recommended for scripts)
-with UESClient(base_url="http://localhost:8000") as client:
+with UESClient(base_url="http://localhost:8000", api_key="your-api-key") as client:
     client.simulation.start()
     # ... work with client ...
 
 # Asynchronous
-async with AsyncUESClient(base_url="http://localhost:8000") as client:
+async with AsyncUESClient(base_url="http://localhost:8000", api_key="your-api-key") as client:
     await client.simulation.start()
 ```
 
@@ -20,6 +20,10 @@ async with AsyncUESClient(base_url="http://localhost:8000") as client:
 - `timeout`: Request timeout in seconds (default: `30.0`)
 - `retry_enabled`: Auto-retry on transient failures (default: `False`)
 - `max_retries`: Max retry attempts (default: `3`)
+- `api_key`: API key for authentication (optional but required for most endpoints)
+
+> **Note:** An admin API key is printed to the console when the server starts.
+> All API endpoints (except `/`, `/health`, `/docs`) require authentication.
 
 ---
 

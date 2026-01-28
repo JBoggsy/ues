@@ -12,12 +12,15 @@ Import endpoints accept JSON data and load it into the simulation:
 - Environment import with options for handling historic events
 - Event import with merge/replace options
 - Complete scenario import
+
+All endpoints require authentication via X-API-Key header.
 """
 
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
+from ues.api.auth import Permissions, require_permission
 from ues.api.dependencies import SimulationEngineDep
 from ues.api.models import (
     ExportedEnvironmentData,
@@ -36,6 +39,7 @@ from ues.api.models import (
     LoadScenarioResponse,
     ScenarioMetadataModel,
 )
+from ues.models.api_key import APIKey
 from ues.models.event import EventStatus
 from ues.models.scenario import Scenario
 
@@ -50,7 +54,10 @@ router = APIRouter(
 
 
 @router.get("/export/environment", response_model=ExportEnvironmentResponse)
-async def export_environment(engine: SimulationEngineDep) -> ExportEnvironmentResponse:
+async def export_environment(
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.SCENARIO_EXPORT))],
+) -> ExportEnvironmentResponse:
     """Export current environment state as JSON.
 
     Creates a serialized snapshot of the current environment state,
@@ -62,6 +69,9 @@ async def export_environment(engine: SimulationEngineDep) -> ExportEnvironmentRe
 
     Returns:
         ExportEnvironmentResponse with environment data and summary.
+
+    Requires:
+        Permission: scenario:export
 
     Example response:
         {
@@ -93,7 +103,10 @@ async def export_environment(engine: SimulationEngineDep) -> ExportEnvironmentRe
 
 
 @router.get("/export/events", response_model=ExportEventsResponse)
-async def export_events(engine: SimulationEngineDep) -> ExportEventsResponse:
+async def export_events(
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.SCENARIO_EXPORT))],
+) -> ExportEventsResponse:
     """Export current event queue as JSON.
 
     Creates a serialized snapshot of the current event queue,
@@ -105,6 +118,9 @@ async def export_events(engine: SimulationEngineDep) -> ExportEventsResponse:
 
     Returns:
         ExportEventsResponse with event queue data and statistics.
+
+    Requires:
+        Permission: scenario:export
 
     Example response:
         {
@@ -140,6 +156,7 @@ async def export_events(engine: SimulationEngineDep) -> ExportEventsResponse:
 @router.get("/export/full", response_model=ExportScenarioResponse)
 async def export_full_scenario(
     engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.SCENARIO_EXPORT))],
     author: str | None = None,
     description: str | None = None,
 ) -> ExportScenarioResponse:
@@ -160,6 +177,9 @@ async def export_full_scenario(
 
     Returns:
         ExportScenarioResponse with complete scenario.
+
+    Requires:
+        Permission: scenario:export
 
     Example response:
         {
@@ -205,6 +225,7 @@ async def export_full_scenario(
 async def import_environment(
     request: LoadEnvironmentRequest,
     engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.SCENARIO_IMPORT))],
 ) -> LoadEnvironmentResponse:
     """Import environment state from JSON.
 
@@ -225,6 +246,9 @@ async def import_environment(
 
     Returns:
         LoadEnvironmentResponse with load results and warnings.
+
+    Requires:
+        Permission: scenario:import
 
     Raises:
         HTTPException 409: If simulation is running.
@@ -267,6 +291,7 @@ async def import_environment(
 async def import_events(
     request: LoadEventsRequest,
     engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.SCENARIO_IMPORT))],
 ) -> LoadEventsResponse:
     """Import event queue from JSON.
 
@@ -284,6 +309,9 @@ async def import_events(
 
     Returns:
         LoadEventsResponse with load results.
+
+    Requires:
+        Permission: scenario:import
 
     Raises:
         HTTPException 409: If simulation is running.
@@ -324,6 +352,7 @@ async def import_events(
 async def import_full_scenario(
     request: LoadScenarioRequest,
     engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.SCENARIO_IMPORT))],
 ) -> LoadScenarioResponse:
     """Import complete scenario (environment + events).
 
@@ -338,6 +367,9 @@ async def import_full_scenario(
 
     Returns:
         LoadScenarioResponse with comprehensive load results.
+
+    Requires:
+        Permission: scenario:import
 
     Raises:
         HTTPException 409: If simulation is running.

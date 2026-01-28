@@ -3,23 +3,28 @@
 Provides endpoints for registering, managing, and testing webhooks.
 Webhooks receive HTTP POST callbacks when simulation events occur.
 
+All endpoints require authentication via X-API-Key header.
+
 Example usage:
     # Register a webhook via curl:
     curl -X POST http://localhost:8000/webhooks \\
         -H "Content-Type: application/json" \\
+        -H "X-API-Key: your_api_key" \\
         -d '{"url": "https://my-agent.example.com/callback", "events": ["email."]}'
     
     # Test a webhook:
-    curl -X POST http://localhost:8000/webhooks/wh_abc123def456/test
+    curl -X POST http://localhost:8000/webhooks/wh_abc123def456/test \\
+        -H "X-API-Key: your_api_key"
     
     # List all webhooks:
-    curl http://localhost:8000/webhooks
+    curl http://localhost:8000/webhooks -H "X-API-Key: your_api_key"
 """
 
-from typing import Optional
+from typing import Annotated, Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
+from ues.api.auth import Permissions, require_permission
 from ues.api.webhooks import (
     CreateWebhookRequest,
     DeliveryListResponse,
@@ -33,6 +38,7 @@ from ues.api.webhooks import (
     webhook_dispatcher,
     webhook_registry,
 )
+from ues.models.api_key import APIKey
 
 router = APIRouter(
     prefix="/webhooks",
@@ -65,7 +71,10 @@ def _webhook_to_response(webhook: WebhookRegistration) -> WebhookResponse:
 
 
 @router.post("", response_model=WebhookResponse, status_code=201)
-async def create_webhook(request: CreateWebhookRequest) -> WebhookResponse:
+async def create_webhook(
+    request: CreateWebhookRequest,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.WEBHOOKS_CREATE))],
+) -> WebhookResponse:
     """Register a new webhook callback URL.
     
     The webhook will receive POST requests when matching events occur.
@@ -77,6 +86,9 @@ async def create_webhook(request: CreateWebhookRequest) -> WebhookResponse:
     
     Returns:
         The created webhook registration with its ID.
+    
+    Requires:
+        Permission: webhooks:create
     
     Example:
         Request::
@@ -113,6 +125,7 @@ async def create_webhook(request: CreateWebhookRequest) -> WebhookResponse:
 
 @router.get("", response_model=WebhookListResponse)
 async def list_webhooks(
+    _: Annotated[APIKey, Depends(require_permission(Permissions.WEBHOOKS_LIST))],
     status: Optional[WebhookStatus] = Query(
         default=None, description="Filter by webhook status"
     ),
@@ -128,6 +141,9 @@ async def list_webhooks(
     
     Returns:
         List of webhook registrations.
+    
+    Requires:
+        Permission: webhooks:list
     """
     webhooks, total = await webhook_registry.list_all(
         status=status, limit=limit, offset=offset
@@ -141,7 +157,10 @@ async def list_webhooks(
 
 
 @router.get("/{webhook_id}", response_model=WebhookResponse)
-async def get_webhook(webhook_id: str) -> WebhookResponse:
+async def get_webhook(
+    webhook_id: str,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.WEBHOOKS_READ))],
+) -> WebhookResponse:
     """Get details of a specific webhook.
     
     Args:
@@ -152,6 +171,9 @@ async def get_webhook(webhook_id: str) -> WebhookResponse:
     
     Raises:
         HTTPException: 404 if webhook not found.
+    
+    Requires:
+        Permission: webhooks:read
     """
     webhook = await webhook_registry.get(webhook_id)
     if not webhook:
@@ -161,7 +183,9 @@ async def get_webhook(webhook_id: str) -> WebhookResponse:
 
 @router.patch("/{webhook_id}", response_model=WebhookResponse)
 async def update_webhook(
-    webhook_id: str, request: UpdateWebhookRequest
+    webhook_id: str,
+    request: UpdateWebhookRequest,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.WEBHOOKS_UPDATE))],
 ) -> WebhookResponse:
     """Update a webhook's configuration.
     
@@ -176,6 +200,9 @@ async def update_webhook(
     
     Raises:
         HTTPException: 404 if webhook not found.
+    
+    Requires:
+        Permission: webhooks:update
     """
     webhook = await webhook_registry.get(webhook_id)
     if not webhook:
@@ -202,7 +229,10 @@ async def update_webhook(
 
 
 @router.delete("/{webhook_id}", status_code=204)
-async def delete_webhook(webhook_id: str) -> None:
+async def delete_webhook(
+    webhook_id: str,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.WEBHOOKS_DELETE))],
+) -> None:
     """Unregister a webhook.
     
     Removes the webhook registration and stops all future deliveries.
@@ -212,6 +242,9 @@ async def delete_webhook(webhook_id: str) -> None:
     
     Raises:
         HTTPException: 404 if webhook not found.
+    
+    Requires:
+        Permission: webhooks:delete
     """
     deleted = await webhook_registry.delete(webhook_id)
     if not deleted:
@@ -222,7 +255,10 @@ async def delete_webhook(webhook_id: str) -> None:
 
 
 @router.post("/{webhook_id}/test", response_model=WebhookTestResponse)
-async def test_webhook(webhook_id: str) -> WebhookTestResponse:
+async def test_webhook(
+    webhook_id: str,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.WEBHOOKS_TEST))],
+) -> WebhookTestResponse:
     """Send a test event to verify webhook connectivity.
     
     Sends a synthetic "webhook.test" event to the registered URL
@@ -239,6 +275,9 @@ async def test_webhook(webhook_id: str) -> WebhookTestResponse:
     
     Raises:
         HTTPException: 404 if webhook not found.
+    
+    Requires:
+        Permission: webhooks:test
     """
     webhook = await webhook_registry.get(webhook_id)
     if not webhook:
@@ -259,6 +298,7 @@ async def test_webhook(webhook_id: str) -> WebhookTestResponse:
 @router.get("/{webhook_id}/deliveries", response_model=DeliveryListResponse)
 async def get_webhook_deliveries(
     webhook_id: str,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.WEBHOOKS_DELIVERIES))],
     limit: int = Query(default=50, ge=1, le=200, description="Maximum results"),
 ) -> DeliveryListResponse:
     """Get delivery history for a webhook.
@@ -275,6 +315,9 @@ async def get_webhook_deliveries(
     
     Raises:
         HTTPException: 404 if webhook not found.
+    
+    Requires:
+        Permission: webhooks:deliveries
     """
     webhook = await webhook_registry.get(webhook_id)
     if not webhook:
@@ -288,7 +331,10 @@ async def get_webhook_deliveries(
 
 
 @router.post("/{webhook_id}/pause", response_model=WebhookResponse)
-async def pause_webhook(webhook_id: str) -> WebhookResponse:
+async def pause_webhook(
+    webhook_id: str,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.WEBHOOKS_PAUSE))],
+) -> WebhookResponse:
     """Pause a webhook (stop receiving events).
     
     A paused webhook will not receive any event deliveries until resumed.
@@ -302,6 +348,9 @@ async def pause_webhook(webhook_id: str) -> WebhookResponse:
     
     Raises:
         HTTPException: 404 if webhook not found.
+    
+    Requires:
+        Permission: webhooks:pause
     """
     webhook = await webhook_registry.get(webhook_id)
     if not webhook:
@@ -312,7 +361,10 @@ async def pause_webhook(webhook_id: str) -> WebhookResponse:
 
 
 @router.post("/{webhook_id}/resume", response_model=WebhookResponse)
-async def resume_webhook(webhook_id: str) -> WebhookResponse:
+async def resume_webhook(
+    webhook_id: str,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.WEBHOOKS_RESUME))],
+) -> WebhookResponse:
     """Resume a paused webhook.
     
     Resumes event deliveries to a previously paused webhook.
@@ -327,6 +379,9 @@ async def resume_webhook(webhook_id: str) -> WebhookResponse:
     
     Raises:
         HTTPException: 404 if webhook not found.
+    
+    Requires:
+        Permission: webhooks:resume
     """
     webhook = await webhook_registry.get(webhook_id)
     if not webhook:

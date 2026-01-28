@@ -2,19 +2,23 @@
 
 Provides REST API endpoints for SMS and RCS messaging operations including sending,
 receiving, reading, reacting to messages, and managing group conversations.
+
+All endpoints require authentication via X-API-Key header.
 """
 
 from datetime import datetime
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
+from ues.api.auth import Permissions, require_permission
 from ues.api.broadcast import broadcast_event
 from ues.api.dependencies import SimulationEngineDep
 from ues.api.models import ModalityActionResponse
 from ues.api.utils import create_immediate_event
 from ues.api.websocket import WSEventType
+from ues.models.api_key import APIKey
 from ues.models.modalities.sms_input import SMSInput
 from ues.models.modalities.sms_state import (
     GroupParticipant,
@@ -313,6 +317,7 @@ class SMSQueryResponse(BaseModel):
 @router.get("/state")
 async def get_sms_state(
     engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.SMS_STATE))],
     compact: bool = False,
 ) -> SMSStateResponse | SMSCompactStateResponse:
     """Get current SMS state.
@@ -328,6 +333,9 @@ async def get_sms_state(
     Returns:
         SMSStateResponse: Full state with all messages (default).
         SMSCompactStateResponse: Compact state with conversation metadata (if compact=True).
+    
+    Requires:
+        Permission: sms:state
     """
     sms_state = engine.environment.get_state("sms")
 
@@ -358,7 +366,9 @@ async def get_sms_state(
 
 @router.post("/query", response_model=SMSQueryResponse)
 async def query_sms(
-    request: SMSQueryRequest, engine: SimulationEngineDep
+    request: SMSQueryRequest,
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.SMS_QUERY))],
 ) -> SMSQueryResponse:
     """Query SMS messages with filters.
 
@@ -371,6 +381,9 @@ async def query_sms(
 
     Returns:
         Filtered message results with counts.
+    
+    Requires:
+        Permission: sms:query
     """
     sms_state = engine.environment.get_state("sms")
 
@@ -412,7 +425,9 @@ async def query_sms(
 
 @router.post("/send", response_model=ModalityActionResponse)
 async def send_sms(
-    request: SendSMSRequest, engine: SimulationEngineDep
+    request: SendSMSRequest,
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.SMS_SEND))],
 ) -> ModalityActionResponse:
     """Send a new SMS/RCS message.
 
@@ -425,6 +440,9 @@ async def send_sms(
 
     Returns:
         Action response with event details.
+    
+    Requires:
+        Permission: sms:send
     """
     try:
         # Build message data
@@ -481,7 +499,9 @@ async def send_sms(
 
 @router.post("/receive", response_model=ModalityActionResponse)
 async def receive_sms(
-    request: ReceiveSMSRequest, engine: SimulationEngineDep
+    request: ReceiveSMSRequest,
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.SMS_RECEIVE))],
 ) -> ModalityActionResponse:
     """Simulate receiving an SMS/RCS message.
 
@@ -494,6 +514,9 @@ async def receive_sms(
 
     Returns:
         Action response with event details.
+    
+    Requires:
+        Permission: sms:receive
     """
     try:
         # Build message data
@@ -552,7 +575,9 @@ async def receive_sms(
 
 @router.post("/read", response_model=ModalityActionResponse)
 async def mark_sms_read(
-    request: SMSMarkRequest, engine: SimulationEngineDep
+    request: SMSMarkRequest,
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.SMS_READ))],
 ) -> ModalityActionResponse:
     """Mark messages as read.
 
@@ -564,6 +589,9 @@ async def mark_sms_read(
 
     Returns:
         Action response with event details.
+    
+    Requires:
+        Permission: sms:read
     """
     try:
         sms_state = engine.environment.get_state("sms")
@@ -617,7 +645,9 @@ async def mark_sms_read(
 
 @router.post("/unread", response_model=ModalityActionResponse)
 async def mark_sms_unread(
-    request: SMSMarkRequest, engine: SimulationEngineDep
+    request: SMSMarkRequest,
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.SMS_UNREAD))],
 ) -> ModalityActionResponse:
     """Mark messages as unread.
 
@@ -629,6 +659,9 @@ async def mark_sms_unread(
 
     Returns:
         Action response with event details.
+    
+    Requires:
+        Permission: sms:unread
     """
     try:
         sms_state = engine.environment.get_state("sms")
@@ -681,7 +714,9 @@ async def mark_sms_unread(
 
 @router.post("/delete", response_model=ModalityActionResponse)
 async def delete_sms(
-    request: SMSDeleteRequest, engine: SimulationEngineDep
+    request: SMSDeleteRequest,
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.SMS_DELETE))],
 ) -> ModalityActionResponse:
     """Delete messages.
 
@@ -693,6 +728,9 @@ async def delete_sms(
 
     Returns:
         Action response with event details.
+    
+    Requires:
+        Permission: sms:delete
     """
     try:
         sms_state = engine.environment.get_state("sms")
@@ -753,7 +791,9 @@ async def delete_sms(
 
 @router.post("/react", response_model=ModalityActionResponse)
 async def react_to_sms(
-    request: SMSReactRequest, engine: SimulationEngineDep
+    request: SMSReactRequest,
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.SMS_REACT))],
 ) -> ModalityActionResponse:
     """Add a reaction to a message.
 
@@ -765,6 +805,9 @@ async def react_to_sms(
 
     Returns:
         Action response with event details.
+    
+    Requires:
+        Permission: sms:react
     """
     try:
         # Convert request to SMSInput
@@ -801,7 +844,9 @@ async def react_to_sms(
 
 @router.post("/conversation", response_model=ModalityActionResponse)
 async def update_conversation(
-    request: SMSConversationUpdateRequest, engine: SimulationEngineDep
+    request: SMSConversationUpdateRequest,
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.SMS_CONVERSATION))],
 ) -> ModalityActionResponse:
     """Update conversation settings.
 
@@ -814,6 +859,9 @@ async def update_conversation(
 
     Returns:
         Action response with event details.
+    
+    Requires:
+        Permission: sms:conversation
     """
     try:
         # Build conversation_update_data from request

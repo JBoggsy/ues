@@ -2,19 +2,23 @@
 
 Provides REST API access to user location state and operations.
 Supports updating location coordinates and querying location history.
+
+All endpoints require authentication via X-API-Key header.
 """
 
 from datetime import datetime
-from typing import Any, Optional
+from typing import Annotated, Any, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, ValidationError
 
+from ues.api.auth import Permissions, require_permission
 from ues.api.broadcast import broadcast_event
 from ues.api.dependencies import SimulationEngineDep
 from ues.api.models import ModalityActionResponse
 from ues.api.utils import create_immediate_event
 from ues.api.websocket import WSEventType
+from ues.models.api_key import APIKey
 from ues.models.modalities.location_input import LocationInput
 from ues.models.modalities.location_state import LocationState
 
@@ -160,6 +164,7 @@ class LocationQueryResponse(BaseModel):
 @router.get("/state")
 async def get_location_state(
     engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.LOCATION_STATE))],
     compact: bool = False,
 ) -> LocationStateResponse | LocationCompactStateResponse:
     """Get current location state.
@@ -175,6 +180,9 @@ async def get_location_state(
     Returns:
         LocationStateResponse: Full state including history (default).
         LocationCompactStateResponse: Compact state without history (if compact=True).
+    
+    Requires:
+        Permission: location:state
     """
     location_state = engine.environment.get_state("location")
 
@@ -213,7 +221,9 @@ async def get_location_state(
 
 @router.post("/query", response_model=LocationQueryResponse)
 async def query_location_history(
-    request: LocationQueryRequest, engine: SimulationEngineDep
+    request: LocationQueryRequest,
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.LOCATION_QUERY))],
 ):
     """Query location history with filters.
 
@@ -226,6 +236,9 @@ async def query_location_history(
 
     Returns:
         LocationQueryResponse: Matching location entries with pagination info.
+    
+    Requires:
+        Permission: location:query
     """
     location_state = engine.environment.get_state("location")
 
@@ -242,7 +255,11 @@ async def query_location_history(
 
 
 @router.post("/update", response_model=ModalityActionResponse)
-async def update_location(request: UpdateLocationRequest, engine: SimulationEngineDep):
+async def update_location(
+    request: UpdateLocationRequest,
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.LOCATION_UPDATE))],
+):
     """Update the user's current location.
 
     Creates an immediate event that updates the user's location with the
@@ -258,6 +275,9 @@ async def update_location(request: UpdateLocationRequest, engine: SimulationEngi
 
     Raises:
         HTTPException: If the location update fails validation or execution.
+    
+    Requires:
+        Permission: location:update
     """
     try:
         # Convert request to LocationInput

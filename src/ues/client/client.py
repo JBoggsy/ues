@@ -101,6 +101,7 @@ class UESClient:
         retry_enabled: bool = False,
         max_retries: int = 3,
         transport: Any = None,
+        api_key: str | None = None,
     ) -> None:
         """Initialize the UES client.
         
@@ -113,11 +114,17 @@ class UESClient:
             max_retries: Maximum number of retry attempts when retry is enabled
                 (default: 3).
             transport: Custom HTTP transport (e.g., ASGITransport for testing).
+            api_key: API key for authentication. If provided, will be sent as
+                X-API-Key header with every request.
         """
         self._base_url = base_url
         self._timeout = timeout
         self._retry_enabled = retry_enabled
         self._max_retries = max_retries
+        self._api_key = api_key
+        
+        # Build headers dict if api_key provided
+        headers = {"X-API-Key": api_key} if api_key else None
         
         # Create the shared HTTP client
         self._http = HTTPClient(
@@ -126,6 +133,7 @@ class UESClient:
             retry_enabled=retry_enabled,
             max_retries=max_retries,
             transport=transport,
+            headers=headers,
         )
         
         # Initialize sub-clients (lazy initialization via properties)
@@ -440,6 +448,7 @@ class AsyncUESClient:
         retry_enabled: bool = False,
         max_retries: int = 3,
         transport: Any = None,
+        api_key: str | None = None,
     ) -> None:
         """Initialize the async UES client.
         
@@ -452,11 +461,17 @@ class AsyncUESClient:
             max_retries: Maximum number of retry attempts when retry is enabled
                 (default: 3).
             transport: Custom HTTP transport (e.g., ASGITransport for testing).
+            api_key: API key for authentication. If provided, will be sent as
+                X-API-Key header with every request.
         """
         self._base_url = base_url
         self._timeout = timeout
         self._retry_enabled = retry_enabled
         self._max_retries = max_retries
+        self._api_key = api_key
+        
+        # Build headers dict if api_key provided
+        headers = {"X-API-Key": api_key} if api_key else None
         
         # Create the shared async HTTP client
         self._http = AsyncHTTPClient(
@@ -465,6 +480,7 @@ class AsyncUESClient:
             retry_enabled=retry_enabled,
             max_retries=max_retries,
             transport=transport,
+            headers=headers,
         )
         
         # Initialize sub-clients (lazy initialization via properties)

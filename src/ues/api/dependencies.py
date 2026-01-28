@@ -162,3 +162,13 @@ def shutdown_simulation_engine():
 # Type alias for dependency injection
 # This makes the type annotation cleaner in route handlers
 SimulationEngineDep = Annotated[SimulationEngine, Depends(get_simulation_engine)]
+
+
+# Re-export auth dependencies for convenience
+# This allows route modules to import from dependencies instead of auth
+from ues.api.auth import (
+    CurrentKeyDep,
+    get_current_key,
+    require_permission,
+    Permissions,
+)

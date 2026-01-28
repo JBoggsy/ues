@@ -3,19 +3,23 @@
 Provides REST API endpoints for chat conversation operations including sending
 messages from user or assistant, querying conversation history, and managing
 conversation state.
+
+All endpoints require authentication via X-API-Key header.
 """
 
 from datetime import datetime
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
+from ues.api.auth import Permissions, require_permission
 from ues.api.broadcast import broadcast_event
 from ues.api.dependencies import SimulationEngineDep
 from ues.api.models import ModalityActionResponse
 from ues.api.utils import create_immediate_event
 from ues.api.websocket import WSEventType
+from ues.models.api_key import APIKey
 from ues.models.modalities.chat_input import ChatInput
 from ues.models.modalities.chat_state import ChatMessage, ConversationMetadata, ChatState
 
@@ -195,6 +199,7 @@ class ChatQueryResponse(BaseModel):
 @router.get("/state")
 async def get_chat_state(
     engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.CHAT_STATE))],
     compact: bool = False,
 ) -> ChatStateResponse | ChatCompactStateResponse:
     """Get current chat state.
@@ -209,6 +214,9 @@ async def get_chat_state(
     Returns:
         ChatStateResponse: Full state with all messages (default).
         ChatCompactStateResponse: Compact state with conversation metadata (if compact=True).
+    
+    Requires:
+        Permission: chat:state
     """
     chat_state = engine.environment.get_state("chat")
 
@@ -235,7 +243,9 @@ async def get_chat_state(
 
 @router.post("/query", response_model=ChatQueryResponse)
 async def query_chat(
-    request: ChatQueryRequest, engine: SimulationEngineDep
+    request: ChatQueryRequest,
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.CHAT_QUERY))],
 ) -> ChatQueryResponse:
     """Query chat messages with filters.
 
@@ -248,6 +258,9 @@ async def query_chat(
 
     Returns:
         Filtered message results with counts.
+    
+    Requires:
+        Permission: chat:query
     """
     chat_state = engine.environment.get_state("chat")
 
@@ -306,7 +319,9 @@ async def query_chat(
 
 @router.post("/send", response_model=ModalityActionResponse)
 async def send_chat_message(
-    request: SendChatMessageRequest, engine: SimulationEngineDep
+    request: SendChatMessageRequest,
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.CHAT_SEND))],
 ) -> ModalityActionResponse:
     """Send a chat message.
 
@@ -319,6 +334,9 @@ async def send_chat_message(
 
     Returns:
         Action response with event details.
+    
+    Requires:
+        Permission: chat:send
     """
     try:
         # Convert request to ChatInput
@@ -366,7 +384,9 @@ async def send_chat_message(
 
 @router.post("/delete", response_model=ModalityActionResponse)
 async def delete_chat_message(
-    request: DeleteChatMessageRequest, engine: SimulationEngineDep
+    request: DeleteChatMessageRequest,
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.CHAT_DELETE))],
 ) -> ModalityActionResponse:
     """Delete a chat message.
 
@@ -378,6 +398,9 @@ async def delete_chat_message(
 
     Returns:
         Action response with event details.
+    
+    Requires:
+        Permission: chat:delete
     """
     try:
         # Convert request to ChatInput
@@ -411,7 +434,9 @@ async def delete_chat_message(
 
 @router.post("/clear", response_model=ModalityActionResponse)
 async def clear_conversation(
-    request: ClearChatRequest, engine: SimulationEngineDep
+    request: ClearChatRequest,
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.CHAT_CLEAR))],
 ) -> ModalityActionResponse:
     """Clear conversation history.
 
@@ -423,6 +448,9 @@ async def clear_conversation(
 
     Returns:
         Action response with event details.
+    
+    Requires:
+        Permission: chat:clear
     """
     try:
         # Convert request to ChatInput

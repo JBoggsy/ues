@@ -14,12 +14,14 @@ from httpx_ws.transport import ASGIWebSocketTransport
 
 from ues.api.dependencies import get_simulation_engine
 from ues.main import app
+from tests.api.websocket.conftest import get_auth_headers
 
 
 @asynccontextmanager
 async def ws_with_http(fresh_engine):
     """Context manager providing both WebSocket and HTTP clients for integration testing."""
     app.dependency_overrides[get_simulation_engine] = lambda: fresh_engine
+    headers = get_auth_headers()
     
     try:
         ws_transport = ASGIWebSocketTransport(app=app)
@@ -27,7 +29,11 @@ async def ws_with_http(fresh_engine):
         
         async with AsyncClient(transport=ws_transport) as ws_http_client:
             async with aconnect_ws("http://test/ws", ws_http_client) as ws:
-                async with AsyncClient(transport=http_transport, base_url="http://test") as http:
+                async with AsyncClient(
+                    transport=http_transport,
+                    base_url="http://test",
+                    headers=headers,
+                ) as http:
                     # Start simulation first
                     response = await http.post("/simulation/start", json={"auto_advance": False})
                     assert response.status_code == 200
@@ -54,6 +60,7 @@ class TestSimulationEventBroadcasts:
     async def test_simulation_started_broadcast(self, fresh_engine):
         """Test that starting simulation broadcasts simulation.started event."""
         app.dependency_overrides[get_simulation_engine] = lambda: fresh_engine
+        headers = get_auth_headers()
         
         try:
             ws_transport = ASGIWebSocketTransport(app=app)
@@ -61,7 +68,11 @@ class TestSimulationEventBroadcasts:
             
             async with AsyncClient(transport=ws_transport) as ws_http_client:
                 async with aconnect_ws("http://test/ws", ws_http_client) as ws:
-                    async with AsyncClient(transport=http_transport, base_url="http://test") as http:
+                    async with AsyncClient(
+                        transport=http_transport,
+                        base_url="http://test",
+                        headers=headers,
+                    ) as http:
                         # Start simulation
                         response = await http.post("/simulation/start", json={"auto_advance": False})
                         assert response.status_code == 200
@@ -213,6 +224,7 @@ class TestMultipleClientsReceiveBroadcast:
     async def test_multiple_clients_receive_same_event(self, fresh_engine):
         """Test that multiple WebSocket clients all receive the same broadcast."""
         app.dependency_overrides[get_simulation_engine] = lambda: fresh_engine
+        headers = get_auth_headers()
         
         try:
             ws_transport1 = ASGIWebSocketTransport(app=app)
@@ -223,7 +235,11 @@ class TestMultipleClientsReceiveBroadcast:
                 async with aconnect_ws("http://test/ws", ws_client1) as ws1:
                     async with AsyncClient(transport=ws_transport2) as ws_client2:
                         async with aconnect_ws("http://test/ws", ws_client2) as ws2:
-                            async with AsyncClient(transport=http_transport, base_url="http://test") as http:
+                            async with AsyncClient(
+                                transport=http_transport,
+                                base_url="http://test",
+                                headers=headers,
+                            ) as http:
                                 # Start simulation
                                 response = await http.post("/simulation/start", json={"auto_advance": False})
                                 assert response.status_code == 200

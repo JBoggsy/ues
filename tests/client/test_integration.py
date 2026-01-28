@@ -17,6 +17,7 @@ import httpx
 import pytest
 from httpx import ASGITransport
 
+from ues.api.auth import initialize_api_key_registry, shutdown_api_key_registry
 from ues.api.dependencies import initialize_simulation_engine, shutdown_simulation_engine
 from ues.client import (
     AsyncUESClient,
@@ -29,6 +30,10 @@ from ues.client._http import HTTPClient
 from ues.main import app
 
 
+# Module-level variable to store the admin API key secret
+_admin_api_key: str | None = None
+
+
 # =============================================================================
 # Fixtures
 # =============================================================================
@@ -36,15 +41,19 @@ from ues.main import app
 
 @pytest.fixture(autouse=True)
 def setup_simulation_engine():
-    """Initialize the simulation engine before each test.
+    """Initialize the simulation engine and API key registry before each test.
     
     This fixture runs automatically for all tests in this module.
-    It initializes the simulation engine before each test and shuts it
-    down afterwards to ensure clean state.
+    It initializes the simulation engine and API key registry before each test
+    and shuts them down afterwards to ensure clean state.
     """
+    global _admin_api_key
     initialize_simulation_engine()
+    _admin_api_key, _ = initialize_api_key_registry()
     yield
+    shutdown_api_key_registry()
     shutdown_simulation_engine()
+    _admin_api_key = None
 
 
 @pytest.fixture
@@ -77,7 +86,11 @@ def sync_client():
             )
     
     transport = SyncTestTransport()
-    with UESClient(base_url="http://test", transport=transport) as client:
+    with UESClient(
+        base_url="http://test",
+        transport=transport,
+        api_key=_admin_api_key,
+    ) as client:
         yield client
         # Clean up after test
         try:
@@ -94,7 +107,11 @@ async def async_client():
     without needing an external server process.
     """
     transport = ASGITransport(app=app)
-    async with AsyncUESClient(base_url="http://test", transport=transport) as client:
+    async with AsyncUESClient(
+        base_url="http://test",
+        transport=transport,
+        api_key=_admin_api_key,
+    ) as client:
         yield client
         # Clean up after test
         try:

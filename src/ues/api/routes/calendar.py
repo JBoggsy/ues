@@ -2,19 +2,23 @@
 
 Provides REST API for managing calendar events - creating events, updating,
 deleting, and querying calendar data.
+
+All endpoints require authentication via X-API-Key header.
 """
 
 from datetime import datetime
-from typing import Any, Optional
+from typing import Annotated, Any, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, ValidationError
 
+from ues.api.auth import Permissions, require_permission
 from ues.api.broadcast import broadcast_event
 from ues.api.dependencies import SimulationEngineDep
 from ues.api.models import ModalityActionResponse
 from ues.api.utils import create_immediate_event
 from ues.api.websocket import WSEventType
+from ues.models.api_key import APIKey
 from ues.models.modalities.calendar_input import (
     Attendee,
     AttendeeResponse,
@@ -426,6 +430,7 @@ class CalendarQueryResponse(BaseModel):
 @router.get("/state")
 async def get_calendar_state(
     engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.CALENDAR_STATE))],
     compact: bool = False,
 ) -> CalendarStateResponse | CalendarCompactStateResponse:
     """Get current calendar state.
@@ -443,6 +448,9 @@ async def get_calendar_state(
 
     Raises:
         HTTPException: If calendar state not found.
+    
+    Requires:
+        Permission: calendar:state
     """
     try:
         calendar_state = engine.environment.get_state("calendar")
@@ -476,7 +484,11 @@ async def get_calendar_state(
 
 
 @router.post("/query", response_model=CalendarQueryResponse)
-async def query_calendar(request: CalendarQueryRequest, engine: SimulationEngineDep):
+async def query_calendar(
+    request: CalendarQueryRequest,
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.CALENDAR_QUERY))],
+):
     """Query calendar events with filters.
 
     Allows filtering and searching calendar events by various criteria including
@@ -491,6 +503,9 @@ async def query_calendar(request: CalendarQueryRequest, engine: SimulationEngine
 
     Raises:
         HTTPException: If query fails.
+    
+    Requires:
+        Permission: calendar:query
     """
     try:
         calendar_state = engine.environment.get_state("calendar")
@@ -528,7 +543,9 @@ async def query_calendar(request: CalendarQueryRequest, engine: SimulationEngine
 
 @router.post("/create", response_model=ModalityActionResponse)
 async def create_calendar_event(
-    request: CreateCalendarEventRequest, engine: SimulationEngineDep
+    request: CreateCalendarEventRequest,
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.CALENDAR_CREATE))],
 ):
     """Create a new calendar event.
 
@@ -543,6 +560,9 @@ async def create_calendar_event(
 
     Raises:
         HTTPException: If event creation fails.
+    
+    Requires:
+        Permission: calendar:create
     """
     try:
         current_time = engine.environment.time_state.current_time
@@ -611,7 +631,9 @@ async def create_calendar_event(
 
 @router.post("/update", response_model=ModalityActionResponse)
 async def update_calendar_event(
-    request: UpdateCalendarEventRequest, engine: SimulationEngineDep
+    request: UpdateCalendarEventRequest,
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.CALENDAR_UPDATE))],
 ):
     """Update an existing calendar event.
 
@@ -628,6 +650,9 @@ async def update_calendar_event(
 
     Raises:
         HTTPException: If update fails.
+    
+    Requires:
+        Permission: calendar:update
     """
     try:
         current_time = engine.environment.time_state.current_time
@@ -695,7 +720,9 @@ async def update_calendar_event(
 
 @router.post("/delete", response_model=ModalityActionResponse)
 async def delete_calendar_event(
-    request: DeleteCalendarEventRequest, engine: SimulationEngineDep
+    request: DeleteCalendarEventRequest,
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.CALENDAR_DELETE))],
 ):
     """Delete a calendar event.
 
@@ -712,6 +739,9 @@ async def delete_calendar_event(
 
     Raises:
         HTTPException: If deletion fails.
+    
+    Requires:
+        Permission: calendar:delete
     """
     try:
         current_time = engine.environment.time_state.current_time
@@ -765,7 +795,10 @@ async def delete_calendar_event(
 
 
 @router.get("/calendars", response_model=ListCalendarsResponse)
-async def list_calendars(engine: SimulationEngineDep):
+async def list_calendars(
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.CALENDAR_CALENDARS_LIST))],
+):
     """List all calendar containers.
 
     Returns a list of all calendars with their metadata.
@@ -778,6 +811,9 @@ async def list_calendars(engine: SimulationEngineDep):
 
     Raises:
         HTTPException: If operation fails.
+    
+    Requires:
+        Permission: calendar:calendars:list
     """
     try:
         calendar_state = engine.environment.get_state("calendar")
@@ -813,7 +849,9 @@ async def list_calendars(engine: SimulationEngineDep):
 
 @router.post("/calendars/create", response_model=CalendarActionResponse)
 async def create_calendar(
-    request: CreateCalendarRequest, engine: SimulationEngineDep
+    request: CreateCalendarRequest,
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.CALENDAR_CALENDARS_CREATE))],
 ):
     """Create a new calendar container.
 
@@ -829,6 +867,9 @@ async def create_calendar(
 
     Raises:
         HTTPException: If calendar creation fails.
+    
+    Requires:
+        Permission: calendar:calendars:create
     """
     try:
         calendar_state = engine.environment.get_state("calendar")
@@ -878,7 +919,9 @@ async def create_calendar(
 
 @router.post("/calendars/update", response_model=CalendarActionResponse)
 async def update_calendar(
-    request: UpdateCalendarRequest, engine: SimulationEngineDep
+    request: UpdateCalendarRequest,
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.CALENDAR_CALENDARS_UPDATE))],
 ):
     """Update an existing calendar container.
 
@@ -893,6 +936,9 @@ async def update_calendar(
 
     Raises:
         HTTPException: If calendar update fails.
+    
+    Requires:
+        Permission: calendar:calendars:update
     """
     try:
         calendar_state = engine.environment.get_state("calendar")
@@ -932,7 +978,9 @@ async def update_calendar(
 
 @router.post("/calendars/delete", response_model=CalendarActionResponse)
 async def delete_calendar(
-    request: DeleteCalendarRequest, engine: SimulationEngineDep
+    request: DeleteCalendarRequest,
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.CALENDAR_CALENDARS_DELETE))],
 ):
     """Delete a calendar container and all its events.
 
@@ -948,6 +996,9 @@ async def delete_calendar(
 
     Raises:
         HTTPException: If calendar deletion fails.
+    
+    Requires:
+        Permission: calendar:calendars:delete
     """
     try:
         calendar_state = engine.environment.get_state("calendar")
@@ -986,7 +1037,9 @@ async def delete_calendar(
 
 @router.post("/calendars/set-default", response_model=CalendarActionResponse)
 async def set_default_calendar(
-    request: SetDefaultCalendarRequest, engine: SimulationEngineDep
+    request: SetDefaultCalendarRequest,
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.CALENDAR_CALENDARS_DEFAULT))],
 ):
     """Set a calendar as the default for new events.
 
@@ -1002,6 +1055,9 @@ async def set_default_calendar(
 
     Raises:
         HTTPException: If operation fails.
+    
+    Requires:
+        Permission: calendar:calendars:default
     """
     try:
         calendar_state = engine.environment.get_state("calendar")

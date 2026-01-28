@@ -2,6 +2,32 @@
 
 The User Environment Simulator exposes a comprehensive RESTful API for controlling simulation time, managing events, querying environment state, and interacting with individual modalities.
 
+## Authentication
+
+**All API endpoints require authentication** via API key (except `/`, `/health`, `/docs`, `/redoc`, `/openapi.json`).
+
+### Quick Start
+
+1. **Get your admin key** - When you start the server, an admin API key is printed to the console
+2. **Include the key in requests** - Add the `X-API-Key` header to all requests:
+
+```bash
+curl -H "X-API-Key: ues_your_key_here..." http://localhost:8000/simulation/status
+```
+
+3. **Use the Python client** - Pass the key when creating the client:
+
+```python
+from ues.client import UESClient
+
+with UESClient(api_key="ues_your_key_here...") as client:
+    client.simulation.start()
+```
+
+For complete authentication documentation including key management, permissions, and access logging, see **[AUTHENTICATION.md](AUTHENTICATION.md)**.
+
+---
+
 ## API Organization
 
 The API is organized into six main categories:
@@ -755,7 +781,7 @@ The Swagger UI at `http://localhost:8000/docs` provides:
 - Request/response schemas
 - Interactive testing (try it out!)
 - Model definitions
-- Authentication (when implemented)
+- Built-in authentication support (enter your API key via the Authorize button)
 
 This is the recommended way to explore and test the API during development.
 
@@ -763,6 +789,7 @@ This is the recommended way to explore and test the API during development.
 
 ## Additional Resources
 
+- **Authentication**: See `docs/api/AUTHENTICATION.md` for API key management and permissions
 - **Architecture**: See `docs/SIMULATION_ENGINE.md` for orchestration design
 - **Modality Models**: See `docs/MODALITY_MODELS.md` for data structure details
 - **Time Management**: See `docs/SIMULATOR_TIME.md` for time control details

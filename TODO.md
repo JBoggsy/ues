@@ -33,12 +33,12 @@ finally:
 
 ## Test Suite Summary
 
-**Total Tests: 3,325 passing** | Run: `uv run pytest`
+**Total Tests: 3,540 passing** | Run: `uv run pytest`
 
 | Category | Tests | Location |
 |----------|-------|----------|
-| Model Tests | 1,424 | `tests/models/` |
-| API Tests | 1,279 | `tests/api/` |
+| Model Tests | 1,502 | `tests/models/` |
+| API Tests | 1,388 | `tests/api/` |
 | Client Tests | 514 | `tests/client/` |
 | Agent Testing | 108 | `tests/agent_testing/` |
 
@@ -185,6 +185,72 @@ async def main():
 - [x] ~~Update `docs/REST_API.md` - Document removed `/environment/modalities/{modality}` endpoint and `compact` param~~
 - [ ] Tutorial: Building an agent response loop
 - [ ] Examples collection (copy-paste snippets)
+
+---
+
+## ✅ Completed: API Access Control
+
+Key-based API authentication and authorization system. See [docs/api/API_ACCESS_CONTROL.md](docs/api/API_ACCESS_CONTROL.md) for full design, [docs/api/AUTHENTICATION.md](docs/api/AUTHENTICATION.md) for user documentation, and [docs/api/MIGRATION_AUTH.md](docs/api/MIGRATION_AUTH.md) for migration guide.
+
+### Phase 1: Core Infrastructure ✅
+- [x] `APIKey` model with permission checking and wildcard support (`src/ues/models/api_key.py`)
+- [x] `APIKeyRegistry` for in-memory key storage (`src/ues/api/auth.py`)
+- [x] `get_current_key()` and `require_permission()` FastAPI dependencies
+- [x] `Permissions` constants class for all ~90 endpoints
+- [x] `CurrentKeyDep` type alias in `dependencies.py`
+- [x] Unit tests for APIKey model (29 tests)
+- [x] Unit tests for auth module (38 tests)
+
+### Phase 2: Admin Key & Key Management Routes ✅
+- [x] Generate admin key in `lifespan()` startup (`src/ues/main.py`)
+- [x] `POST /keys` - Create new key (requires `keys:create`)
+- [x] `GET /keys` - List all keys (requires `keys:list`)
+- [x] `GET /keys/{key_id}` - Get key details (requires `keys:read`)
+- [x] `DELETE /keys/{key_id}` - Revoke key (requires `keys:revoke`)
+- [x] Request/response models for key management (`src/ues/api/routes/keys.py`)
+- [x] Integration tests for key management routes (44 tests in `tests/api/test_keys.py`)
+
+### Phase 3: Apply Auth to All Routes ✅
+- [x] Add permission dependencies to all 86+ existing endpoints
+- [x] Time routes (7 endpoints)
+- [x] Environment routes (3 endpoints)
+- [x] Events routes (8 endpoints)
+- [x] Simulation routes (10 endpoints)
+- [x] Scenario routes (6 endpoints)
+- [x] Webhooks routes (9 endpoints)
+- [x] Email routes (13 endpoints)
+- [x] SMS routes (9 endpoints)
+- [x] Chat routes (5 endpoints)
+- [x] Calendar routes (10 endpoints)
+- [x] Location routes (3 endpoints)
+- [x] Weather routes (3 endpoints)
+- [x] Update test fixtures with API key authentication (conftest.py updates)
+
+### Phase 4: Access Logging ✅
+- [x] `AccessLogEntry` model and `AccessLog` class (`src/ues/models/access_log.py`)
+- [x] `AccessLoggingMiddleware` to log all requests (`src/ues/api/middleware/access_logging.py`)
+- [x] `GET /access-logs` - Query logs (requires `logs:read`)
+- [x] `GET /access-logs/stats` - Get aggregate statistics (requires `logs:read`)
+- [x] `POST /access-logs/clear` - Clear logs (requires `logs:clear`)
+- [x] Unit tests for models (49 tests in `tests/models/test_access_log.py`)
+- [x] Integration tests for routes (27 tests in `tests/api/test_access_logs.py`)
+
+### Phase 5: Event Attribution ✅
+- [x] Auto-set `agent_id` from API key on event creation
+- [x] Add `created_by_key` to event metadata
+- [x] Applied to `POST /events`, `POST /events/immediate`, `POST /events/batch`
+- [x] Integration tests (20 tests in `tests/api/events/test_event_attribution.py`)
+
+### Phase 6: Documentation & Client Updates ✅
+- [x] Create `docs/api/AUTHENTICATION.md`
+- [x] Update Python client to support `api_key` parameter (`UESClient` and `AsyncUESClient`)
+- [x] Add `headers` parameter to `HTTPClient` and `AsyncHTTPClient`
+- [x] Update `docs/api/REST_API.md` with authentication section
+
+### Phase 7: Testing & Migration ✅
+- [x] Integration tests for auth flow
+- [x] Update existing tests with API key fixtures
+- [x] Migration guide for breaking changes (`docs/api/MIGRATION_AUTH.md`)
 
 ---
 

@@ -1,18 +1,22 @@
 """Time control endpoints for the simulator.
 
 These endpoints allow clients to query and manipulate the simulator's time state.
+
+All endpoints require authentication via X-API-Key header.
 """
 
 from datetime import datetime
 from datetime import timedelta
-from typing import Optional
+from typing import Annotated, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
+from ues.api.auth import Permissions, require_permission
 from ues.api.broadcast import broadcast_event
 from ues.api.dependencies import SimulationEngineDep
 from ues.api.websocket import WSEventType
+from ues.models.api_key import APIKey
 from ues.models.hold import HoldError
 from ues.models.simulation import SimulationEngine
 
@@ -111,7 +115,10 @@ class SetTimeRequest(BaseModel):
 
 
 @router.get("", response_model=TimeStateResponse)
-async def get_time_state(engine: SimulationEngineDep):
+async def get_time_state(
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.TIME_READ))],
+):
     """Get the current simulator time state.
     
     This endpoint returns information about the simulator's current time,
@@ -122,6 +129,9 @@ async def get_time_state(engine: SimulationEngineDep):
     
     Returns:
         Current time state including time, scale, pause status, auto-advance, and mode.
+    
+    Requires:
+        Permission: time:read
     """
     time_state = engine.environment.time_state
     
@@ -143,7 +153,11 @@ async def get_time_state(engine: SimulationEngineDep):
 
 
 @router.post("/advance", response_model=AdvanceTimeResponse)
-async def advance_time(request: AdvanceTimeRequest, engine: SimulationEngineDep):
+async def advance_time(
+    request: AdvanceTimeRequest,
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.TIME_ADVANCE))],
+):
     """Advance simulator time by a specified duration.
     
     This moves the simulator forward by the specified number of seconds,
@@ -155,6 +169,9 @@ async def advance_time(request: AdvanceTimeRequest, engine: SimulationEngineDep)
     
     Returns:
         Summary of advancement including previous time, current time, and executed events.
+    
+    Requires:
+        Permission: time:advance
     
     Raises:
         HTTPException: 400 if delta is invalid, 409 if holds are active, 500 on failure.
@@ -279,7 +296,11 @@ class SetScaleRequest(BaseModel):
 
 
 @router.post("/set", response_model=SetTimeResponse)
-async def set_time(request: SetTimeRequest, engine: SimulationEngineDep):
+async def set_time(
+    request: SetTimeRequest,
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.TIME_SET))],
+):
     """Jump to a specific simulator time.
     
     This instantly moves the simulator to the target time. Supports both
@@ -295,6 +316,9 @@ async def set_time(request: SetTimeRequest, engine: SimulationEngineDep):
     
     Returns:
         Summary of the time jump operation.
+    
+    Requires:
+        Permission: time:set
     
     Raises:
         HTTPException: If the target time is invalid.
@@ -354,7 +378,10 @@ async def set_time(request: SetTimeRequest, engine: SimulationEngineDep):
 
 
 @router.post("/skip-to-next", response_model=SkipToNextResponse)
-async def skip_to_next_event(engine: SimulationEngineDep):
+async def skip_to_next_event(
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.TIME_SKIP))],
+):
     """Jump directly to the next scheduled event time.
     
     This is event-driven time advancement - jumps to the next event
@@ -365,6 +392,9 @@ async def skip_to_next_event(engine: SimulationEngineDep):
     
     Returns:
         Summary of the skip operation including previous time and events executed.
+    
+    Requires:
+        Permission: time:skip
     
     Raises:
         HTTPException: 404 if no pending events, 409 if holds are active.
@@ -438,7 +468,11 @@ async def skip_to_next_event(engine: SimulationEngineDep):
 
 
 @router.post("/set-scale", response_model=TimeStateResponse)
-async def set_time_scale(request: SetScaleRequest, engine: SimulationEngineDep):
+async def set_time_scale(
+    request: SetScaleRequest,
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.TIME_SCALE))],
+):
     """Change the time multiplier for auto-advance mode.
     
     Controls how fast simulator time progresses relative to wall-clock time.
@@ -449,6 +483,9 @@ async def set_time_scale(request: SetScaleRequest, engine: SimulationEngineDep):
     
     Returns:
         Updated time state with new scale.
+    
+    Requires:
+        Permission: time:scale
     """
     try:
         # Update time scale
@@ -489,7 +526,10 @@ async def set_time_scale(request: SetScaleRequest, engine: SimulationEngineDep):
 
 
 @router.post("/pause")
-async def pause_time(engine: SimulationEngineDep):
+async def pause_time(
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.TIME_PAUSE))],
+):
     """Pause automatic time advancement.
     
     Stops the simulation loop if auto-advance is enabled. Has no effect
@@ -500,6 +540,9 @@ async def pause_time(engine: SimulationEngineDep):
     
     Returns:
         A confirmation message with the current time and pause state.
+    
+    Requires:
+        Permission: time:pause
     """
     engine.pause()
     
@@ -518,7 +561,10 @@ async def pause_time(engine: SimulationEngineDep):
 
 
 @router.post("/resume")
-async def resume_time(engine: SimulationEngineDep):
+async def resume_time(
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.TIME_RESUME))],
+):
     """Resume automatic time advancement.
     
     Restarts the simulation loop if it was paused. Has no effect if
@@ -529,6 +575,9 @@ async def resume_time(engine: SimulationEngineDep):
     
     Returns:
         A confirmation message with the current time and pause state.
+    
+    Requires:
+        Permission: time:resume
     """
     engine.resume()
     

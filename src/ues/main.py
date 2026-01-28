@@ -23,6 +23,7 @@ from pydantic import ValidationError
 # that might depend on them (e.g., WeatherState reads OPENWEATHER_API_KEY)
 load_dotenv()
 
+from ues.api.auth import initialize_api_key_registry, shutdown_api_key_registry
 from ues.api.dependencies import initialize_simulation_engine, shutdown_simulation_engine
 from ues.api.exceptions import (
     ModalityNotFoundError,
@@ -35,11 +36,18 @@ from ues.api.exceptions import (
     validation_exception_handler,
     value_error_handler,
 )
+from ues.api.middleware import (
+    AccessLoggingMiddleware,
+    initialize_access_log,
+    shutdown_access_log,
+)
+from ues.api.routes import access_logs as access_logs_routes
 from ues.api.routes import calendar as calendar_routes
 from ues.api.routes import chat as chat_routes
 from ues.api.routes import email as email_routes
 from ues.api.routes import environment as environment_routes
 from ues.api.routes import events as events_routes
+from ues.api.routes import keys as keys_routes
 from ues.api.routes import location as location_routes
 from ues.api.routes import scenario as scenario_routes
 from ues.api.routes import simulation as simulation_routes
@@ -69,12 +77,31 @@ async def lifespan(app: FastAPI):
     initialize_simulation_engine()
     print("✅ SimulationEngine initialized")
     
+    # Initialize API key registry and create admin key
+    print("🔐 Initializing API key registry...")
+    admin_secret, admin_key = initialize_api_key_registry()
+    print("✅ API key registry initialized")
+    print("")
+    print("=" * 60)
+    print("🔑 ADMIN API KEY (save this - it won't be shown again!):")
+    print(f"   Secret: {admin_secret}")
+    print(f"   Key ID: {admin_key.key_id}")
+    print("=" * 60)
+    print("")
+    
+    # Initialize access logging
+    print("📝 Initializing access logging...")
+    initialize_access_log(max_entries=10000)
+    print("✅ Access logging initialized")
+    
     yield  # App runs and handles requests here
     
     # Shutdown: Clean up resources
     print("🛑 Shutting down UES - Cleaning up...")
     await webhook_dispatcher.close()
+    shutdown_access_log()
     shutdown_simulation_engine()
+    shutdown_api_key_registry()
     print("✅ Shutdown complete")
 
 
@@ -111,6 +138,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Add access logging middleware (after CORS to properly handle preflight requests)
+# Note: Middleware is applied in reverse order, so AccessLogging runs first
+app.add_middleware(AccessLoggingMiddleware)
+
 # Register exception handlers
 # These convert Python exceptions into clean JSON responses
 # Order matters: specific exceptions before general ones
@@ -129,6 +160,8 @@ app.include_router(environment_routes.router)
 app.include_router(events_routes.router)
 app.include_router(simulation_routes.router)
 app.include_router(scenario_routes.router)
+app.include_router(keys_routes.router)
+app.include_router(access_logs_routes.router)
 app.include_router(weather_routes.router)
 app.include_router(email_routes.router)
 app.include_router(sms_routes.router)

@@ -17,6 +17,7 @@ from httpx_ws.transport import ASGIWebSocketTransport
 from ues.api.dependencies import get_simulation_engine
 from ues.api.websocket import ws_manager
 from ues.main import app
+from tests.api.websocket.conftest import get_auth_headers
 
 
 class TestWebSocketConcurrency:
@@ -32,6 +33,7 @@ class TestWebSocketConcurrency:
         3. All clients receive identical event data
         """
         app.dependency_overrides[get_simulation_engine] = lambda: fresh_engine
+        headers = get_auth_headers()
 
         try:
             num_clients = 5  # Reduced from 10 for stability
@@ -48,7 +50,11 @@ class TestWebSocketConcurrency:
                         return {"client_id": client_id, "message": msg}
 
             # Start the simulation first, then have clients connect
-            async with AsyncClient(transport=http_transport, base_url="http://test") as http:
+            async with AsyncClient(
+                transport=http_transport,
+                base_url="http://test",
+                headers=headers,
+            ) as http:
                 # Create client tasks that will connect and wait
                 client_tasks = [
                     asyncio.create_task(client_task(i)) for i in range(num_clients)
@@ -117,11 +123,16 @@ class TestWebSocketConcurrency:
         3. Connection lifecycle doesn't break broadcasting
         """
         app.dependency_overrides[get_simulation_engine] = lambda: fresh_engine
+        headers = get_auth_headers()
 
         try:
             http_transport = ASGITransport(app=app)
 
-            async with AsyncClient(transport=http_transport, base_url="http://test") as http:
+            async with AsyncClient(
+                transport=http_transport,
+                base_url="http://test",
+                headers=headers,
+            ) as http:
                 # Create a long-lived connection FIRST
                 transport1 = ASGIWebSocketTransport(app=app)
                 async with AsyncClient(transport=transport1) as client1:

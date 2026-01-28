@@ -7,6 +7,7 @@ UES is an AI-driven testing tool for AI personal assistants, simulating multiple
 **For architecture details**: See `README.md`, `docs/models/SIMULATION_ENGINE.md`, `docs/api/REST_API.md`
 **For current status/roadmap**: See `TODO.md`
 **For Python client usage**: See `docs/client/CLIENT_QUICK_REFERENCE.md` for available methods and patterns
+**For API access control**: See `docs/api/API_ACCESS_CONTROL.md` for authentication and permissions
 
 ## Development Environment
 
@@ -28,6 +29,8 @@ When the server is running (`uv run uvicorn ues.main:app --reload`):
 - **ReDoc**: http://localhost:8000/redoc (alternative API docs)
 - **OpenAPI Schema**: http://localhost:8000/openapi.json
 - **Web UI**: http://localhost:5173 (run `cd webapp && npm run dev`)
+
+**Note**: When the server starts, an admin API key is printed to the console. Save this key - it's required for all API requests.
 
 ### Environment Variables
 The project uses `python-dotenv` to load environment variables from `.env` files:
@@ -57,13 +60,117 @@ When implementing a new modality, follow this checklist:
    - State class extends `ModalityState` with `apply_input()`, `clear()`, `create_undo_data()`, `apply_undo()`
 2. **Registry**: Register in `src/ues/models/registry.py` `ModalityRegistry`
 3. **API Routes**: Create `src/ues/api/routes/<modality>.py` with state/query/submit endpoints
+   - **All routes must have authentication** - see API Access Control section below
 4. **Route Registration**: Add router to `src/ues/main.py`
 5. **Client Sub-client**: Create `src/ues/client/_<modality>.py` with sync/async methods
 6. **Client Integration**: Add to `UESClient` and `AsyncUESClient` in `src/ues/client/client.py`
 7. **Tests**: Add `tests/models/test_<modality>_input.py`, `test_<modality>_state.py`, and `tests/api/modalities/test_<modality>_routes.py`
 8. **Web UI**: Add viewer component in `webapp/src/components/modalities/<modality>/`
+9. **Permissions**: Add permission constants to `src/ues/api/auth.py` `Permissions` class
 
 See `docs/api/MODALITY_ROUTES.md` for detailed API patterns and `docs/models/MODALITY_UNDO_NOTES.md` for undo implementation.
+
+## API Access Control
+
+**CRITICAL**: All API routes (except `/`, `/health`, `/docs`, `/redoc`, `/openapi.json`) require authentication via API key.
+
+### Overview
+- Authentication via `X-API-Key` header on every request
+- Fine-grained permissions: each endpoint has a specific permission
+- Admin key generated at startup with full access (`*` permission)
+- Keys can be created, listed, and revoked via `/keys` endpoints
+
+### Key Files
+- `src/ues/api/auth.py` - `Permissions` class, `require_permission()` dependency, `APIKeyRegistry`
+- `src/ues/models/api_key.py` - `APIKey` model with permission checking
+- `src/ues/api/routes/keys.py` - Key management endpoints
+- `docs/api/API_ACCESS_CONTROL.md` - Full design documentation
+
+### Adding Authentication to Route Handlers
+
+**Every route handler must include a permission dependency.** Use `require_permission()` from `ues.api.auth`:
+
+```python
+from typing import Annotated
+from fastapi import Depends
+
+from ues.api.auth import Permissions, require_permission
+from ues.models.api_key import APIKey
+
+@router.get("/state")
+async def get_state(
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.EMAIL_STATE))],
+) -> ModalityStateResponse:
+    ...
+
+@router.post("/send")
+async def send_email(
+    request: SendEmailRequest,
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.EMAIL_SEND))],
+) -> ModalityActionResponse:
+    ...
+```
+
+### Permission Naming Convention
+Permissions follow the pattern `{resource}:{action}` or `{resource}:{sub-resource}:{action}`:
+- `email:state`, `email:send`, `email:receive`
+- `calendar:calendars:list`, `calendar:calendars:create`
+- `simulation:start`, `simulation:stop`
+
+### Adding New Permissions
+When adding new endpoints, you must:
+1. **Add permission constant** to `src/ues/api/auth.py` `Permissions` class
+2. **Add permission dependency** to the route handler
+3. **Update `docs/api/API_ACCESS_CONTROL.md`** permission tables
+
+Example adding a new permission:
+```python
+# In src/ues/api/auth.py
+class Permissions:
+    # ... existing permissions ...
+    
+    # My New Modality (/mymodality)
+    MYMODALITY_STATE = "mymodality:state"
+    MYMODALITY_QUERY = "mymodality:query"
+    MYMODALITY_UPDATE = "mymodality:update"
+```
+
+### Wildcard Permissions
+- `*` - Full admin access (all permissions)
+- `email:*` - All email permissions
+- `calendar:*` - All calendar permissions (includes sub-resources)
+
+### Testing Routes with Authentication
+
+Tests must provide valid API keys. Use fixtures that initialize the registry:
+
+```python
+@pytest.fixture
+def admin_client(fresh_engine):
+    """Provide a TestClient with admin API key authentication."""
+    from ues.api.auth import initialize_api_key_registry, shutdown_api_key_registry
+    
+    app.dependency_overrides[get_simulation_engine] = lambda: fresh_engine
+    admin_secret, admin_key = initialize_api_key_registry()
+    
+    client = TestClient(app)
+    client.headers["X-API-Key"] = admin_secret
+    
+    yield client, admin_secret, admin_key
+    
+    shutdown_api_key_registry()
+    app.dependency_overrides.clear()
+```
+
+### Endpoints Without Authentication
+Only these endpoints are exempt from authentication:
+- `GET /` - Root welcome message
+- `GET /health` - Health check
+- `GET /docs` - Swagger UI
+- `GET /redoc` - ReDoc
+- `GET /openapi.json` - OpenAPI schema
 
 ## Non-Code Documentation Imperatives
 - Ensure documentation is clear, concise, and accessible to future developers

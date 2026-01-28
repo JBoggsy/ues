@@ -9,35 +9,6 @@ from datetime import datetime, timedelta, timezone
 from copy import deepcopy
 
 import pytest
-from fastapi.testclient import TestClient
-
-from ues.api.dependencies import get_simulation_engine
-from ues.main import app
-
-
-@pytest.fixture
-def client_without_start(fresh_engine):
-    """Provide a TestClient with a fresh SimulationEngine that is NOT started.
-    
-    Unlike client_with_engine, this fixture does NOT start the simulation,
-    allowing tests to verify behavior with unstarted simulation.
-    
-    Yields:
-        A tuple of (TestClient, SimulationEngine) for testing.
-    """
-    app.dependency_overrides[get_simulation_engine] = lambda: fresh_engine
-    client = TestClient(app)
-    
-    yield client, fresh_engine
-    
-    # Cleanup
-    try:
-        if fresh_engine.is_running:
-            client.post("/simulation/stop")
-    except Exception:
-        pass
-    
-    app.dependency_overrides.clear()
 
 
 class TestPostSimulationUndo:

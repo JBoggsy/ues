@@ -3,19 +3,23 @@
 Provides REST API endpoints for email operations including sending, receiving,
 reading, organizing, and querying email messages. Supports full email lifecycle
 from composition to archival/deletion.
+
+All endpoints require authentication via X-API-Key header.
 """
 
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, field_validator
 
+from ues.api.auth import Permissions, require_permission
 from ues.api.broadcast import broadcast_event
 from ues.api.dependencies import SimulationEngineDep
 from ues.api.models import ModalityActionResponse, ModalityStateResponse
 from ues.api.utils import create_immediate_event
 from ues.api.websocket import WSEventType
+from ues.models.api_key import APIKey
 from ues.models.modalities.email_input import EmailInput
 from ues.models.modalities.email_state import Email, EmailState, EmailSummary, EmailThread
 
@@ -322,6 +326,7 @@ class EmailQueryResponse(BaseModel):
 @router.get("/state")
 async def get_email_state(
     engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.EMAIL_STATE))],
     summary: bool = False,
     compact: bool = False,
 ) -> EmailStateResponse | EmailSummaryStateResponse:
@@ -340,6 +345,9 @@ async def get_email_state(
     Returns:
         EmailStateResponse: Full state with all messages (default).
         EmailSummaryStateResponse: Compact state without body content (if summary=True or compact=True).
+    
+    Requires:
+        Permission: email:state
     """
     email_state = engine.environment.get_state("email")
 
@@ -383,7 +391,9 @@ async def get_email_state(
 
 @router.post("/query", response_model=EmailQueryResponse)
 async def query_emails(
-    request: EmailQueryRequest, engine: SimulationEngineDep
+    request: EmailQueryRequest,
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.EMAIL_QUERY))],
 ) -> EmailQueryResponse:
     """Query emails with filters.
 
@@ -396,6 +406,9 @@ async def query_emails(
 
     Returns:
         Filtered email results with counts.
+    
+    Requires:
+        Permission: email:query
     """
     email_state = engine.environment.get_state("email")
 
@@ -439,7 +452,9 @@ async def query_emails(
 
 @router.post("/send", response_model=ModalityActionResponse)
 async def send_email(
-    request: SendEmailRequest, engine: SimulationEngineDep
+    request: SendEmailRequest,
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.EMAIL_SEND))],
 ) -> ModalityActionResponse:
     """Send a new email.
 
@@ -452,6 +467,9 @@ async def send_email(
 
     Returns:
         Action response with event details.
+    
+    Requires:
+        Permission: email:send
     """
     try:
         # Convert request to EmailInput
@@ -504,7 +522,9 @@ async def send_email(
 
 @router.post("/receive", response_model=ModalityActionResponse)
 async def receive_email(
-    request: ReceiveEmailRequest, engine: SimulationEngineDep
+    request: ReceiveEmailRequest,
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.EMAIL_RECEIVE))],
 ) -> ModalityActionResponse:
     """Simulate receiving an email.
 
@@ -517,6 +537,9 @@ async def receive_email(
 
     Returns:
         Action response with event details.
+    
+    Requires:
+        Permission: email:receive
     """
     try:
         # Convert request to EmailInput
@@ -570,7 +593,9 @@ async def receive_email(
 
 @router.post("/read", response_model=ModalityActionResponse)
 async def mark_emails_read(
-    request: EmailMarkRequest, engine: SimulationEngineDep
+    request: EmailMarkRequest,
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.EMAIL_READ))],
 ) -> ModalityActionResponse:
     """Mark emails as read.
 
@@ -582,6 +607,9 @@ async def mark_emails_read(
 
     Returns:
         Action response with event details.
+    
+    Requires:
+        Permission: email:read
     """
     try:
         # Convert request to EmailInput
@@ -614,7 +642,9 @@ async def mark_emails_read(
 
 @router.post("/unread", response_model=ModalityActionResponse)
 async def mark_emails_unread(
-    request: EmailMarkRequest, engine: SimulationEngineDep
+    request: EmailMarkRequest,
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.EMAIL_UNREAD))],
 ) -> ModalityActionResponse:
     """Mark emails as unread.
 
@@ -626,6 +656,9 @@ async def mark_emails_unread(
 
     Returns:
         Action response with event details.
+    
+    Requires:
+        Permission: email:unread
     """
     try:
         # Convert request to EmailInput
@@ -658,7 +691,9 @@ async def mark_emails_unread(
 
 @router.post("/star", response_model=ModalityActionResponse)
 async def star_emails(
-    request: EmailMarkRequest, engine: SimulationEngineDep
+    request: EmailMarkRequest,
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.EMAIL_STAR))],
 ) -> ModalityActionResponse:
     """Star/favorite emails.
 
@@ -670,6 +705,9 @@ async def star_emails(
 
     Returns:
         Action response with event details.
+    
+    Requires:
+        Permission: email:star
     """
     try:
         # Convert request to EmailInput
@@ -702,7 +740,9 @@ async def star_emails(
 
 @router.post("/unstar", response_model=ModalityActionResponse)
 async def unstar_emails(
-    request: EmailMarkRequest, engine: SimulationEngineDep
+    request: EmailMarkRequest,
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.EMAIL_UNSTAR))],
 ) -> ModalityActionResponse:
     """Unstar emails.
 
@@ -714,6 +754,9 @@ async def unstar_emails(
 
     Returns:
         Action response with event details.
+    
+    Requires:
+        Permission: email:unstar
     """
     try:
         # Convert request to EmailInput
@@ -746,7 +789,9 @@ async def unstar_emails(
 
 @router.post("/archive", response_model=ModalityActionResponse)
 async def archive_emails(
-    request: EmailMarkRequest, engine: SimulationEngineDep
+    request: EmailMarkRequest,
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.EMAIL_ARCHIVE))],
 ) -> ModalityActionResponse:
     """Archive emails.
 
@@ -758,6 +803,9 @@ async def archive_emails(
 
     Returns:
         Action response with event details.
+    
+    Requires:
+        Permission: email:archive
     """
     try:
         # Convert request to EmailInput
@@ -790,7 +838,9 @@ async def archive_emails(
 
 @router.post("/delete", response_model=ModalityActionResponse)
 async def delete_emails(
-    request: EmailMarkRequest, engine: SimulationEngineDep
+    request: EmailMarkRequest,
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.EMAIL_DELETE))],
 ) -> ModalityActionResponse:
     """Delete emails.
 
@@ -802,6 +852,9 @@ async def delete_emails(
 
     Returns:
         Action response with event details.
+    
+    Requires:
+        Permission: email:delete
     """
     try:
         # Convert request to EmailInput
@@ -834,7 +887,9 @@ async def delete_emails(
 
 @router.post("/label", response_model=ModalityActionResponse)
 async def add_labels_to_emails(
-    request: EmailLabelRequest, engine: SimulationEngineDep
+    request: EmailLabelRequest,
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.EMAIL_LABEL))],
 ) -> ModalityActionResponse:
     """Add labels to emails.
 
@@ -846,6 +901,9 @@ async def add_labels_to_emails(
 
     Returns:
         Action response with event details.
+    
+    Requires:
+        Permission: email:label
     """
     try:
         # Convert request to EmailInput
@@ -879,7 +937,9 @@ async def add_labels_to_emails(
 
 @router.post("/unlabel", response_model=ModalityActionResponse)
 async def remove_labels_from_emails(
-    request: EmailLabelRequest, engine: SimulationEngineDep
+    request: EmailLabelRequest,
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.EMAIL_UNLABEL))],
 ) -> ModalityActionResponse:
     """Remove labels from emails.
 
@@ -891,6 +951,9 @@ async def remove_labels_from_emails(
 
     Returns:
         Action response with event details.
+    
+    Requires:
+        Permission: email:unlabel
     """
     try:
         # Convert request to EmailInput
@@ -924,7 +987,9 @@ async def remove_labels_from_emails(
 
 @router.post("/move", response_model=ModalityActionResponse)
 async def move_emails(
-    request: EmailMoveRequest, engine: SimulationEngineDep
+    request: EmailMoveRequest,
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.EMAIL_MOVE))],
 ) -> ModalityActionResponse:
     """Move emails to a different folder.
 
@@ -936,6 +1001,9 @@ async def move_emails(
 
     Returns:
         Action response with event details.
+    
+    Requires:
+        Permission: email:move
     """
     try:
         # Convert request to EmailInput

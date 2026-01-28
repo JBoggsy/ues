@@ -14,12 +14,14 @@ from httpx_ws.transport import ASGIWebSocketTransport
 
 from ues.api.dependencies import get_simulation_engine
 from ues.main import app
+from tests.api.websocket.conftest import get_auth_headers
 
 
 @asynccontextmanager
 async def ws_with_http(fresh_engine):
     """Context manager providing both WebSocket and HTTP clients for integration testing."""
     app.dependency_overrides[get_simulation_engine] = lambda: fresh_engine
+    headers = get_auth_headers()
     
     try:
         ws_transport = ASGIWebSocketTransport(app=app)
@@ -27,7 +29,11 @@ async def ws_with_http(fresh_engine):
         
         async with AsyncClient(transport=ws_transport) as ws_http_client:
             async with aconnect_ws("http://test/ws", ws_http_client) as ws:
-                async with AsyncClient(transport=http_transport, base_url="http://test") as http:
+                async with AsyncClient(
+                    transport=http_transport,
+                    base_url="http://test",
+                    headers=headers,
+                ) as http:
                     yield ws, http
     finally:
         app.dependency_overrides.clear()

@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 import pytest
 from fastapi.testclient import TestClient
 
+from ues.api.auth import initialize_api_key_registry, shutdown_api_key_registry
 from ues.main import app
 from ues.api.dependencies import get_simulation_engine
 from tests.api.helpers import make_event_request, email_event_data
@@ -19,7 +20,11 @@ from tests.api.helpers import make_event_request, email_event_data
 def client(fresh_engine):
     """Create a fresh test client with a new simulation engine (not started)."""
     app.dependency_overrides[get_simulation_engine] = lambda: fresh_engine
-    yield TestClient(app)
+    admin_secret, _ = initialize_api_key_registry()
+    client = TestClient(app)
+    client.headers["X-API-Key"] = admin_secret
+    yield client
+    shutdown_api_key_registry()
     app.dependency_overrides.clear()
 
 

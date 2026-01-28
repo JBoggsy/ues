@@ -2,16 +2,20 @@
 
 These endpoints manage the overall simulation lifecycle: starting, stopping,
 checking status, resetting, undo/redo operations, and clearing.
+
+All endpoints require authentication via X-API-Key header.
 """
 
-from typing import Any, Optional
+from typing import Annotated, Any, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
+from ues.api.auth import Permissions, require_permission
 from ues.api.broadcast import broadcast_event
 from ues.api.dependencies import SimulationEngineDep
 from ues.api.websocket import WSEventType
+from ues.models.api_key import APIKey
 from ues.models.event import EventStatus
 
 # Create router for simulation control endpoints
@@ -122,7 +126,11 @@ class ResetSimulationResponse(BaseModel):
 
 
 @router.post("/start", response_model=StartSimulationResponse)
-async def start_simulation(request: StartSimulationRequest, engine: SimulationEngineDep):
+async def start_simulation(
+    request: StartSimulationRequest,
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.SIMULATION_START))],
+):
     """Start the simulation.
     
     Initializes and starts the simulation, optionally with auto-advance mode.
@@ -133,6 +141,9 @@ async def start_simulation(request: StartSimulationRequest, engine: SimulationEn
     
     Returns:
         Simulation startup details.
+    
+    Requires:
+        Permission: simulation:start
     
     Raises:
         HTTPException: If simulation is already running or start fails.
@@ -179,7 +190,10 @@ async def start_simulation(request: StartSimulationRequest, engine: SimulationEn
 
 
 @router.post("/stop", response_model=StopSimulationResponse)
-async def stop_simulation(engine: SimulationEngineDep):
+async def stop_simulation(
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.SIMULATION_STOP))],
+):
     """Stop the simulation gracefully.
     
     Stops the simulation, finishing any in-progress events.
@@ -189,6 +203,9 @@ async def stop_simulation(engine: SimulationEngineDep):
     
     Returns:
         Summary of simulation execution.
+    
+    Requires:
+        Permission: simulation:stop
     """
     try:
         result = engine.stop()
@@ -217,7 +234,10 @@ async def stop_simulation(engine: SimulationEngineDep):
 
 
 @router.get("/status", response_model=SimulationStatusResponse)
-async def get_simulation_status(engine: SimulationEngineDep):
+async def get_simulation_status(
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.SIMULATION_STATUS))],
+):
     """Get current simulation status and metrics.
     
     Returns information about the simulation's current state, including
@@ -228,6 +248,9 @@ async def get_simulation_status(engine: SimulationEngineDep):
     
     Returns:
         Current simulation status and statistics.
+    
+    Requires:
+        Permission: simulation:status
     """    
     time_state = engine.environment.time_state
     all_events = engine.event_queue.events
@@ -256,7 +279,10 @@ async def get_simulation_status(engine: SimulationEngineDep):
 
 
 @router.post("/reset", response_model=ResetSimulationResponse)
-async def reset_simulation(engine: SimulationEngineDep):
+async def reset_simulation(
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.SIMULATION_RESET))],
+):
     """Reset simulation by undoing all executed events.
 
     This endpoint performs a complete rollback of the simulation:
@@ -284,6 +310,9 @@ async def reset_simulation(engine: SimulationEngineDep):
         - cleared_events: Number of events reset to PENDING
         - events_undone: Number of events whose state changes were reversed
         - undo_errors: List of any errors encountered during undo
+    
+    Requires:
+        Permission: simulation:reset
     """
     result = engine.reset()
 
@@ -420,6 +449,7 @@ class RedoResponse(BaseModel):
 @router.post("/clear", response_model=ClearSimulationResponse)
 async def clear_simulation(
     engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.SIMULATION_CLEAR))],
     request: Optional[ClearSimulationRequest] = None,
 ):
     """Clear simulation completely.
@@ -436,6 +466,9 @@ async def clear_simulation(
     
     Returns:
         Summary of what was cleared.
+    
+    Requires:
+        Permission: simulation:clear
     """
     from datetime import datetime
 
@@ -479,6 +512,7 @@ async def clear_simulation(
 @router.post("/undo", response_model=UndoResponse)
 async def undo_simulation(
     engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.SIMULATION_UNDO))],
     request: Optional[UndoRequest] = None,
 ):
     """Undo previously executed events.
@@ -493,6 +527,9 @@ async def undo_simulation(
     
     Returns:
         Details of what was undone and current undo/redo availability.
+    
+    Requires:
+        Permission: simulation:undo
     
     Raises:
         HTTPException: If simulation is not running or undo fails.
@@ -552,6 +589,7 @@ async def undo_simulation(
 @router.post("/redo", response_model=RedoResponse)
 async def redo_simulation(
     engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.SIMULATION_REDO))],
     request: Optional[RedoRequest] = None,
 ):
     """Redo previously undone events.
@@ -566,6 +604,9 @@ async def redo_simulation(
     
     Returns:
         Details of what was redone and current undo/redo availability.
+    
+    Requires:
+        Permission: simulation:redo
     
     Raises:
         HTTPException: If simulation is not running or redo fails.
@@ -719,6 +760,7 @@ class ReleaseHoldResponse(BaseModel):
 @router.post("/hold", response_model=HoldResponse)
 async def acquire_hold(
     engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.SIMULATION_HOLD))],
     request: Optional[HoldRequest] = None,
 ):
     """Acquire a hold on time advancement.
@@ -736,6 +778,9 @@ async def acquire_hold(
     
     Returns:
         Details of the acquired hold including the hold_id for later release.
+    
+    Requires:
+        Permission: simulation:hold
     """
     # Parse request
     reason = request.reason if request else None
@@ -775,6 +820,7 @@ async def acquire_hold(
 async def release_hold(
     hold_id: str,
     engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.SIMULATION_RELEASE))],
 ):
     """Release a previously acquired hold.
     
@@ -787,6 +833,9 @@ async def release_hold(
     
     Returns:
         Confirmation of whether the hold was released.
+    
+    Requires:
+        Permission: simulation:release
     
     Raises:
         HTTPException: 404 if the hold was not found (may have expired).
@@ -814,7 +863,10 @@ async def release_hold(
 
 
 @router.get("/holds", response_model=HoldsListResponse)
-async def list_holds(engine: SimulationEngineDep):
+async def list_holds(
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.SIMULATION_HOLDS))],
+):
     """List all active holds.
     
     Returns information about all currently active (non-expired) holds.
@@ -824,6 +876,9 @@ async def list_holds(engine: SimulationEngineDep):
     
     Returns:
         List of active holds with their details.
+    
+    Requires:
+        Permission: simulation:holds
     """
     holds = engine.hold_manager.list_holds()
     

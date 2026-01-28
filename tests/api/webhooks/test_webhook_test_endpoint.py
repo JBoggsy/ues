@@ -6,23 +6,8 @@ Tests the webhook connectivity test feature:
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from fastapi.testclient import TestClient
 
-from ues.api.webhooks import webhook_registry, webhook_dispatcher
-from ues.main import app
-
-
-@pytest.fixture
-def webhook_client():
-    """Provide a TestClient with clean webhook state."""
-    client = TestClient(app)
-    
-    import asyncio
-    asyncio.get_event_loop().run_until_complete(webhook_registry.clear())
-    
-    yield client
-    
-    asyncio.get_event_loop().run_until_complete(webhook_registry.clear())
+from ues.api.webhooks import webhook_dispatcher
 
 
 class TestWebhookTest:

@@ -69,6 +69,8 @@ REST API endpoints, WebSocket, and webhook support.
 | Document | Description |
 |----------|-------------|
 | [REST API Overview](api/REST_API.md) | Complete endpoint reference (89 endpoints) |
+| [Authentication](api/AUTHENTICATION.md) | API key authentication and permissions |
+| [Auth Migration Guide](api/MIGRATION_AUTH.md) | Migrating to authenticated API |
 | [Modality Routes](api/MODALITY_ROUTES.md) | Patterns for modality-specific endpoints |
 | [Error Handling](api/API_ERROR_HANDLING.md) | HTTP status codes and error responses |
 | [WebSocket](api/WEBSOCKET.md) | Real-time event notifications |

@@ -188,6 +188,7 @@ class HTTPClient:
         retry_enabled: bool = False,
         max_retries: int = 3,
         transport: httpx.BaseTransport | None = None,
+        headers: dict[str, str] | None = None,
     ) -> None:
         """Initialize the HTTP client.
         
@@ -197,6 +198,7 @@ class HTTPClient:
             retry_enabled: Whether to retry on transient failures.
             max_retries: Maximum number of retry attempts.
             transport: Custom transport (e.g., ASGITransport for testing).
+            headers: Default headers to include with every request.
         """
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
@@ -207,6 +209,7 @@ class HTTPClient:
             base_url=self.base_url,
             timeout=timeout,
             transport=transport,
+            headers=headers,
         )
     
     def close(self) -> None:
@@ -408,6 +411,7 @@ class AsyncHTTPClient:
         retry_enabled: bool = False,
         max_retries: int = 3,
         transport: httpx.AsyncBaseTransport | None = None,
+        headers: dict[str, str] | None = None,
     ) -> None:
         """Initialize the async HTTP client.
         
@@ -417,6 +421,7 @@ class AsyncHTTPClient:
             retry_enabled: Whether to retry on transient failures.
             max_retries: Maximum number of retry attempts.
             transport: Custom transport (e.g., ASGITransport for testing).
+            headers: Default headers to include with every request.
         """
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
@@ -427,6 +432,7 @@ class AsyncHTTPClient:
             base_url=self.base_url,
             timeout=timeout,
             transport=transport,
+            headers=headers,
         )
     
     async def close(self) -> None:

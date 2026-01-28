@@ -12,6 +12,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from fastapi.testclient import TestClient
 
+from ues.api.auth import initialize_api_key_registry, shutdown_api_key_registry
 from ues.api.dependencies import get_simulation_engine
 from ues.main import app
 from ues.models.event import EventStatus, SimulatorEvent
@@ -33,7 +34,9 @@ def client_without_start(fresh_engine):
         A tuple of (TestClient, SimulationEngine) for testing.
     """
     app.dependency_overrides[get_simulation_engine] = lambda: fresh_engine
+    admin_secret, _ = initialize_api_key_registry()
     client = TestClient(app)
+    client.headers["X-API-Key"] = admin_secret
     
     yield client, fresh_engine
     
@@ -44,6 +47,7 @@ def client_without_start(fresh_engine):
     except Exception:
         pass
     
+    shutdown_api_key_registry()
     app.dependency_overrides.clear()
 
 
@@ -55,13 +59,16 @@ def client_with_stopped_simulation(fresh_engine):
         A tuple of (TestClient, SimulationEngine) for testing.
     """
     app.dependency_overrides[get_simulation_engine] = lambda: fresh_engine
+    admin_secret, _ = initialize_api_key_registry()
     client = TestClient(app)
+    client.headers["X-API-Key"] = admin_secret
     
     # Ensure engine is not running
     assert not fresh_engine.is_running
     
     yield client, fresh_engine
     
+    shutdown_api_key_registry()
     app.dependency_overrides.clear()
 
 
@@ -75,7 +82,9 @@ def client_with_running_simulation(fresh_engine):
         A tuple of (TestClient, SimulationEngine) for testing.
     """
     app.dependency_overrides[get_simulation_engine] = lambda: fresh_engine
+    admin_secret, _ = initialize_api_key_registry()
     client = TestClient(app)
+    client.headers["X-API-Key"] = admin_secret
     
     # Start simulation
     response = client.post("/simulation/start", json={"auto_advance": False})
@@ -89,6 +98,7 @@ def client_with_running_simulation(fresh_engine):
     except Exception:
         pass
     
+    shutdown_api_key_registry()
     app.dependency_overrides.clear()
 
 

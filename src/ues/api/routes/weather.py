@@ -3,18 +3,22 @@
 Provides REST API access to weather state and operations.
 Supports querying weather data for multiple locations with optional filtering
 and unit conversion. Also supports real-time weather queries via OpenWeather API.
+
+All endpoints require authentication via X-API-Key header.
 """
 
-from typing import Any, Literal, Optional
+from typing import Annotated, Any, Literal, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, ValidationError
 
+from ues.api.auth import Permissions, require_permission
 from ues.api.broadcast import broadcast_event
 from ues.api.dependencies import SimulationEngineDep
 from ues.api.models import ModalityActionResponse
 from ues.api.utils import create_immediate_event
 from ues.api.websocket import WSEventType
+from ues.models.api_key import APIKey
 from ues.models.modalities.weather_input import WeatherInput, WeatherReport
 from ues.models.modalities.weather_state import WeatherState
 
@@ -141,6 +145,7 @@ class WeatherQueryResponse(BaseModel):
 @router.get("/state")
 async def get_weather_state(
     engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.WEATHER_STATE))],
     compact: bool = False,
 ) -> WeatherStateResponse | WeatherCompactStateResponse:
     """Get current weather state for all tracked locations.
@@ -156,6 +161,9 @@ async def get_weather_state(
     Returns:
         WeatherStateResponse: Full state including history (default).
         WeatherCompactStateResponse: Compact state without history (if compact=True).
+    
+    Requires:
+        Permission: weather:state
     """
     weather_state = engine.environment.get_state("weather")
 
@@ -182,7 +190,11 @@ async def get_weather_state(
 
 
 @router.post("/query", response_model=WeatherQueryResponse)
-async def query_weather(request: WeatherQueryRequest, engine: SimulationEngineDep):
+async def query_weather(
+    request: WeatherQueryRequest,
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.WEATHER_QUERY))],
+):
     """Query weather data for a specific location with filters.
 
     Supports querying simulated weather history or real-time weather from
@@ -197,6 +209,9 @@ async def query_weather(request: WeatherQueryRequest, engine: SimulationEngineDe
 
     Raises:
         HTTPException: If query parameters are invalid or query fails.
+    
+    Requires:
+        Permission: weather:query
     """
     weather_state = engine.environment.get_state("weather")
 
@@ -234,7 +249,11 @@ async def query_weather(request: WeatherQueryRequest, engine: SimulationEngineDe
 
 
 @router.post("/update", response_model=ModalityActionResponse)
-async def update_weather(request: UpdateWeatherRequest, engine: SimulationEngineDep):
+async def update_weather(
+    request: UpdateWeatherRequest,
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.WEATHER_UPDATE))],
+):
     """Update weather conditions for a location.
 
     Creates an immediate event that updates the weather for the specified
@@ -249,6 +268,9 @@ async def update_weather(request: UpdateWeatherRequest, engine: SimulationEngine
 
     Raises:
         HTTPException: If the weather update fails validation or execution.
+    
+    Requires:
+        Permission: weather:update
     """
     try:
         # Convert request to WeatherInput

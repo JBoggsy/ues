@@ -20,6 +20,7 @@ from ues.models.scenario import (
     ScenarioMetadata,
     SCENARIO_FORMAT_VERSION,
 )
+from ues.models.api_key import APIKey, generate_key_id, generate_key_secret, hash_secret
 from ues.models.registry import (
     register_modality_state,
     get_modality_state_class,
@@ -63,6 +64,11 @@ __all__ = [
     "ScenarioMetadata",
     "UES_VERSION",
     "SCENARIO_FORMAT_VERSION",
+    # API Key / Authentication
+    "APIKey",
+    "generate_key_id",
+    "generate_key_secret",
+    "hash_secret",
     # Registry functions - State
     "register_modality_state",
     "get_modality_state_class",

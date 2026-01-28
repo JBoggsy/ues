@@ -11,6 +11,7 @@ An AI-driven testing and prototyping tool for AI personal assistants. UES provid
 
 - **Multi-Modal Simulation**: Email, SMS, Calendar, Chat, Location, Weather, and more
 - **REST API**: 89 endpoints for complete control over simulation state
+- **API Access Control**: Key-based authentication with fine-grained permissions
 - **Real-time Updates**: WebSocket and Webhook support for event notifications
 - **Python Client Library**: Sync and async support for easy integration
 - **Web UI**: Modern React-based interface for interactive scenario design
@@ -51,11 +52,13 @@ The API is now available at:
 
 ### Basic Usage
 
+> **Note**: When the server starts, an admin API key is printed to the console. Save this key for authentication.
+
 ```python
 from ues.client import UESClient
 
-# Connect to the server
-client = UESClient("http://localhost:8000")
+# Connect to the server with your API key
+client = UESClient("http://localhost:8000", api_key="ues_your_key_here...")
 
 # Get current simulation time
 time_state = client.time.get_state()
@@ -132,6 +135,7 @@ uv run pytest --cov=api --cov=models
 |----------|-------------|
 | [Documentation Index](docs/README.md) | Full documentation table of contents |
 | [REST API Reference](docs/api/REST_API.md) | Complete API endpoint documentation |
+| [Authentication](docs/api/AUTHENTICATION.md) | API key authentication and permissions |
 | [Modality Routes](docs/api/MODALITY_ROUTES.md) | Modality-specific endpoint patterns |
 | [Python Client](docs/client/API_CLIENT.md) | Client library usage guide |
 | [Agent Integration](docs/integration/AGENT_INTEGRATION.md) | Integrating AI agents with UES |
@@ -191,6 +195,16 @@ SimulationEngine (Orchestrator)
 See [docs/models/SIMULATION_ENGINE.md](docs/models/SIMULATION_ENGINE.md) for detailed architecture documentation.
 
 ## 🌐 REST API Overview
+
+### Authentication
+
+All API endpoints require an API key via the `X-API-Key` header:
+
+```bash
+curl -H "X-API-Key: ues_your_key_here..." http://localhost:8000/simulation/status
+```
+
+An admin key with full permissions is generated at server startup. See [Authentication docs](docs/api/AUTHENTICATION.md) for key management and permissions.
 
 ### Time Control (\`/simulator/time\`)
 ```
