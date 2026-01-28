@@ -40,6 +40,7 @@ from ues.client._environment import AsyncEnvironmentClient, EnvironmentClient
 from ues.client._events import AsyncEventsClient, EventsClient
 from ues.client._http import AsyncHTTPClient, HTTPClient
 from ues.client._location import AsyncLocationClient, LocationClient
+from ues.client._scenario import AsyncScenarioClient, ScenarioClient
 from ues.client._simulation import AsyncSimulationClient, SimulationClient
 from ues.client._sms import AsyncSMSClient, SMSClient
 from ues.client._time import AsyncTimeClient, TimeClient
@@ -132,6 +133,7 @@ class UESClient:
         self._simulation: SimulationClient | None = None
         self._events: EventsClient | None = None
         self._environment: EnvironmentClient | None = None
+        self._scenario: ScenarioClient | None = None
         self._email: EmailClient | None = None
         self._sms: SMSClient | None = None
         self._chat: ChatClient | None = None
@@ -235,6 +237,25 @@ class UESClient:
         if self._environment is None:
             self._environment = EnvironmentClient(self._http)
         return self._environment
+    
+    @property
+    def scenario(self) -> ScenarioClient:
+        """Access scenario save/load endpoints (/scenario/*).
+        
+        Provides methods for:
+        - Exporting environment state
+        - Exporting event queue
+        - Exporting complete scenarios with metadata
+        - Importing environment state
+        - Importing event queue
+        - Importing complete scenarios
+        
+        Returns:
+            ScenarioClient instance for scenario operations.
+        """
+        if self._scenario is None:
+            self._scenario = ScenarioClient(self._http)
+        return self._scenario
     
     @property
     def email(self) -> EmailClient:
@@ -451,6 +472,7 @@ class AsyncUESClient:
         self._simulation: AsyncSimulationClient | None = None
         self._events: AsyncEventsClient | None = None
         self._environment: AsyncEnvironmentClient | None = None
+        self._scenario: AsyncScenarioClient | None = None
         self._email: AsyncEmailClient | None = None
         self._sms: AsyncSMSClient | None = None
         self._chat: AsyncChatClient | None = None
@@ -554,6 +576,25 @@ class AsyncUESClient:
         if self._environment is None:
             self._environment = AsyncEnvironmentClient(self._http)
         return self._environment
+    
+    @property
+    def scenario(self) -> AsyncScenarioClient:
+        """Access scenario save/load endpoints (/scenario/*).
+        
+        Provides async methods for:
+        - Exporting environment state
+        - Exporting event queue
+        - Exporting complete scenarios with metadata
+        - Importing environment state
+        - Importing event queue
+        - Importing complete scenarios
+        
+        Returns:
+            AsyncScenarioClient instance for scenario operations.
+        """
+        if self._scenario is None:
+            self._scenario = AsyncScenarioClient(self._http)
+        return self._scenario
     
     @property
     def email(self) -> AsyncEmailClient:

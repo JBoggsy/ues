@@ -172,7 +172,7 @@ async def main():
 ## 🚧 TODO: REST API
 
 ### Python Client Library
-- [ ] **Add `client.scenario` sub-client** - Wrap `/scenario/import/*` and `/scenario/export/*` endpoints
+- [x] ~~**Add `client.scenario` sub-client**~~ - Wraps `/scenario/import/*` and `/scenario/export/*` endpoints
   - [ ] Update `examples/agents/simple_email_summary/agent.py` to use `client.scenario` once implemented
 
 ### API Enhancements

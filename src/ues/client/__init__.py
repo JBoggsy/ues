@@ -66,6 +66,22 @@ from ues.client._email import (
     EmailSummaryStateResponse,
     EmailThread,
 )
+from ues.client._scenario import (
+    AsyncScenarioClient,
+    ExportedEnvironmentData,
+    ExportedEventQueueData,
+    ExportedScenarioData,
+    ExportedTimeState,
+    ExportEnvironmentResponse,
+    ExportEventsResponse,
+    ExportScenarioResponse,
+    LoadedScenarioMetadata,
+    LoadEnvironmentResponse,
+    LoadEventsResponse,
+    LoadScenarioResponse,
+    ScenarioClient,
+    ScenarioMetadata,
+)
 from ues.client._sms import (
     AsyncSMSClient,
     GroupParticipant,
@@ -167,6 +183,8 @@ __all__ = [
     "AsyncWeatherClient",
     "WebhooksClient",
     "AsyncWebhooksClient",
+    "ScenarioClient",
+    "AsyncScenarioClient",
     # Exceptions
     "UESClientError",
     "ConnectionError",
@@ -236,4 +254,17 @@ __all__ = [
     "CompactSnapshotResponse",
     "ModalityListResponse",
     "ModalitySummary",
+    # Response models - Scenario
+    "ExportedTimeState",
+    "ExportedEnvironmentData",
+    "ExportedEventQueueData",
+    "ScenarioMetadata",
+    "ExportedScenarioData",
+    "ExportEnvironmentResponse",
+    "ExportEventsResponse",
+    "ExportScenarioResponse",
+    "LoadEnvironmentResponse",
+    "LoadEventsResponse",
+    "LoadedScenarioMetadata",
+    "LoadScenarioResponse",
 ]
