@@ -12,9 +12,9 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from fastapi.testclient import TestClient
 
-from api.dependencies import get_simulation_engine
-from main import app
-from models.event import EventStatus, SimulatorEvent
+from ues.api.dependencies import get_simulation_engine
+from ues.main import app
+from ues.models.event import EventStatus, SimulatorEvent
 from tests.fixtures.core.events import create_simulator_event
 from tests.fixtures.modalities.email import create_email_input
 

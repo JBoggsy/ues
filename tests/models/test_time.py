@@ -22,7 +22,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from pydantic import ValidationError
 
-from models.time import SimulatorTime, TimeMode
+from ues.models.time import SimulatorTime, TimeMode
 from tests.fixtures.core.times import (
     FAST_FORWARD_TIME,
     MANUAL_TIME,

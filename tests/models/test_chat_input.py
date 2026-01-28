@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from models.modalities.chat_input import ChatInput
+from ues.models.modalities.chat_input import ChatInput
 from tests.fixtures.modalities.chat import (
     ASSISTANT_RESPONSE,
     MULTIMODAL_AUDIO,
@@ -352,7 +352,7 @@ class TestChatInputAbstractMethods:
 
     def test_should_merge_with_different_type(self):
         """Test that chat messages don't merge with other modality types."""
-        from models.modalities.location_input import LocationInput
+        from ues.models.modalities.location_input import LocationInput
         
         chat_input = create_chat_input()
         location_input = LocationInput(

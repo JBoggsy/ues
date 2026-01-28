@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from client._simulation import (
+from ues.client._simulation import (
     AsyncSimulationClient,
     ClearSimulationResponse,
     RedoResponse,

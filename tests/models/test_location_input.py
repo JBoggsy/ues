@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from models.modalities.location_input import LocationInput
+from ues.models.modalities.location_input import LocationInput
 from tests.fixtures.modalities.location import (
     GYM_LOCATION,
     HOME_LOCATION,
@@ -294,7 +294,7 @@ class TestLocationInputAbstractMethods:
 
     def test_should_merge_with_different_type(self):
         """Test that locations should not merge with other modality types."""
-        from models.modalities.time_input import TimeInput
+        from ues.models.modalities.time_input import TimeInput
         
         location = create_location_input()
         time_input = TimeInput(

@@ -27,7 +27,7 @@ finally:
     client.simulation.release(hold.hold_id)
 ```
 
-**Documentation**: See `models/hold.py` for implementation details.
+**Documentation**: See `src/ues/models/hold.py` for implementation details.
 
 ---
 
@@ -37,7 +37,9 @@ finally:
 
 | Category | Tests | Location |
 |----------|-------|----------|
-| API Tests | 3,217 | `tests/api/` |
+| Model Tests | 1,424 | `tests/models/` |
+| API Tests | 1,279 | `tests/api/` |
+| Client Tests | 514 | `tests/client/` |
 | Agent Testing | 108 | `tests/agent_testing/` |
 
 Note: 3 websocket concurrency tests have known flakiness issues with httpx-ws/anyio library.
@@ -71,7 +73,7 @@ All modalities implement: `apply_input()`, `clear()`, `create_undo_data()`, `app
 
 ## ✅ Completed: REST API
 
-**86 endpoints** across time control, events, environment, simulation, scenarios, and modalities.
+**89 endpoints** across time control, events, environment, simulation, scenarios, and modalities.
 
 | Category | Key Endpoints |
 |----------|---------------|

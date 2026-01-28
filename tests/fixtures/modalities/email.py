@@ -5,8 +5,8 @@ from uuid import uuid4
 
 import pytest
 
-from models.modalities.email_input import EmailInput, EmailAttachment
-from models.modalities.email_state import EmailState
+from ues.models.modalities.email_input import EmailInput, EmailAttachment
+from ues.models.modalities.email_state import EmailState
 
 
 def create_email_input(

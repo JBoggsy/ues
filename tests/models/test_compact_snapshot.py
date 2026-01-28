@@ -17,7 +17,7 @@ class TestBaseStateCompactSnapshot:
 
     def test_format_relative_time_future(self):
         """Test _format_relative_time for future times."""
-        from models.base_state import ModalityState
+        from ues.models.base_state import ModalityState
 
         now = NOW
 
@@ -38,7 +38,7 @@ class TestBaseStateCompactSnapshot:
 
     def test_format_relative_time_past(self):
         """Test _format_relative_time for past times."""
-        from models.base_state import ModalityState
+        from ues.models.base_state import ModalityState
 
         now = NOW
 
@@ -54,7 +54,7 @@ class TestBaseStateCompactSnapshot:
 
     def test_format_relative_time_singular(self):
         """Test _format_relative_time uses singular forms correctly."""
-        from models.base_state import ModalityState
+        from ues.models.base_state import ModalityState
 
         now = NOW
 
@@ -74,7 +74,7 @@ class TestLocationCompactSnapshot:
 
     def test_compact_snapshot_with_location(self):
         """Test compact snapshot includes current location info."""
-        from models.modalities.location_state import LocationState
+        from ues.models.modalities.location_state import LocationState
 
         state = LocationState(last_updated=NOW)
         
@@ -96,7 +96,7 @@ class TestLocationCompactSnapshot:
 
     def test_compact_snapshot_no_location(self):
         """Test compact snapshot when no location is set."""
-        from models.modalities.location_state import LocationState
+        from ues.models.modalities.location_state import LocationState
 
         state = LocationState(last_updated=NOW)
 
@@ -111,7 +111,7 @@ class TestTimeCompactSnapshot:
 
     def test_compact_snapshot_includes_preferences(self):
         """Test compact snapshot includes timezone and format preferences."""
-        from models.modalities.time_state import TimeState
+        from ues.models.modalities.time_state import TimeState
 
         state = TimeState(last_updated=NOW)
 
@@ -130,13 +130,13 @@ class TestWeatherCompactSnapshot:
 
     def test_compact_snapshot_with_weather(self):
         """Test compact snapshot includes current weather conditions."""
-        from models.modalities.weather_input import (
+        from ues.models.modalities.weather_input import (
             CurrentWeather,
             WeatherCondition,
             WeatherInput,
             WeatherReport,
         )
-        from models.modalities.weather_state import WeatherState
+        from ues.models.modalities.weather_state import WeatherState
 
         state = WeatherState(last_updated=NOW)
 
@@ -195,7 +195,7 @@ class TestWeatherCompactSnapshot:
 
     def test_compact_snapshot_no_weather(self):
         """Test compact snapshot when no weather data is available."""
-        from models.modalities.weather_state import WeatherState
+        from ues.models.modalities.weather_state import WeatherState
 
         state = WeatherState(last_updated=NOW)
 
@@ -211,8 +211,8 @@ class TestEmailCompactSnapshot:
 
     def test_compact_snapshot_with_emails(self):
         """Test compact snapshot includes unread count and recent subjects."""
-        from models.modalities.email_input import EmailInput
-        from models.modalities.email_state import EmailState
+        from ues.models.modalities.email_input import EmailInput
+        from ues.models.modalities.email_state import EmailState
 
         state = EmailState(last_updated=NOW)
 
@@ -252,8 +252,8 @@ class TestEmailCompactSnapshot:
 
     def test_compact_snapshot_limits_recent(self):
         """Test compact snapshot limits recent emails to 5."""
-        from models.modalities.email_input import EmailInput
-        from models.modalities.email_state import EmailState
+        from ues.models.modalities.email_input import EmailInput
+        from ues.models.modalities.email_state import EmailState
 
         state = EmailState(last_updated=NOW)
 
@@ -276,7 +276,7 @@ class TestEmailCompactSnapshot:
 
     def test_compact_snapshot_no_emails(self):
         """Test compact snapshot when no emails exist."""
-        from models.modalities.email_state import EmailState
+        from ues.models.modalities.email_state import EmailState
 
         state = EmailState(last_updated=NOW)
 
@@ -292,8 +292,8 @@ class TestSMSCompactSnapshot:
 
     def test_compact_snapshot_with_messages(self):
         """Test compact snapshot includes unread conversations."""
-        from models.modalities.sms_input import SMSInput
-        from models.modalities.sms_state import SMSState
+        from ues.models.modalities.sms_input import SMSInput
+        from ues.models.modalities.sms_state import SMSState
 
         state = SMSState(last_updated=NOW, user_phone_number="+10000000000")
 
@@ -322,7 +322,7 @@ class TestSMSCompactSnapshot:
 
     def test_compact_snapshot_no_messages(self):
         """Test compact snapshot when no messages exist."""
-        from models.modalities.sms_state import SMSState
+        from ues.models.modalities.sms_state import SMSState
 
         state = SMSState(last_updated=NOW, user_phone_number="+10000000000")
 
@@ -337,8 +337,8 @@ class TestChatCompactSnapshot:
 
     def test_compact_snapshot_with_messages(self):
         """Test compact snapshot includes last exchange."""
-        from models.modalities.chat_input import ChatInput
-        from models.modalities.chat_state import ChatState
+        from ues.models.modalities.chat_input import ChatInput
+        from ues.models.modalities.chat_state import ChatState
 
         state = ChatState(last_updated=NOW)
 
@@ -371,7 +371,7 @@ class TestChatCompactSnapshot:
 
     def test_compact_snapshot_no_messages(self):
         """Test compact snapshot when no messages exist."""
-        from models.modalities.chat_state import ChatState
+        from ues.models.modalities.chat_state import ChatState
 
         state = ChatState(last_updated=NOW)
 
@@ -387,8 +387,8 @@ class TestCalendarCompactSnapshot:
 
     def test_compact_snapshot_with_events(self):
         """Test compact snapshot includes current and next events."""
-        from models.modalities.calendar_input import CalendarInput
-        from models.modalities.calendar_state import CalendarState
+        from ues.models.modalities.calendar_input import CalendarInput
+        from ues.models.modalities.calendar_state import CalendarState
 
         state = CalendarState(last_updated=NOW)
 
@@ -427,7 +427,7 @@ class TestCalendarCompactSnapshot:
 
     def test_compact_snapshot_no_events(self):
         """Test compact snapshot when no events exist."""
-        from models.modalities.calendar_state import CalendarState
+        from ues.models.modalities.calendar_state import CalendarState
 
         state = CalendarState(last_updated=NOW)
 

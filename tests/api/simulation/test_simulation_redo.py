@@ -10,8 +10,8 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from fastapi.testclient import TestClient
 
-from api.dependencies import get_simulation_engine
-from main import app
+from ues.api.dependencies import get_simulation_engine
+from ues.main import app
 
 
 @pytest.fixture

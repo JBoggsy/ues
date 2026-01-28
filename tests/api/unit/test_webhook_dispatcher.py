@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 import httpx
 
-from api.webhooks import (
+from ues.api.webhooks import (
     WebhookDispatcher,
     WebhookRegistry,
     WebhookRegistration,
@@ -18,7 +18,7 @@ from api.webhooks import (
     DeliveryRecord,
     DeliveryStatus,
 )
-from api.websocket import WSEventType, WSEvent
+from ues.api.websocket import WSEventType, WSEvent
 
 
 @pytest.fixture

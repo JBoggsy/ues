@@ -2,8 +2,8 @@
 
 from datetime import datetime, timezone
 
-from models.modalities.chat_input import ChatInput
-from models.modalities.chat_state import ChatState
+from ues.models.modalities.chat_input import ChatInput
+from ues.models.modalities.chat_state import ChatState
 
 
 def create_chat_input(

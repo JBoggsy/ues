@@ -9,8 +9,8 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from models.modalities.chat_input import ChatInput
-from models.modalities.chat_state import ChatMessage, ChatState, ConversationMetadata
+from ues.models.modalities.chat_input import ChatInput
+from ues.models.modalities.chat_state import ChatMessage, ChatState, ConversationMetadata
 from tests.fixtures.modalities.chat import (
     ASSISTANT_RESPONSE,
     MULTIMODAL_IMAGE,
@@ -190,7 +190,7 @@ class TestChatStateApplyInput:
 
     def test_apply_input_rejects_wrong_input_type(self):
         """Test that applying wrong input type raises ValueError."""
-        from models.modalities.location_input import LocationInput
+        from ues.models.modalities.location_input import LocationInput
         
         state = create_chat_state()
         location_input = LocationInput(
@@ -1334,7 +1334,7 @@ class TestChatStateCreateUndoData:
         
         GENERAL PATTERN: All modalities should validate input type.
         """
-        from models.modalities.location_input import LocationInput
+        from ues.models.modalities.location_input import LocationInput
         
         state = create_chat_state()
         invalid_input = LocationInput(

@@ -20,7 +20,7 @@ from datetime import datetime, timezone, timedelta
 import pytest
 from pydantic import ValidationError
 
-from api.models import (
+from ues.api.models import (
     # Data structure models
     ExportedEnvironmentData,
     ExportedEventQueueData,
@@ -570,8 +570,8 @@ class TestIntegrationWithSimulationEngine:
     def test_environment_data_from_engine(self):
         """Test that ExportedEnvironmentData works with actual engine export."""
         from tests.fixtures.core.environments import create_environment
-        from models.simulation import SimulationEngine
-        from models.queue import EventQueue
+        from ues.models.simulation import SimulationEngine
+        from ues.models.queue import EventQueue
 
         # Create engine and export
         env = create_environment()
@@ -588,7 +588,7 @@ class TestIntegrationWithSimulationEngine:
         from tests.fixtures.core.environments import create_environment
         from tests.fixtures.core.events import create_simulator_event
         from tests.fixtures.core.queues import create_event_queue
-        from models.simulation import SimulationEngine
+        from ues.models.simulation import SimulationEngine
 
         # Create engine with events and export
         event = create_simulator_event(modality="location")
@@ -606,8 +606,8 @@ class TestIntegrationWithSimulationEngine:
     def test_scenario_data_from_engine(self):
         """Test that ExportedScenarioData works with actual engine export."""
         from tests.fixtures.core.environments import create_environment
-        from models.simulation import SimulationEngine
-        from models.queue import EventQueue
+        from ues.models.simulation import SimulationEngine
+        from ues.models.queue import EventQueue
 
         # Create engine and export scenario
         engine = SimulationEngine(
@@ -625,8 +625,8 @@ class TestIntegrationWithSimulationEngine:
     def test_load_environment_response_matches_engine_result(self):
         """Test that LoadEnvironmentResponse matches actual engine.load_environment() result."""
         from tests.fixtures.core.environments import create_environment
-        from models.simulation import SimulationEngine
-        from models.queue import EventQueue
+        from ues.models.simulation import SimulationEngine
+        from ues.models.queue import EventQueue
 
         # Create and export environment
         source_engine = SimulationEngine(
@@ -652,8 +652,8 @@ class TestIntegrationWithSimulationEngine:
         from tests.fixtures.core.environments import create_environment
         from tests.fixtures.core.events import create_simulator_event
         from tests.fixtures.core.queues import create_event_queue
-        from models.simulation import SimulationEngine
-        from models.queue import EventQueue
+        from ues.models.simulation import SimulationEngine
+        from ues.models.queue import EventQueue
 
         # Create engine with events and export
         event = create_simulator_event(modality="location")
@@ -679,9 +679,9 @@ class TestIntegrationWithSimulationEngine:
     def test_load_scenario_response_matches_engine_result(self):
         """Test that LoadScenarioResponse matches actual engine.load_scenario() result."""
         from tests.fixtures.core.environments import create_environment
-        from models.simulation import SimulationEngine
-        from models.queue import EventQueue
-        from models.scenario import Scenario
+        from ues.models.simulation import SimulationEngine
+        from ues.models.queue import EventQueue
+        from ues.models.scenario import Scenario
 
         # Create and export scenario
         source_engine = SimulationEngine(

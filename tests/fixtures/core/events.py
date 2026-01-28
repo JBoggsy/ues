@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 
-from models.event import SimulatorEvent, EventStatus
+from ues.models.event import SimulatorEvent, EventStatus
 from tests.fixtures.modalities.email import create_email_input
 from tests.fixtures.modalities.location import create_location_input
 

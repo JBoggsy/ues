@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from models.modalities.weather_input import (
+from ues.models.modalities.weather_input import (
     CurrentWeather,
     WeatherCondition,
     WeatherInput,

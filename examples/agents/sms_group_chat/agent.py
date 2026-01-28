@@ -30,7 +30,7 @@ from typing import Any
 import httpx
 import websockets
 
-from client import AsyncUESClient
+from ues.client import AsyncUESClient
 
 
 # Configuration constants

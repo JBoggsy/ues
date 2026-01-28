@@ -24,8 +24,8 @@ from pathlib import Path
 
 import httpx
 
-from client import AsyncUESClient
-from agent_testing import EvalRunner
+from ues.client import AsyncUESClient
+from ues.agent_testing import EvalRunner
 
 # Import our agents
 from user_agent import UserAgent

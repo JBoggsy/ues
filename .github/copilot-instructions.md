@@ -4,16 +4,16 @@
 
 UES is an AI-driven testing tool for AI personal assistants, simulating multiple input modalities (email, calendar, SMS, location, weather, etc.) via a RESTful API.
 
-**For architecture details**: See `README.md`, `docs/SIMULATION_ENGINE.md`, `docs/REST_API.md`
+**For architecture details**: See `README.md`, `docs/models/SIMULATION_ENGINE.md`, `docs/api/REST_API.md`
 **For current status/roadmap**: See `TODO.md`
-**For Python client usage**: See `client/CLIENT_QUICK_REFERENCE.md` for available methods and patterns
+**For Python client usage**: See `docs/client/CLIENT_QUICK_REFERENCE.md` for available methods and patterns
 
 ## Development Environment
 
 ### Common Commands
 ```bash
 uv sync                              # Install dependencies
-uv run uvicorn main:app --reload     # Start API server (dev)
+uv run uvicorn ues.main:app --reload # Start API server (dev)
 uv run pytest                        # Run all tests
 uv run pytest tests/api/ -v          # Run specific tests
 cd webapp && npm run dev             # Start Web UI
@@ -22,7 +22,7 @@ cd webapp && npm run dev             # Start Web UI
 **IMPORTANT**: Always use `uv run python ...` or `uv run <command>`. Never use plain `python ...` commands.
 
 ### Development URLs
-When the server is running (`uv run uvicorn main:app --reload`):
+When the server is running (`uv run uvicorn ues.main:app --reload`):
 - **API Server**: http://localhost:8000
 - **Swagger Docs**: http://localhost:8000/docs (interactive API testing)
 - **ReDoc**: http://localhost:8000/redoc (alternative API docs)
@@ -52,18 +52,18 @@ See `webapp/.env.example` for web UI environment variables.
 
 ### Adding a New Modality
 When implementing a new modality, follow this checklist:
-1. **Models**: Create `models/modalities/<modality>_input.py` and `<modality>_state.py`
+1. **Models**: Create `src/ues/models/modalities/<modality>_input.py` and `<modality>_state.py`
    - Input class extends `ModalityInput` with action-specific fields
    - State class extends `ModalityState` with `apply_input()`, `clear()`, `create_undo_data()`, `apply_undo()`
-2. **Registry**: Register in `models/registry.py` `ModalityRegistry`
-3. **API Routes**: Create `api/routes/<modality>.py` with state/query/submit endpoints
-4. **Route Registration**: Add router to `main.py`
-5. **Client Sub-client**: Create `client/_<modality>.py` with sync/async methods
-6. **Client Integration**: Add to `UESClient` and `AsyncUESClient` in `client/client.py`
+2. **Registry**: Register in `src/ues/models/registry.py` `ModalityRegistry`
+3. **API Routes**: Create `src/ues/api/routes/<modality>.py` with state/query/submit endpoints
+4. **Route Registration**: Add router to `src/ues/main.py`
+5. **Client Sub-client**: Create `src/ues/client/_<modality>.py` with sync/async methods
+6. **Client Integration**: Add to `UESClient` and `AsyncUESClient` in `src/ues/client/client.py`
 7. **Tests**: Add `tests/models/test_<modality>_input.py`, `test_<modality>_state.py`, and `tests/api/modalities/test_<modality>_routes.py`
 8. **Web UI**: Add viewer component in `webapp/src/components/modalities/<modality>/`
 
-See `docs/MODALITY_ROUTES.md` for detailed API patterns and `docs/MODALITY_UNDO_NOTES.md` for undo implementation.
+See `docs/api/MODALITY_ROUTES.md` for detailed API patterns and `docs/models/MODALITY_UNDO_NOTES.md` for undo implementation.
 
 ## Non-Code Documentation Imperatives
 - Ensure documentation is clear, concise, and accessible to future developers

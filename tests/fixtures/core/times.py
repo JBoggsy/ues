@@ -2,7 +2,7 @@
 
 from datetime import datetime, timezone
 
-from models.time import SimulatorTime, TimeMode
+from ues.models.time import SimulatorTime, TimeMode
 
 
 def create_simulator_time(

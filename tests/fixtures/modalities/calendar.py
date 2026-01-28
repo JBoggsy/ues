@@ -2,13 +2,13 @@
 
 from datetime import datetime, timezone, timedelta
 
-from models.modalities.calendar_input import (
+from ues.models.modalities.calendar_input import (
     CalendarInput,
     Attendee,
     RecurrenceRule,
     Reminder,
 )
-from models.modalities.calendar_state import CalendarState
+from ues.models.modalities.calendar_state import CalendarState
 
 
 def create_calendar_input(

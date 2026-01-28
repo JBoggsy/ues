@@ -15,14 +15,14 @@ from unittest.mock import patch
 
 import pytest
 
-from api.dependencies import (
+from ues.api.dependencies import (
     _simulation_engine,
     get_simulation_engine,
     initialize_simulation_engine,
     shutdown_simulation_engine,
     SimulationEngineDep,
 )
-from models.simulation import SimulationEngine
+from ues.models.simulation import SimulationEngine
 
 
 # =============================================================================
@@ -36,7 +36,7 @@ def reset_global_engine():
     
     This ensures tests are isolated and don't affect each other.
     """
-    import api.dependencies as deps
+    import ues.api.dependencies as deps
     
     # Store original state
     original_engine = deps._simulation_engine

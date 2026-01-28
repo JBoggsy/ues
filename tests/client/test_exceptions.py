@@ -22,7 +22,7 @@ The exception hierarchy being tested:
 
 import pytest
 
-from client.exceptions import (
+from ues.client.exceptions import (
     UESClientError,
     ConnectionError,
     TimeoutError,

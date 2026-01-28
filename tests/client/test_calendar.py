@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from client._calendar import (
+from ues.client._calendar import (
     AsyncCalendarClient,
     Attachment,
     Attendee,
@@ -20,7 +20,7 @@ from client._calendar import (
     RecurrenceRule,
     Reminder,
 )
-from client.models import ModalityActionResponse
+from ues.client.models import ModalityActionResponse
 
 
 # =============================================================================

@@ -9,8 +9,8 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from models.modalities.location_input import LocationInput
-from models.modalities.location_state import LocationHistoryEntry, LocationState
+from ues.models.modalities.location_input import LocationInput
+from ues.models.modalities.location_state import LocationHistoryEntry, LocationState
 from tests.fixtures.modalities.location import (
     GYM_LOCATION,
     HOME_LOCATION,
@@ -188,7 +188,7 @@ class TestLocationStateApplyInput:
 
     def test_apply_input_rejects_wrong_input_type(self):
         """Test that applying wrong input type raises ValueError."""
-        from models.modalities.time_input import TimeInput
+        from ues.models.modalities.time_input import TimeInput
         
         state = create_location_state()
         time_input = TimeInput(
@@ -834,7 +834,7 @@ class TestLocationStateCreateUndoData:
         
         GENERAL PATTERN: Validate input type and fail fast.
         """
-        from models.modalities.chat_input import ChatInput
+        from ues.models.modalities.chat_input import ChatInput
         
         state = create_location_state()
         chat_input = ChatInput(

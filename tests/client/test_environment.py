@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from client._environment import (
+from ues.client._environment import (
     AsyncEnvironmentClient,
     EnvironmentClient,
     EnvironmentStateResponse,

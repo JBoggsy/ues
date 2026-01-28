@@ -9,13 +9,13 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from client._location import (
+from ues.client._location import (
     AsyncLocationClient,
     LocationClient,
     LocationQueryResponse,
     LocationStateResponse,
 )
-from client.models import ModalityActionResponse
+from ues.client.models import ModalityActionResponse
 
 
 # =============================================================================

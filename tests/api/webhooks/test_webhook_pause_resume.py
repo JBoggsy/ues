@@ -8,8 +8,8 @@ Tests the webhook lifecycle management:
 import pytest
 from fastapi.testclient import TestClient
 
-from api.webhooks import webhook_registry, WebhookStatus
-from main import app
+from ues.api.webhooks import webhook_registry, WebhookStatus
+from ues.main import app
 
 
 @pytest.fixture

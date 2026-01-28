@@ -24,8 +24,8 @@ from datetime import datetime, timezone
 import pytest
 from pydantic import ValidationError
 
-from models.environment import Environment
-from models.time import SimulatorTime
+from ues.models.environment import Environment
+from ues.models.time import SimulatorTime
 from tests.fixtures.core.environments import (
     FULL_ENVIRONMENT,
     MINIMAL_ENVIRONMENT,

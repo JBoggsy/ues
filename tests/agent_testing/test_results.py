@@ -3,7 +3,7 @@
 import pytest
 from datetime import datetime, timezone
 
-from agent_testing.results import CriterionResult, EvalReport, EvalResult
+from ues.agent_testing.results import CriterionResult, EvalReport, EvalResult
 
 
 class TestEvalResult:

@@ -19,7 +19,7 @@ from pathlib import Path
 
 import httpx
 
-from client import UESClient
+from ues.client import UESClient
 
 
 def load_system_prompt() -> str:

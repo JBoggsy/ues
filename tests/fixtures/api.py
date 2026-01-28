@@ -9,8 +9,8 @@ from datetime import datetime, timezone
 import pytest
 from fastapi.testclient import TestClient
 
-from main import app
-from models.simulation import SimulationEngine
+from ues.main import app
+from ues.models.simulation import SimulationEngine
 from tests.fixtures.core.environments import create_environment
 from tests.fixtures.core.queues import create_event_queue
 from tests.fixtures.core.times import create_simulator_time

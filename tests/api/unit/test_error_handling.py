@@ -11,7 +11,7 @@ from fastapi import status
 from fastapi.exceptions import RequestValidationError
 from pydantic import ValidationError, BaseModel
 
-from api.exceptions import (
+from ues.api.exceptions import (
     ModalityNotFoundError,
     SimulationNotRunningError,
     modality_not_found_handler,
@@ -22,7 +22,7 @@ from api.exceptions import (
     runtime_error_handler,
     generic_exception_handler,
 )
-from api.models import ErrorResponse
+from ues.api.models import ErrorResponse
 
 
 # Helper to run async functions synchronously

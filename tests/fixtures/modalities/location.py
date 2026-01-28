@@ -2,8 +2,8 @@
 
 from datetime import datetime, timezone
 
-from models.modalities.location_input import LocationInput
-from models.modalities.location_state import LocationState
+from ues.models.modalities.location_input import LocationInput
+from ues.models.modalities.location_state import LocationState
 
 
 def create_location_input(

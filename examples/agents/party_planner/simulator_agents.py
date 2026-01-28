@@ -26,7 +26,7 @@ from typing import Any
 
 import httpx
 
-from client import AsyncUESClient
+from ues.client import AsyncUESClient
 
 
 # ============================================================================

@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from client._events import (
+from ues.client._events import (
     AsyncEventsClient,
     BatchCreateEventResponse,
     BatchEventRequest,
@@ -22,7 +22,7 @@ from client._events import (
     EventsClient,
     EventSummaryResponse,
 )
-from client.exceptions import NotFoundError
+from ues.client.exceptions import NotFoundError
 
 
 # =============================================================================

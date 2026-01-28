@@ -9,8 +9,8 @@ from datetime import datetime, timezone
 
 import pytest
 
-from models.modalities.weather_input import WeatherInput
-from models.modalities.weather_state import (
+from ues.models.modalities.weather_input import WeatherInput
+from ues.models.modalities.weather_state import (
     WeatherLocationState,
     WeatherReportHistoryEntry,
     WeatherState,
@@ -953,7 +953,7 @@ class TestWeatherStateCreateUndoData:
         
         GENERAL PATTERN: All modalities should validate input type.
         """
-        from models.modalities.location_input import LocationInput
+        from ues.models.modalities.location_input import LocationInput
         
         state = create_weather_state()
         invalid_input = LocationInput(

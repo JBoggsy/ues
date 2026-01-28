@@ -8,6 +8,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Agent Testing Harness** (`agent_testing` package)
+  - JSON-defined test criteria referencing Python evaluator functions
+  - `EvalRunner` orchestrates test execution lifecycle
+  - `EvalContext` for accessing simulation state in evaluators
+  - Two evaluation timings: `post_scenario` and `on_event` (real-time)
+  - Terminal scoreboard display with progress bars and grades
+  - JSON report export for CI integration
+  - CLI: `uv run python -m agent_testing path/to/scenario/`
+  - 108 tests for the harness itself
+
+- **Simulation Hold System** for multi-agent coordination
+  - `POST /simulation/hold` - Acquire a hold (returns hold_id)
+  - `POST /simulation/release/{hold_id}` - Release a specific hold
+  - `GET /simulation/holds` - List all active holds
+  - Optional timeout (default: 300s) auto-releases stale holds
+  - WebSocket notifications: `hold.acquired`, `hold.released`, `hold.expired`
+  - Python client: `client.simulation.hold()` and `client.simulation.release()`
+
+- **Example Agents** (5 complete examples in `examples/agents/`)
+  - Simple email summary agent
+  - Email reply generator agent
+  - Calendar conflict resolver agent
+  - SMS group chat simulator agent
+  - Party planner multi-agent integration example
+
 - Project organization for public GitHub release
 - CLI entry point (`ues server`) for easy server startup
 - MIT License
@@ -18,6 +43,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Updated README with installation instructions and quickstart guide
 - Enhanced pyproject.toml with full project metadata and entry points
+- Test count increased from 1,242 to 3,325 tests
+- REST API now has 89 endpoints (up from 85+)
+
+### Fixed
+- Email threading support improvements
+- Calendar state typing issues
+- Email state API now returns folder/label message IDs instead of counts
 
 ## [0.1.0] - 2025-01-13
 
@@ -60,5 +92,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - React 18 + TypeScript + Vite for modern web UI
 - 1,242+ tests with comprehensive coverage
 
-[Unreleased]: https://github.com/jbboggs/ues/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/jbboggs/ues/releases/tag/v0.1.0
+[Unreleased]: https://github.com/JBoggsy/ues/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/JBoggsy/ues/releases/tag/v0.1.0

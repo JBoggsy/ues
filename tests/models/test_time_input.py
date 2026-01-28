@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from models.modalities.time_input import TimeInput
+from ues.models.modalities.time_input import TimeInput
 from tests.fixtures.modalities.time import (
     PARIS_INPUT,
     TOKYO_INPUT,
@@ -257,7 +257,7 @@ class TestTimeInputAbstractMethods:
 
     def test_should_merge_with_different_type(self):
         """Test that time settings should not merge with other modality types."""
-        from models.modalities.location_input import LocationInput
+        from ues.models.modalities.location_input import LocationInput
         
         time_input = create_time_input()
         location_input = LocationInput(

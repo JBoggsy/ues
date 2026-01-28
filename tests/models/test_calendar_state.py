@@ -7,13 +7,13 @@ from datetime import datetime, date, timezone, timedelta
 
 import pytest
 
-from models.modalities.calendar_input import (
+from ues.models.modalities.calendar_input import (
     Attendee,
     CalendarInput,
     RecurrenceRule,
     Reminder,
 )
-from models.modalities.calendar_state import Calendar, CalendarEvent, CalendarState
+from ues.models.modalities.calendar_state import Calendar, CalendarEvent, CalendarState
 
 
 class TestCalendarStateInstantiation:
@@ -397,7 +397,7 @@ class TestCalendarStateApplyInput:
 
     def test_apply_invalid_input_type_raises(self):
         """GENERAL PATTERN: Applying wrong input type raises error."""
-        from models.modalities.email_input import EmailInput
+        from ues.models.modalities.email_input import EmailInput
 
         state = CalendarState(
             last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
@@ -1363,7 +1363,7 @@ class TestCalendarStateCreateUndoData:
         
         GENERAL PATTERN: All modalities should validate input type.
         """
-        from models.modalities.location_input import LocationInput
+        from ues.models.modalities.location_input import LocationInput
         
         state = CalendarState(
             last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),

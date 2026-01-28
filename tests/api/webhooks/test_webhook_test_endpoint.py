@@ -8,8 +8,8 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from fastapi.testclient import TestClient
 
-from api.webhooks import webhook_registry, webhook_dispatcher
-from main import app
+from ues.api.webhooks import webhook_registry, webhook_dispatcher
+from ues.main import app
 
 
 @pytest.fixture

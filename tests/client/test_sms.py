@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from client._sms import (
+from ues.client._sms import (
     AsyncSMSClient,
     GroupParticipant,
     MessageAttachment,
@@ -20,7 +20,7 @@ from client._sms import (
     SMSQueryResponse,
     SMSStateResponse,
 )
-from client.models import ModalityActionResponse
+from ues.client.models import ModalityActionResponse
 
 
 # =============================================================================

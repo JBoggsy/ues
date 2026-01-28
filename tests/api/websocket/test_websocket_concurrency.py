@@ -14,9 +14,9 @@ from httpx import ASGITransport, AsyncClient
 from httpx_ws import aconnect_ws
 from httpx_ws.transport import ASGIWebSocketTransport
 
-from api.dependencies import get_simulation_engine
-from api.websocket import ws_manager
-from main import app
+from ues.api.dependencies import get_simulation_engine
+from ues.api.websocket import ws_manager
+from ues.main import app
 
 
 class TestWebSocketConcurrency:

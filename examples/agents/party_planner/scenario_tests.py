@@ -8,7 +8,7 @@ import json
 from difflib import SequenceMatcher
 from pathlib import Path
 
-from agent_testing import EvalContext, EvalResult
+from ues.agent_testing import EvalContext, EvalResult
 
 
 async def check_invitation_completeness(

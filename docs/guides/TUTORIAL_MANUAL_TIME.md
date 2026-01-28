@@ -856,8 +856,8 @@ scheduled_time = datetime.now() + timedelta(hours=1)  # Don't do this!
 
 - **[Building an Agent Loop](./TUTORIAL_AGENT_LOOP.md)** - Create an AI agent that responds to simulation events
 - **[API Examples](./EXAMPLES.md)** - Copy-paste examples for common operations
-- **[REST API Reference](../REST_API.md)** - Complete endpoint documentation
-- **[Modality Routes](../MODALITY_ROUTES.md)** - Detailed modality endpoint specifications
+- **[REST API Reference](../api/REST_API.md)** - Complete endpoint documentation
+- **[Modality Routes](../api/MODALITY_ROUTES.md)** - Detailed modality endpoint specifications
 
 ---
 

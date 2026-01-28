@@ -20,7 +20,7 @@ import pytest
 from pydantic import ValidationError
 
 # Common response models from api/models.py
-from api.models import (
+from ues.api.models import (
     ErrorResponse,
     ModalityActionResponse,
     ModalityQueryResponse,
@@ -28,7 +28,7 @@ from api.models import (
 )
 
 # Simulation response models
-from api.routes.simulation import (
+from ues.api.routes.simulation import (
     ResetSimulationResponse,
     SimulationStatusResponse,
     StartSimulationResponse,
@@ -36,13 +36,13 @@ from api.routes.simulation import (
 )
 
 # Time response models
-from api.routes.time import SetTimeResponse, SkipToNextResponse, TimeStateResponse
+from ues.api.routes.time import SetTimeResponse, SkipToNextResponse, TimeStateResponse
 
 # Event response models
-from api.routes.events import EventListResponse, EventResponse, EventSummaryResponse
+from ues.api.routes.events import EventListResponse, EventResponse, EventSummaryResponse
 
 # Environment response models
-from api.routes.environment import (
+from ues.api.routes.environment import (
     EnvironmentStateResponse,
     ModalityListResponse,
     ModalitySummary,
@@ -50,13 +50,13 @@ from api.routes.environment import (
 )
 
 # Chat response models
-from api.routes.chat import ChatQueryResponse, ChatStateResponse
+from ues.api.routes.chat import ChatQueryResponse, ChatStateResponse
 
 # Location response models
-from api.routes.location import LocationQueryResponse, LocationStateResponse
+from ues.api.routes.location import LocationQueryResponse, LocationStateResponse
 
 # Weather response models
-from api.routes.weather import WeatherQueryResponse, WeatherStateResponse
+from ues.api.routes.weather import WeatherQueryResponse, WeatherStateResponse
 
 
 # =============================================================================

@@ -5,7 +5,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-from agent_testing.display import (
+from ues.agent_testing.display import (
     format_report_terminal,
     format_report_summary,
     save_report_json,
@@ -13,7 +13,7 @@ from agent_testing.display import (
     _create_progress_bar,
     _get_grade_emoji,
 )
-from agent_testing.results import CriterionResult, EvalReport
+from ues.agent_testing.results import CriterionResult, EvalReport
 
 
 @pytest.fixture

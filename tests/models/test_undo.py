@@ -13,7 +13,7 @@ from datetime import datetime, timezone, timedelta
 
 import pytest
 
-from models.undo import UndoEntry, UndoStack
+from ues.models.undo import UndoEntry, UndoStack
 
 
 # =============================================================================

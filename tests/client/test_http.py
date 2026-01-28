@@ -27,7 +27,7 @@ Note: These tests use httpx's mock transport to avoid real network calls.
 import pytest
 import httpx
 
-from client._http import (
+from ues.client._http import (
     HTTPClient,
     AsyncHTTPClient,
     _parse_error_response,
@@ -37,7 +37,7 @@ from client._http import (
     DEFAULT_RETRY_BACKOFF_BASE,
     DEFAULT_RETRY_BACKOFF_MAX,
 )
-from client.exceptions import (
+from ues.client.exceptions import (
     APIError,
     ConflictError,
     ConnectionError,

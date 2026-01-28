@@ -22,7 +22,7 @@ import pytest
 from pydantic import ValidationError
 
 # Common models from api/models.py
-from api.models import (
+from ues.api.models import (
     DateRangeParams,
     DeleteItemsRequest,
     MarkItemsRequest,
@@ -32,16 +32,16 @@ from api.models import (
 )
 
 # Simulation request models
-from api.routes.simulation import StartSimulationRequest
+from ues.api.routes.simulation import StartSimulationRequest
 
 # Time control request models
-from api.routes.time import AdvanceTimeRequest, SetScaleRequest, SetTimeRequest
+from ues.api.routes.time import AdvanceTimeRequest, SetScaleRequest, SetTimeRequest
 
 # Event request models
-from api.routes.events import CreateEventRequest, ImmediateEventRequest
+from ues.api.routes.events import CreateEventRequest, ImmediateEventRequest
 
 # Chat request models
-from api.routes.chat import (
+from ues.api.routes.chat import (
     ChatQueryRequest,
     ClearChatRequest,
     DeleteChatMessageRequest,
@@ -49,7 +49,7 @@ from api.routes.chat import (
 )
 
 # Email request models
-from api.routes.email import (
+from ues.api.routes.email import (
     EmailAttachmentRequest,
     EmailLabelRequest,
     EmailMarkRequest,
@@ -60,7 +60,7 @@ from api.routes.email import (
 )
 
 # SMS request models
-from api.routes.sms import (
+from ues.api.routes.sms import (
     MessageAttachmentRequest,
     ReceiveSMSRequest,
     SendSMSRequest,
@@ -71,7 +71,7 @@ from api.routes.sms import (
 )
 
 # Calendar request models
-from api.routes.calendar import (
+from ues.api.routes.calendar import (
     CalendarQueryRequest,
     CreateCalendarEventRequest,
     DeleteCalendarEventRequest,
@@ -79,10 +79,10 @@ from api.routes.calendar import (
 )
 
 # Location request models
-from api.routes.location import LocationQueryRequest, UpdateLocationRequest
+from ues.api.routes.location import LocationQueryRequest, UpdateLocationRequest
 
 # Weather request models
-from api.routes.weather import UpdateWeatherRequest, WeatherQueryRequest
+from ues.api.routes.weather import UpdateWeatherRequest, WeatherQueryRequest
 
 
 # =============================================================================

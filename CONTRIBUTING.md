@@ -27,7 +27,7 @@ Please be respectful and constructive in all interactions. We're building a welc
    ```
 3. **Add the upstream remote**:
    ```bash
-   git remote add upstream https://github.com/jbboggs/ues.git
+   git remote add upstream https://github.com/JBoggsy/ues.git
    ```
 
 ## Development Setup
@@ -66,7 +66,7 @@ npm install
 uv run ues server --reload
 
 # Or directly with uvicorn
-uv run uvicorn main:app --reload
+uv run uvicorn ues.main:app --reload
 ```
 
 The API will be available at:
@@ -254,10 +254,10 @@ def process_event(
 ### Adding a New Modality
 
 Follow the checklist in `.github/copilot-instructions.md`:
-1. Create models in `models/modalities/`
-2. Register in `models/registry.py`
-3. Add API routes in `api/routes/`
-4. Create client sub-client in `client/`
+1. Create models in `src/ues/models/modalities/`
+2. Register in `src/ues/models/registry.py`
+3. Add API routes in `src/ues/api/routes/`
+4. Create client sub-client in `src/ues/client/`
 5. Add tests in `tests/`
 6. Add Web UI component in `webapp/src/components/modalities/`
 7. Update documentation
@@ -265,7 +265,7 @@ Follow the checklist in `.github/copilot-instructions.md`:
 ## Questions?
 
 If you have questions about contributing:
-- Open a [Discussion](https://github.com/jbboggs/ues/discussions) on GitHub
+- Open a [Discussion](https://github.com/JBoggsy/ues/discussions) on GitHub
 - Check existing issues and documentation
 
 Thank you for contributing to UES! 🎉

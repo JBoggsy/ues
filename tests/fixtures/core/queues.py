@@ -4,8 +4,8 @@ from datetime import datetime, timezone, timedelta
 
 import pytest
 
-from models.queue import EventQueue
-from models.event import SimulatorEvent, EventStatus
+from ues.models.queue import EventQueue
+from ues.models.event import SimulatorEvent, EventStatus
 from tests.fixtures.core.events import create_simulator_event
 
 

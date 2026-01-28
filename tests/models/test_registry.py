@@ -9,7 +9,7 @@ Tests cover:
 
 import pytest
 
-from models.registry import (
+from ues.models.registry import (
     clear_all_registries,
     clear_input_registry,
     clear_state_registry,
@@ -25,9 +25,9 @@ from models.registry import (
     unregister_modality_state,
     _register_default_modalities,
 )
-from models.base_input import ModalityInput
-from models.base_state import ModalityState
-from models.modalities import (
+from ues.models.base_input import ModalityInput
+from ues.models.base_state import ModalityState
+from ues.models.modalities import (
     CalendarInput,
     CalendarState,
     ChatInput,

@@ -9,8 +9,8 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from fastapi.testclient import TestClient
 
-from api.webhooks import webhook_registry, webhook_dispatcher, DeliveryStatus
-from main import app
+from ues.api.webhooks import webhook_registry, webhook_dispatcher, DeliveryStatus
+from ues.main import app
 
 
 @pytest.fixture
@@ -67,8 +67,8 @@ class TestGetDeliveries:
         with patch.object(webhook_dispatcher, "_get_client", return_value=mock_client):
             # Manually trigger a delivery to populate history
             import asyncio
-            from api.webhooks import WebhookRegistration
-            from api.websocket import WSEvent, WSEventType
+            from ues.api.webhooks import WebhookRegistration
+            from ues.api.websocket import WSEvent, WSEventType
             
             # Get the webhook
             webhook = asyncio.get_event_loop().run_until_complete(
@@ -116,7 +116,7 @@ class TestGetDeliveries:
         
         with patch.object(webhook_dispatcher, "_get_client", return_value=mock_client):
             import asyncio
-            from api.websocket import WSEvent, WSEventType
+            from ues.api.websocket import WSEvent, WSEventType
             
             webhook = asyncio.get_event_loop().run_until_complete(
                 webhook_registry.get(webhook_id)
@@ -156,7 +156,7 @@ class TestGetDeliveries:
         
         with patch.object(webhook_dispatcher, "_get_client", return_value=mock_client):
             import asyncio
-            from api.websocket import WSEvent, WSEventType
+            from ues.api.websocket import WSEvent, WSEventType
             
             webhook = asyncio.get_event_loop().run_until_complete(
                 webhook_registry.get(webhook_id)
@@ -198,7 +198,7 @@ class TestDeliveryRecordContent:
         
         with patch.object(webhook_dispatcher, "_get_client", return_value=mock_client):
             import asyncio
-            from api.websocket import WSEvent, WSEventType
+            from ues.api.websocket import WSEvent, WSEventType
             
             webhook = asyncio.get_event_loop().run_until_complete(
                 webhook_registry.get(webhook_id)
@@ -235,7 +235,7 @@ class TestDeliveryRecordContent:
         
         with patch.object(webhook_dispatcher, "_get_client", return_value=mock_client):
             import asyncio
-            from api.websocket import WSEvent, WSEventType
+            from ues.api.websocket import WSEvent, WSEventType
             
             webhook = asyncio.get_event_loop().run_until_complete(
                 webhook_registry.get(webhook_id)
@@ -269,7 +269,7 @@ class TestDeliveryRecordContent:
         
         with patch.object(webhook_dispatcher, "_get_client", return_value=mock_client):
             import asyncio
-            from api.websocket import WSEvent, WSEventType
+            from ues.api.websocket import WSEvent, WSEventType
             
             webhook = asyncio.get_event_loop().run_until_complete(
                 webhook_registry.get(webhook_id)
@@ -307,7 +307,7 @@ class TestDeliveryClearedOnDelete:
         
         with patch.object(webhook_dispatcher, "_get_client", return_value=mock_client):
             import asyncio
-            from api.websocket import WSEvent, WSEventType
+            from ues.api.websocket import WSEvent, WSEventType
             
             webhook = asyncio.get_event_loop().run_until_complete(
                 webhook_registry.get(webhook_id)

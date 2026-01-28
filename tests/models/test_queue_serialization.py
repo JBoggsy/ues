@@ -29,8 +29,8 @@ from uuid import uuid4
 import pytest
 from pydantic import ValidationError
 
-from models.event import EventStatus, SimulatorEvent
-from models.queue import EventQueue
+from ues.models.event import EventStatus, SimulatorEvent
+from ues.models.queue import EventQueue
 from tests.fixtures.core.events import create_simulator_event
 from tests.fixtures.core.queues import create_event_queue
 from tests.fixtures.modalities.email import create_email_input
@@ -350,7 +350,7 @@ class TestPolymorphicDeserialization:
 
     def test_location_input_deserialized_correctly(self):
         """Test LocationInput is correctly deserialized from queue."""
-        from models.modalities import LocationInput
+        from ues.models.modalities import LocationInput
 
         location_input = create_location_input(
             latitude=37.7749,
@@ -371,7 +371,7 @@ class TestPolymorphicDeserialization:
 
     def test_email_input_deserialized_correctly(self):
         """Test EmailInput is correctly deserialized from queue."""
-        from models.modalities import EmailInput
+        from ues.models.modalities import EmailInput
 
         email_input = create_email_input(
             from_address="test@example.com",
@@ -393,7 +393,7 @@ class TestPolymorphicDeserialization:
 
     def test_mixed_modality_inputs_deserialized(self):
         """Test queue with multiple modality types deserializes correctly."""
-        from models.modalities import EmailInput, LocationInput
+        from ues.models.modalities import EmailInput, LocationInput
 
         now = datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc)
         location_event = create_simulator_event(

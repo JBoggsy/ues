@@ -29,12 +29,12 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from models.environment import Environment
-from models.event import EventStatus, SimulatorEvent
-from models.queue import EventQueue
-from models.scenario import Scenario
-from models.simulation import SimulationEngine
-from models.time import SimulatorTime
+from ues.models.environment import Environment
+from ues.models.event import EventStatus, SimulatorEvent
+from ues.models.queue import EventQueue
+from ues.models.scenario import Scenario
+from ues.models.simulation import SimulationEngine
+from ues.models.time import SimulatorTime
 from tests.fixtures.core.environments import create_environment
 from tests.fixtures.core.events import create_simulator_event
 from tests.fixtures.core.queues import create_event_queue

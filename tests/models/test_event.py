@@ -8,8 +8,8 @@ from datetime import datetime, timezone, timedelta
 
 import pytest
 
-from models.event import SimulatorEvent, EventStatus
-from models.environment import Environment
+from ues.models.event import SimulatorEvent, EventStatus
+from ues.models.environment import Environment
 from tests.fixtures.modalities.email import create_email_input, create_email_state
 from tests.fixtures.modalities.location import (
     create_location_input,

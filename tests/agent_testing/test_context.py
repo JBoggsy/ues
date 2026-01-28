@@ -3,7 +3,7 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from agent_testing.context import EvalContext
+from ues.agent_testing.context import EvalContext
 
 
 class TestEvalContext:

@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from models.modalities.sms_input import MessageAttachmentData, SMSInput
+from ues.models.modalities.sms_input import MessageAttachmentData, SMSInput
 
 
 class TestSMSInputInstantiation:

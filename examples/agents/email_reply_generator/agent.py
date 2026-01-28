@@ -28,7 +28,7 @@ from pathlib import Path
 import httpx
 import websockets
 
-from client import AsyncUESClient
+from ues.client import AsyncUESClient
 
 
 def load_system_prompt() -> str:

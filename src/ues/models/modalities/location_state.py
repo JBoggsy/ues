@@ -1,0 +1,550 @@
+"""Location state model."""
+
+from datetime import datetime
+from typing import Any, Optional
+
+from pydantic import BaseModel, ConfigDict, Field
+
+from ues.models.base_input import ModalityInput
+from ues.models.base_state import ModalityState
+
+
+class LocationHistoryEntry(BaseModel):
+    """A single entry in the location history.
+
+    Tracks a historical location with timestamp and associated metadata.
+
+    Args:
+        timestamp: When the user was at this location.
+        latitude: Latitude coordinate.
+        longitude: Longitude coordinate.
+        address: Human-readable address if available.
+        named_location: Semantic location name if available.
+        altitude: Altitude in meters if available.
+        accuracy: Accuracy radius in meters if available.
+        speed: Speed in meters per second if available.
+        bearing: Bearing in degrees if available.
+    """
+
+    timestamp: datetime = Field(description="When the user was at this location")
+    latitude: float = Field(description="Latitude coordinate")
+    longitude: float = Field(description="Longitude coordinate")
+    address: Optional[str] = Field(default=None, description="Human-readable address")
+    named_location: Optional[str] = Field(default=None, description="Semantic location name")
+    altitude: Optional[float] = Field(default=None, description="Altitude in meters")
+    accuracy: Optional[float] = Field(default=None, description="Accuracy radius in meters")
+    speed: Optional[float] = Field(default=None, description="Speed in meters per second")
+    bearing: Optional[float] = Field(default=None, description="Bearing in degrees")
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert this entry to a dictionary.
+
+        Returns:
+            Dictionary representation of this location entry.
+        """
+        result = {
+            "timestamp": self.timestamp.isoformat(),
+            "latitude": self.latitude,
+            "longitude": self.longitude,
+        }
+        if self.address:
+            result["address"] = self.address
+        if self.named_location:
+            result["named_location"] = self.named_location
+        if self.altitude is not None:
+            result["altitude"] = self.altitude
+        if self.accuracy is not None:
+            result["accuracy"] = self.accuracy
+        if self.speed is not None:
+            result["speed"] = self.speed
+        if self.bearing is not None:
+            result["bearing"] = self.bearing
+        return result
+
+
+class LocationState(ModalityState):
+    """Current user location state.
+
+    Tracks the user's current location and maintains a history of recent locations.
+    Extensible to support additional location metadata in the future.
+
+    Args:
+        modality_type: Always "location" for this state type.
+        last_updated: Simulator time when this state was last modified.
+        update_count: Number of times this state has been modified.
+        current_latitude: Current latitude coordinate.
+        current_longitude: Current longitude coordinate.
+        current_address: Current human-readable address if known.
+        current_named_location: Current location name if applicable (e.g., "Home", "Office").
+        current_altitude: Current altitude in meters if known.
+        current_accuracy: Current position accuracy in meters if known.
+        current_speed: Current speed in meters per second if known.
+        current_bearing: Current bearing in degrees if known.
+        location_history: List of recent location updates.
+        max_history_size: Maximum number of historical locations to retain.
+    """
+
+    modality_type: str = Field(default="location", frozen=True)
+    current_latitude: Optional[float] = Field(
+        default=None, description="Current latitude coordinate"
+    )
+    current_longitude: Optional[float] = Field(
+        default=None, description="Current longitude coordinate"
+    )
+    current_address: Optional[str] = Field(
+        default=None, description="Current human-readable address"
+    )
+    current_named_location: Optional[str] = Field(
+        default=None, description="Current location name (e.g., 'Home', 'Office')"
+    )
+    current_altitude: Optional[float] = Field(
+        default=None, description="Current altitude in meters"
+    )
+    current_accuracy: Optional[float] = Field(
+        default=None, description="Current position accuracy in meters"
+    )
+    current_speed: Optional[float] = Field(
+        default=None, description="Current speed in meters per second"
+    )
+    current_bearing: Optional[float] = Field(
+        default=None, description="Current bearing in degrees"
+    )
+    location_history: list[LocationHistoryEntry] = Field(
+        default_factory=list, description="List of recent location updates"
+    )
+    max_history_size: int = Field(
+        default=100, description="Maximum number of historical locations to retain"
+    )
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    def apply_input(self, input_data: ModalityInput) -> None:
+        """Apply a LocationInput to modify this state.
+
+        Updates the current location and adds the previous location to history.
+        Automatically manages history size by removing oldest entries when needed.
+
+        Args:
+            input_data: The LocationInput to apply to this state.
+
+        Raises:
+            ValueError: If input_data is not a LocationInput.
+        """
+        from ues.models.modalities.location_input import LocationInput
+
+        if not isinstance(input_data, LocationInput):
+            raise ValueError(
+                f"LocationState can only apply LocationInput, got {type(input_data)}"
+            )
+
+        if self.current_latitude is not None and self.current_longitude is not None:
+            previous_entry = LocationHistoryEntry(
+                timestamp=self.last_updated,
+                latitude=self.current_latitude,
+                longitude=self.current_longitude,
+                address=self.current_address,
+                named_location=self.current_named_location,
+                altitude=self.current_altitude,
+                accuracy=self.current_accuracy,
+                speed=self.current_speed,
+                bearing=self.current_bearing,
+            )
+            self.location_history.append(previous_entry)
+
+            if len(self.location_history) > self.max_history_size:
+                self.location_history.pop(0)
+
+        self.current_latitude = input_data.latitude
+        self.current_longitude = input_data.longitude
+        self.current_address = input_data.address
+        self.current_named_location = input_data.named_location
+        self.current_altitude = input_data.altitude
+        self.current_accuracy = input_data.accuracy
+        self.current_speed = input_data.speed
+        self.current_bearing = input_data.bearing
+
+        self.last_updated = input_data.timestamp
+        self.update_count += 1
+
+    def get_snapshot(self) -> dict[str, Any]:
+        """Return a compact snapshot of current location state.
+
+        This returns a compact view optimized for API responses and LLM context.
+        It includes current location data but excludes location history.
+
+        For complete state including history, use `model_dump(mode="json")`.
+
+        Returns:
+            Dictionary with:
+            - modality_type: Always "location"
+            - last_updated: ISO timestamp of last update
+            - update_count: Number of location updates
+            - current: Current location details (lat, lon, address, etc.)
+            - history_count: Number of entries in location history
+
+        Note:
+            History is NOT included. Use model_dump() for full state.
+        """
+        snapshot: dict[str, Any] = {
+            "modality_type": self.modality_type,
+            "last_updated": self.last_updated.isoformat(),
+            "update_count": self.update_count,
+            "current": {},
+            "history_count": len(self.location_history),
+        }
+
+        if self.current_latitude is not None and self.current_longitude is not None:
+            snapshot["current"] = {
+                "latitude": self.current_latitude,
+                "longitude": self.current_longitude,
+            }
+            if self.current_address:
+                snapshot["current"]["address"] = self.current_address
+            if self.current_named_location:
+                snapshot["current"]["named_location"] = self.current_named_location
+            if self.current_altitude is not None:
+                snapshot["current"]["altitude"] = self.current_altitude
+            if self.current_accuracy is not None:
+                snapshot["current"]["accuracy"] = self.current_accuracy
+            if self.current_speed is not None:
+                snapshot["current"]["speed"] = self.current_speed
+            if self.current_bearing is not None:
+                snapshot["current"]["bearing"] = self.current_bearing
+
+        return snapshot
+
+    @property
+    def summary(self) -> str:
+        """Return a brief human-readable summary of the current location.
+
+        Returns:
+            A summary like "At 123 Main St, New York" or "Location not set".
+        """
+        if self.current_latitude is None or self.current_longitude is None:
+            return "Location not set"
+
+        # Prefer named location, then address, then coordinates
+        if self.current_named_location:
+            return f"At {self.current_named_location}"
+        if self.current_address:
+            return f"At {self.current_address}"
+        return f"At {self.current_latitude:.4f}, {self.current_longitude:.4f}"
+
+    def get_compact_snapshot(self, current_time: datetime) -> dict[str, Any]:
+        """Return a compact, LLM-context-optimized snapshot of location state.
+
+        Includes only current location without full history.
+
+        Args:
+            current_time: The current simulator time (for calculating relative times).
+
+        Returns:
+            Dictionary with compact location state.
+        """
+        result: dict[str, Any] = {
+            "summary": self.summary,
+        }
+
+        if self.current_latitude is not None and self.current_longitude is not None:
+            result["current"] = {
+                "latitude": self.current_latitude,
+                "longitude": self.current_longitude,
+            }
+            if self.current_address:
+                result["current"]["address"] = self.current_address
+            if self.current_named_location:
+                result["current"]["named_location"] = self.current_named_location
+            if self.current_accuracy is not None:
+                result["current"]["accuracy_meters"] = self.current_accuracy
+            if self.current_speed is not None:
+                result["current"]["speed_mps"] = self.current_speed
+        else:
+            result["current"] = None
+
+        return result
+
+    def validate_state(self) -> list[str]:
+        """Validate internal state consistency and return any issues.
+
+        Checks for:
+        - Current coordinates are both set or both unset
+        - History entries are in chronological order
+        - History size doesn't exceed maximum
+
+        Returns:
+            List of validation error messages (empty list if valid).
+        """
+        issues = []
+
+        if (self.current_latitude is None) != (self.current_longitude is None):
+            issues.append(
+                "Current latitude and longitude must both be set or both be None"
+            )
+
+        if self.current_latitude is not None:
+            if not -90 <= self.current_latitude <= 90:
+                issues.append(
+                    f"Current latitude {self.current_latitude} is outside valid range"
+                )
+
+        if self.current_longitude is not None:
+            if not -180 <= self.current_longitude <= 180:
+                issues.append(
+                    f"Current longitude {self.current_longitude} is outside valid range"
+                )
+
+        for i in range(1, len(self.location_history)):
+            if (
+                self.location_history[i].timestamp
+                < self.location_history[i - 1].timestamp
+            ):
+                issues.append(f"Location history not in chronological order at index {i}")
+
+        if len(self.location_history) > self.max_history_size:
+            issues.append(
+                f"Location history size {len(self.location_history)} exceeds maximum {self.max_history_size}"
+            )
+
+        return issues
+
+    def query(self, query_params: dict[str, Any]) -> dict[str, Any]:
+        """Execute a query against this state.
+
+        Supports filtering location history by various criteria.
+
+        Supported query parameters:
+            - since: datetime - Return locations after this time
+            - until: datetime - Return locations before this time
+            - named_location: str - Return locations with this name
+            - limit: int - Maximum number of results to return
+            - offset: int - Number of results to skip (for pagination)
+            - include_current: bool - Include current location in results (default: True)
+            - sort_by: str - Field to sort by ("timestamp", "latitude", "longitude")
+            - sort_order: str - Sort order ("asc" or "desc")
+
+        Args:
+            query_params: Dictionary of query parameters.
+
+        Returns:
+            Dictionary containing query results with matching locations:
+                - locations: List of location objects matching the query.
+                - count: Number of locations returned (after pagination).
+                - total_count: Total number of locations matching query (before pagination).
+        """
+        since = query_params.get("since")
+        until = query_params.get("until")
+        named_location = query_params.get("named_location")
+        limit = query_params.get("limit")
+        include_current = query_params.get("include_current", True)
+
+        results = []
+
+        if include_current and self.current_latitude is not None:
+            current_entry = {
+                "timestamp": self.last_updated.isoformat(),
+                "latitude": self.current_latitude,
+                "longitude": self.current_longitude,
+                "is_current": True,
+            }
+            if self.current_address:
+                current_entry["address"] = self.current_address
+            if self.current_named_location:
+                current_entry["named_location"] = self.current_named_location
+            if self.current_altitude is not None:
+                current_entry["altitude"] = self.current_altitude
+            if self.current_accuracy is not None:
+                current_entry["accuracy"] = self.current_accuracy
+            if self.current_speed is not None:
+                current_entry["speed"] = self.current_speed
+            if self.current_bearing is not None:
+                current_entry["bearing"] = self.current_bearing
+
+            if (
+                (since is None or self.last_updated >= since)
+                and (until is None or self.last_updated <= until)
+                and (
+                    named_location is None
+                    or self.current_named_location == named_location
+                )
+            ):
+                results.append(current_entry)
+
+        for entry in reversed(self.location_history):
+            if (
+                (since is None or entry.timestamp >= since)
+                and (until is None or entry.timestamp <= until)
+                and (named_location is None or entry.named_location == named_location)
+            ):
+                entry_dict = entry.to_dict()
+                entry_dict["is_current"] = False
+                results.append(entry_dict)
+
+        # Sort locations
+        sort_by = query_params.get("sort_by", "timestamp")
+        sort_order = query_params.get("sort_order", "desc")
+        if sort_by in ["timestamp", "latitude", "longitude"]:
+            results.sort(
+                key=lambda loc: loc.get(sort_by, ""),
+                reverse=(sort_order == "desc")
+            )
+
+        # Store total count before pagination
+        total_count = len(results)
+
+        # Apply pagination
+        offset = query_params.get("offset", 0)
+        if offset:
+            results = results[offset:]
+        if limit is not None:
+            results = results[:limit]
+
+        return {"locations": results, "count": len(results), "total_count": total_count}
+
+    def clear(self) -> None:
+        """Reset location state to empty defaults.
+
+        Clears current location and all history, returning the state to
+        a freshly created condition.
+        """
+        self.current_latitude = None
+        self.current_longitude = None
+        self.current_address = None
+        self.current_named_location = None
+        self.current_altitude = None
+        self.current_accuracy = None
+        self.current_speed = None
+        self.current_bearing = None
+        self.location_history.clear()
+        self.update_count = 0
+
+    def create_undo_data(self, input_data: "ModalityInput") -> dict[str, Any]:
+        """Capture minimal data needed to undo applying a LocationInput.
+
+        For location updates:
+        - First update (no previous location): Store flag to clear current location
+        - Update with previous location: Store previous location data to restore
+        - Update at capacity: Also store the oldest history entry that will be trimmed
+
+        Args:
+            input_data: The LocationInput that will be applied.
+
+        Returns:
+            Dictionary containing minimal data needed to undo the operation.
+        """
+        from ues.models.modalities.location_input import LocationInput
+
+        if not isinstance(input_data, LocationInput):
+            raise ValueError(
+                f"LocationState can only create undo data for LocationInput, "
+                f"got {type(input_data)}"
+            )
+
+        base_undo: dict[str, Any] = {
+            "state_previous_update_count": self.update_count,
+            "state_previous_last_updated": self.last_updated.isoformat(),
+        }
+
+        # Check if this is the first location (no previous to restore)
+        if self.current_latitude is None or self.current_longitude is None:
+            return {
+                **base_undo,
+                "action": "clear_current",
+            }
+
+        # There's a current location that will become a history entry
+        # Store it so we can restore it on undo
+        undo_data: dict[str, Any] = {
+            **base_undo,
+            "action": "restore_previous",
+            "previous_latitude": self.current_latitude,
+            "previous_longitude": self.current_longitude,
+            "previous_address": self.current_address,
+            "previous_named_location": self.current_named_location,
+            "previous_altitude": self.current_altitude,
+            "previous_accuracy": self.current_accuracy,
+            "previous_speed": self.current_speed,
+            "previous_bearing": self.current_bearing,
+        }
+
+        # Check if we're at capacity - oldest entry will be trimmed
+        if len(self.location_history) >= self.max_history_size:
+            oldest = self.location_history[0]
+            undo_data["removed_history_entry"] = {
+                "timestamp": oldest.timestamp.isoformat(),
+                "latitude": oldest.latitude,
+                "longitude": oldest.longitude,
+                "address": oldest.address,
+                "named_location": oldest.named_location,
+                "altitude": oldest.altitude,
+                "accuracy": oldest.accuracy,
+                "speed": oldest.speed,
+                "bearing": oldest.bearing,
+            }
+
+        return undo_data
+
+    def apply_undo(self, undo_data: dict[str, Any]) -> None:
+        """Apply undo data to reverse a previous location input application.
+
+        Args:
+            undo_data: Dictionary returned by create_undo_data().
+
+        Raises:
+            ValueError: If undo_data is missing required fields or has unknown action.
+        """
+        action = undo_data.get("action")
+        if not action:
+            raise ValueError("Undo data missing 'action' field")
+
+        if action == "clear_current":
+            # First update was applied - clear current location back to None
+            self.current_latitude = None
+            self.current_longitude = None
+            self.current_address = None
+            self.current_named_location = None
+            self.current_altitude = None
+            self.current_accuracy = None
+            self.current_speed = None
+            self.current_bearing = None
+
+        elif action == "restore_previous":
+            # Remove the history entry that was added (it's at the end)
+            if self.location_history:
+                self.location_history.pop()
+
+            # Restore the oldest history entry if it was trimmed due to capacity
+            if "removed_history_entry" in undo_data:
+                entry_data = undo_data["removed_history_entry"]
+                restored_entry = LocationHistoryEntry(
+                    timestamp=datetime.fromisoformat(
+                        entry_data["timestamp"].replace("Z", "+00:00")
+                    ),
+                    latitude=entry_data["latitude"],
+                    longitude=entry_data["longitude"],
+                    address=entry_data.get("address"),
+                    named_location=entry_data.get("named_location"),
+                    altitude=entry_data.get("altitude"),
+                    accuracy=entry_data.get("accuracy"),
+                    speed=entry_data.get("speed"),
+                    bearing=entry_data.get("bearing"),
+                )
+                self.location_history.insert(0, restored_entry)
+
+            # Restore previous current location
+            self.current_latitude = undo_data["previous_latitude"]
+            self.current_longitude = undo_data["previous_longitude"]
+            self.current_address = undo_data.get("previous_address")
+            self.current_named_location = undo_data.get("previous_named_location")
+            self.current_altitude = undo_data.get("previous_altitude")
+            self.current_accuracy = undo_data.get("previous_accuracy")
+            self.current_speed = undo_data.get("previous_speed")
+            self.current_bearing = undo_data.get("previous_bearing")
+
+        else:
+            raise ValueError(f"Unknown undo action: {action}")
+
+        # Restore state-level metadata
+        self.update_count = undo_data["state_previous_update_count"]
+        self.last_updated = datetime.fromisoformat(
+            undo_data["state_previous_last_updated"].replace("Z", "+00:00")
+        )

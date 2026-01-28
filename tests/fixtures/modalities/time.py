@@ -2,8 +2,8 @@
 
 from datetime import datetime, timezone as tz
 
-from models.modalities.time_input import TimeInput
-from models.modalities.time_state import TimeState
+from ues.models.modalities.time_input import TimeInput
+from ues.models.modalities.time_state import TimeState
 
 
 def create_time_input(

@@ -13,12 +13,12 @@ from datetime import datetime, timezone
 
 import pytest
 
-from models.event import SimulatorEvent
-from models.base_input import ModalityInput
-from models.base_state import ModalityState
-from models.scenario import ScenarioMetadata
-from models.modalities.email_input import EmailInput
-from models.modalities.email_state import EmailState
+from ues.models.event import SimulatorEvent
+from ues.models.base_input import ModalityInput
+from ues.models.base_state import ModalityState
+from ues.models.scenario import ScenarioMetadata
+from ues.models.modalities.email_input import EmailInput
+from ues.models.modalities.email_state import EmailState
 
 
 class TestSimulatorEventDatetimeHandling:

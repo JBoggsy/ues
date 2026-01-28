@@ -17,16 +17,16 @@ import httpx
 import pytest
 from httpx import ASGITransport
 
-from api.dependencies import initialize_simulation_engine, shutdown_simulation_engine
-from client import (
+from ues.api.dependencies import initialize_simulation_engine, shutdown_simulation_engine
+from ues.client import (
     AsyncUESClient,
     UESClient,
     ConflictError,
     NotFoundError,
     ValidationError,
 )
-from client._http import HTTPClient
-from main import app
+from ues.client._http import HTTPClient
+from ues.main import app
 
 
 # =============================================================================

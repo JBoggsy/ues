@@ -7,8 +7,8 @@ from datetime import datetime, timezone
 
 import pytest
 
-from models.modalities.email_input import EmailAttachment, EmailInput
-from models.modalities.email_state import Email, EmailState, EmailThread
+from ues.models.modalities.email_input import EmailAttachment, EmailInput
+from ues.models.modalities.email_state import Email, EmailState, EmailThread
 
 
 class TestEmailStateInstantiation:
@@ -885,7 +885,7 @@ class TestEmailStateCreateUndoData:
         """Verify create_undo_data raises ValueError for non-EmailInput."""
         state = EmailState(last_updated=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc))
 
-        from models.modalities.chat_input import ChatInput
+        from ues.models.modalities.chat_input import ChatInput
 
         invalid_input = ChatInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),

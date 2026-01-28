@@ -7,7 +7,7 @@ from datetime import datetime, date, timezone
 
 import pytest
 
-from models.modalities.calendar_input import (
+from ues.models.modalities.calendar_input import (
     Attendee,
     Attachment,
     CalendarInput,

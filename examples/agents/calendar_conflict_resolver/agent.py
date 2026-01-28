@@ -26,8 +26,8 @@ from typing import Any
 
 import httpx
 
-from client import UESClient
-from client._calendar import CalendarEvent
+from ues.client import UESClient
+from ues.client._calendar import CalendarEvent
 
 
 def load_system_prompt() -> str:

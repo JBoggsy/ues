@@ -10,7 +10,7 @@ from datetime import datetime, timezone, timedelta
 
 from httpx import ASGITransport
 
-from agent_testing import (
+from ues.agent_testing import (
     EvalRunner,
     EvalContext,
     EvalResult,
@@ -18,8 +18,8 @@ from agent_testing import (
     CriterionSchema,
     EvalTiming,
 )
-from client import AsyncUESClient
-from main import app
+from ues.client import AsyncUESClient
+from ues.main import app
 
 
 @pytest.fixture
@@ -77,7 +77,7 @@ def sample_scenario_dir(tmp_path):
     # Create test module
     test_module = '''
 """Test evaluator functions."""
-from agent_testing import EvalContext, EvalResult
+from ues.agent_testing import EvalContext, EvalResult
 
 def check_always_pass(ctx: EvalContext, params: dict) -> EvalResult:
     """Always returns full score."""
@@ -137,7 +137,7 @@ def on_event_scenario_dir(tmp_path):
     # Create test module
     test_module = '''
 """Test evaluator functions for on_event criteria."""
-from agent_testing import EvalContext, EvalResult
+from ues.agent_testing import EvalContext, EvalResult
 
 def filter_emails(event: dict) -> bool:
     """Filter for email events."""

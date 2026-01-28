@@ -10,8 +10,8 @@ from datetime import datetime, timezone
 import pytest
 from fastapi.testclient import TestClient
 
-from main import app
-from api.dependencies import get_simulation_engine
+from ues.main import app
+from ues.api.dependencies import get_simulation_engine
 from tests.api.helpers import make_event_request, email_event_data
 
 

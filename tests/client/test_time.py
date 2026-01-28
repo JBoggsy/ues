@@ -27,7 +27,7 @@ from unittest.mock import MagicMock, AsyncMock
 
 import pytest
 
-from client._time import (
+from ues.client._time import (
     TimeClient,
     AsyncTimeClient,
     TimeStateResponse,

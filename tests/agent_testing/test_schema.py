@@ -3,7 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
-from agent_testing.schema import (
+from ues.agent_testing.schema import (
     CriteriaSchema,
     CriterionSchema,
     EvalTiming,

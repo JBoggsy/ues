@@ -28,15 +28,15 @@ from datetime import datetime, timezone
 import pytest
 from pydantic import ValidationError
 
-from models.environment import Environment
-from models.registry import (
+from ues.models.environment import Environment
+from ues.models.registry import (
     clear_state_registry,
     get_modality_state_class,
     is_modality_state_registered,
     list_registered_state_modalities,
     register_modality_state,
 )
-from models.time import SimulatorTime
+from ues.models.time import SimulatorTime
 from tests.fixtures.core.environments import create_environment
 from tests.fixtures.core.times import create_simulator_time
 from tests.fixtures.modalities import (
@@ -474,7 +474,7 @@ class TestRegistryIntegration:
         env, _ = Environment.from_scenario_dict(data)
 
         # Should have created LocationState, not generic ModalityState
-        from models.modalities import LocationState
+        from ues.models.modalities import LocationState
 
         assert isinstance(env.get_state("location"), LocationState)
 

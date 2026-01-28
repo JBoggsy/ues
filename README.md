@@ -3,19 +3,21 @@
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.121+-green.svg)](https://fastapi.tiangolo.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Tests](https://img.shields.io/badge/tests-1242%20passing-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/tests-3325%20passing-brightgreen.svg)](#testing)
 
 An AI-driven testing and prototyping tool for AI personal assistants. UES provides a simple web-based UI and comprehensive REST API for simulating a variety of input modalities, enabling customizable and reproducible testing of AI agent capabilities.
 
 ## ✨ Features
 
 - **Multi-Modal Simulation**: Email, SMS, Calendar, Chat, Location, Weather, and more
-- **REST API**: 85+ endpoints for complete control over simulation state
+- **REST API**: 89 endpoints for complete control over simulation state
 - **Real-time Updates**: WebSocket and Webhook support for event notifications
 - **Python Client Library**: Sync and async support for easy integration
 - **Web UI**: Modern React-based interface for interactive scenario design
 - **Scenario Management**: Save, export, and replay test scenarios
 - **Time Control**: Manual, event-driven, or auto-advance simulation modes
+- **Agent Testing Harness**: Evaluate AI agent performance with customizable criteria
+- **Multi-Agent Coordination**: Hold system for synchronizing concurrent agents
 
 ## 🚀 Quick Start
 
@@ -50,7 +52,7 @@ The API is now available at:
 ### Basic Usage
 
 ```python
-from client import UESClient
+from ues.client import UESClient
 
 # Connect to the server
 client = UESClient("http://localhost:8000")
@@ -87,7 +89,7 @@ client.time.advance(hours=1)
 
 ```bash
 # Clone the repository
-git clone https://github.com/jbboggs/ues.git
+git clone https://github.com/JBoggsy/ues.git
 cd ues
 
 # Install Python dependencies
@@ -128,13 +130,15 @@ uv run pytest --cov=api --cov=models
 
 | Document | Description |
 |----------|-------------|
-| [REST API Reference](docs/REST_API.md) | Complete API endpoint documentation |
-| [Modality Routes](docs/MODALITY_ROUTES.md) | Modality-specific endpoint patterns |
-| [Python Client](docs/API_CLIENT.md) | Client library usage guide |
-| [Agent Integration](docs/AGENT_INTEGRATION.md) | Integrating AI agents with UES |
-| [Scenarios](docs/SCENARIOS.md) | Saving and loading test scenarios |
-| [WebSocket](docs/WEBSOCKET.md) | Real-time event notifications |
-| [Webhooks](docs/WEBHOOKS.md) | HTTP callback notifications |
+| [Documentation Index](docs/README.md) | Full documentation table of contents |
+| [REST API Reference](docs/api/REST_API.md) | Complete API endpoint documentation |
+| [Modality Routes](docs/api/MODALITY_ROUTES.md) | Modality-specific endpoint patterns |
+| [Python Client](docs/client/API_CLIENT.md) | Client library usage guide |
+| [Agent Integration](docs/integration/AGENT_INTEGRATION.md) | Integrating AI agents with UES |
+| [Agent Testing](docs/agent-testing/AGENT_TESTING.md) | Testing harness for evaluating AI agents |
+| [Scenarios](docs/guides/SCENARIOS.md) | Saving and loading test scenarios |
+| [WebSocket](docs/api/WEBSOCKET.md) | Real-time event notifications |
+| [Webhooks](docs/api/WEBHOOKS.md) | HTTP callback notifications |
 
 ## 🎯 Supported Modalities
 
@@ -156,6 +160,20 @@ uv run pytest --cov=api --cov=models
 UES uses an **event-sourcing architecture** where simulation state progresses through discrete events:
 
 ```
+src/ues/                           # Main Python package
+    ├── models/                    # Data models (events, modalities, etc.)
+    ├── api/                       # FastAPI REST endpoints
+    ├── client/                    # Python client library
+    └── agent_testing/             # Testing harness for AI agents
+tests/                             # Pytest test suite
+webapp/                            # React + TypeScript web UI
+docs/                              # Documentation
+examples/                          # Example agents and scenarios
+```
+
+### Core Components
+
+```
 SimulationEngine (Orchestrator)
     ├── Environment (Current state)
     │   ├── SimulatorTime (Virtual time tracking)
@@ -170,7 +188,7 @@ SimulationEngine (Orchestrator)
 - **Event-Driven Mode**: Time skips directly to next scheduled event
 - **Auto-Advance Mode**: Real-time or accelerated time progression
 
-See [docs/SIMULATION_ENGINE.md](docs/SIMULATION_ENGINE.md) for detailed architecture documentation.
+See [docs/models/SIMULATION_ENGINE.md](docs/models/SIMULATION_ENGINE.md) for detailed architecture documentation.
 
 ## 🌐 REST API Overview
 
@@ -225,6 +243,35 @@ UES is designed as an **agent-interactable simulation platform**:
 - **Content Generation**: Use LLMs to create realistic test data
 - **Trigger-based Events**: Watch for conditions and schedule events
 - **Character Simulation**: Maintain personalities that respond consistently
+
+### Example Agents
+
+The `examples/agents/` directory contains complete, runnable agent implementations:
+
+| Example | Description |
+|---------|-------------|
+| [simple_email_summary](examples/agents/simple_email_summary/) | Basic email summarization agent |
+| [email_reply_generator](examples/agents/email_reply_generator/) | Generates contextual email replies |
+| [calendar_conflict_resolver](examples/agents/calendar_conflict_resolver/) | Resolves scheduling conflicts |
+| [sms_group_chat](examples/agents/sms_group_chat/) | Multi-character SMS conversation simulator |
+| [party_planner](examples/agents/party_planner/) | Full integration example with testing harness |
+
+### Agent Testing Harness
+
+Evaluate AI agent performance with the built-in testing framework:
+
+```python
+from ues.agent_testing import EvalRunner
+
+runner = EvalRunner(
+    scenario_path="./scenario.ues-scenario.json",
+    criteria_path="./test_criteria.json",
+)
+report = await runner.run()
+runner.print_report()  # Terminal scoreboard with grades
+```
+
+See [docs/agent-testing/AGENT_TESTING.md](docs/agent-testing/AGENT_TESTING.md) for complete documentation.
 
 ## 🤝 Contributing
 

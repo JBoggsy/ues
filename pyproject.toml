@@ -6,10 +6,10 @@ readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.12"
 authors = [
-    {name = "James Boggs", email = "boggsj52@gmail.com"}
+    {name = "James Boggs", email = "jmsboggs@gmail.com"}
 ]
 maintainers = [
-    {name = "James Boggs", email = "boggsj52@gmail.com"}
+    {name = "James Boggs", email = "jmsboggs@gmail.com"}
 ]
 keywords = [
     "ai",
@@ -46,15 +46,15 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/jbboggs/ues"
-Documentation = "https://github.com/jbboggs/ues#readme"
-Repository = "https://github.com/jbboggs/ues.git"
-Issues = "https://github.com/jbboggs/ues/issues"
-Changelog = "https://github.com/jbboggs/ues/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/JBoggsy/ues"
+Documentation = "https://github.com/JBoggsy/ues#readme"
+Repository = "https://github.com/JBoggsy/ues.git"
+Issues = "https://github.com/JBoggsy/ues/issues"
+Changelog = "https://github.com/JBoggsy/ues/blob/main/CHANGELOG.md"
 
 [project.scripts]
-ues = "ues_cli:main"
-ues-server = "ues_cli:run_server"
+ues = "ues.cli:main"
+ues-server = "ues.cli:run_server"
 
 [dependency-groups]
 dev = [
@@ -70,8 +70,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["api", "client", "models", "ues_cli.py"]
+packages = ["src/ues"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+pythonpath = ["src"]

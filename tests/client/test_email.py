@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from client._email import (
+from ues.client._email import (
     AsyncEmailClient,
     Email,
     EmailAttachment,
@@ -20,7 +20,7 @@ from client._email import (
     EmailSummaryStateResponse,
     EmailThread,
 )
-from client.models import ModalityActionResponse
+from ues.client.models import ModalityActionResponse
 
 
 # =============================================================================

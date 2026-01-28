@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from models.modalities.email_input import EmailAttachment, EmailInput
+from ues.models.modalities.email_input import EmailAttachment, EmailInput
 
 
 class TestEmailInputInstantiation:

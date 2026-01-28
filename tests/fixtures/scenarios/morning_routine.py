@@ -2,11 +2,11 @@
 
 from datetime import datetime, timezone, timedelta
 
-from models.environment import Environment
-from models.event import SimulatorEvent
-from models.queue import EventQueue
-from models.simulation import SimulationEngine
-from models.time import SimulatorTime
+from ues.models.environment import Environment
+from ues.models.event import SimulatorEvent
+from ues.models.queue import EventQueue
+from ues.models.simulation import SimulationEngine
+from ues.models.time import SimulatorTime
 from tests.fixtures.modalities import location, weather, email, calendar, chat, sms
 
 

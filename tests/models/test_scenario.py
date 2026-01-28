@@ -23,14 +23,14 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from pydantic import ValidationError
 
-from models.scenario import (
+from ues.models.scenario import (
     Scenario,
     ScenarioMetadata,
     SCENARIO_FORMAT_VERSION,
     UES_VERSION,
 )
-from models.environment import Environment
-from models.queue import EventQueue
+from ues.models.environment import Environment
+from ues.models.queue import EventQueue
 from tests.fixtures.core.environments import create_environment
 from tests.fixtures.core.events import create_simulator_event
 from tests.fixtures.core.queues import create_event_queue
@@ -522,9 +522,9 @@ class TestVersionConstants:
         assert isinstance(SCENARIO_FORMAT_VERSION, str)
 
     def test_versions_importable_from_models(self):
-        """Test version constants can be imported from models package."""
-        from models import UES_VERSION as imported_ues
-        from models import SCENARIO_FORMAT_VERSION as imported_format
+        """Test version constants can be imported from ues.models package."""
+        from ues.models import UES_VERSION as imported_ues
+        from ues.models import SCENARIO_FORMAT_VERSION as imported_format
 
         assert imported_ues == UES_VERSION
         assert imported_format == SCENARIO_FORMAT_VERSION

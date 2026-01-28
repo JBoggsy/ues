@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from models.hold import Hold, HoldError, HoldManager
+from ues.models.hold import Hold, HoldError, HoldManager
 
 
 class TestHold:

@@ -8,13 +8,13 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from client._weather import (
+from ues.client._weather import (
     AsyncWeatherClient,
     WeatherClient,
     WeatherQueryResponse,
     WeatherStateResponse,
 )
-from client.models import ModalityActionResponse
+from ues.client.models import ModalityActionResponse
 
 
 # =============================================================================

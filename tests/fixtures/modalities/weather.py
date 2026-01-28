@@ -2,13 +2,13 @@
 
 from datetime import datetime, timezone
 
-from models.modalities.weather_input import (
+from ues.models.modalities.weather_input import (
     WeatherInput,
     WeatherReport,
     CurrentWeather,
     WeatherCondition,
 )
-from models.modalities.weather_state import WeatherState
+from ues.models.modalities.weather_state import WeatherState
 
 
 def create_weather_input(

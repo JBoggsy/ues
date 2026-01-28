@@ -240,7 +240,7 @@ curl http://localhost:8000/chat/state
 - **[Manual Time Control Tutorial](./TUTORIAL_MANUAL_TIME.md)** - Deep dive into time management
 - **[Building an Agent Loop](./TUTORIAL_AGENT_LOOP.md)** - Create an AI agent that responds to user messages
 - **[API Examples](./EXAMPLES.md)** - Copy-paste examples for common operations
-- **[REST API Reference](../REST_API.md)** - Complete endpoint documentation
+- **[REST API Reference](../api/REST_API.md)** - Complete endpoint documentation
 
 ## Troubleshooting
 

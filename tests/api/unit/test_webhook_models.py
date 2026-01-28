@@ -6,7 +6,7 @@ Tests the WebhookRegistration, DeliveryRecord, and request/response models.
 import pytest
 from datetime import datetime, timezone
 
-from api.webhooks import (
+from ues.api.webhooks import (
     CreateWebhookRequest,
     DeliveryRecord,
     DeliveryStatus,

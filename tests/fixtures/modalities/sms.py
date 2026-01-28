@@ -2,8 +2,8 @@
 
 from datetime import datetime, timezone
 
-from models.modalities.sms_input import SMSInput, MessageAttachmentData
-from models.modalities.sms_state import SMSState
+from ues.models.modalities.sms_input import SMSInput, MessageAttachmentData
+from ues.models.modalities.sms_state import SMSState
 
 
 def create_sms_input(

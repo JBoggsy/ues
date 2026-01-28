@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from client._webhooks import (
+from ues.client._webhooks import (
     AsyncWebhooksClient,
     WebhooksClient,
 )

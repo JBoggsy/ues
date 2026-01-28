@@ -3,10 +3,10 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 
-from agent_testing.hooks import EventHookManager, RegisteredHook
-from agent_testing.results import EvalResult
-from agent_testing.schema import CriterionSchema, EvalTiming
-from agent_testing.context import EvalContext
+from ues.agent_testing.hooks import EventHookManager, RegisteredHook
+from ues.agent_testing.results import EvalResult
+from ues.agent_testing.schema import CriterionSchema, EvalTiming
+from ues.agent_testing.context import EvalContext
 
 
 @pytest.fixture

@@ -6,7 +6,7 @@ Tests the in-memory webhook storage and retrieval operations.
 import pytest
 from datetime import datetime, timezone
 
-from api.webhooks import (
+from ues.api.webhooks import (
     WebhookRegistration,
     WebhookRegistry,
     WebhookStatus,

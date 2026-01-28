@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from client._chat import (
+from ues.client._chat import (
     AsyncChatClient,
     ChatClient,
     ChatMessage,
@@ -17,7 +17,7 @@ from client._chat import (
     ChatStateResponse,
     ConversationMetadata,
 )
-from client.models import ModalityActionResponse
+from ues.client.models import ModalityActionResponse
 
 
 # =============================================================================
