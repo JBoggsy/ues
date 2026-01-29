@@ -638,6 +638,50 @@ class CalendarClient(BaseClient):
         data = self._post(f"{self._BASE_PATH}/delete", json=request_data)
         return ModalityActionResponse(**data)
 
+    def respond_to_event(
+        self,
+        event_id: str,
+        attendee_email: str,
+        response: AttendeeResponse,
+        comment: str | None = None,
+    ) -> ModalityActionResponse:
+        """Respond to a calendar event invitation (RSVP).
+        
+        Updates the attendee's response status for an event invitation.
+        
+        Args:
+            event_id: Event ID to respond to.
+            attendee_email: Email of the attendee responding.
+            response: Response status ("accepted", "declined", "tentative", "needsAction").
+            comment: Optional comment with the response.
+        
+        Returns:
+            Action response with execution status.
+        
+        Raises:
+            ValidationError: If request parameters are invalid.
+            APIError: If the request fails (e.g., event not found, attendee not in event).
+        
+        Example:
+            result = client.calendar.respond_to_event(
+                event_id="evt-123",
+                attendee_email="user@example.com",
+                response="accepted",
+                comment="Looking forward to it!",
+            )
+        """
+        request_data: dict[str, Any] = {
+            "event_id": event_id,
+            "attendee_email": attendee_email,
+            "response": response,
+        }
+        
+        if comment is not None:
+            request_data["comment"] = comment
+        
+        data = self._post(f"{self._BASE_PATH}/respond", json=request_data)
+        return ModalityActionResponse(**data)
+
     # Calendar container management methods
 
     def list_calendars(self) -> ListCalendarsResponse:
@@ -1155,6 +1199,50 @@ class AsyncCalendarClient(AsyncBaseClient):
             request_data["recurrence_id"] = recurrence_id
         
         data = await self._post(f"{self._BASE_PATH}/delete", json=request_data)
+        return ModalityActionResponse(**data)
+
+    async def respond_to_event(
+        self,
+        event_id: str,
+        attendee_email: str,
+        response: AttendeeResponse,
+        comment: str | None = None,
+    ) -> ModalityActionResponse:
+        """Respond to a calendar event invitation (RSVP).
+        
+        Updates the attendee's response status for an event invitation.
+        
+        Args:
+            event_id: Event ID to respond to.
+            attendee_email: Email of the attendee responding.
+            response: Response status ("accepted", "declined", "tentative", "needsAction").
+            comment: Optional comment with the response.
+        
+        Returns:
+            Action response with execution status.
+        
+        Raises:
+            ValidationError: If request parameters are invalid.
+            APIError: If the request fails (e.g., event not found, attendee not in event).
+        
+        Example:
+            result = await client.calendar.respond_to_event(
+                event_id="evt-123",
+                attendee_email="user@example.com",
+                response="accepted",
+                comment="Looking forward to it!",
+            )
+        """
+        request_data: dict[str, Any] = {
+            "event_id": event_id,
+            "attendee_email": attendee_email,
+            "response": response,
+        }
+        
+        if comment is not None:
+            request_data["comment"] = comment
+        
+        data = await self._post(f"{self._BASE_PATH}/respond", json=request_data)
         return ModalityActionResponse(**data)
 
     # Calendar container management methods (async)

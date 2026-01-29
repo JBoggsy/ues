@@ -317,6 +317,7 @@ Examples:
 | `POST /calendar/create` | `calendar:create` |
 | `POST /calendar/update` | `calendar:update` |
 | `POST /calendar/delete` | `calendar:delete` |
+| `POST /calendar/respond` | `calendar:respond` |
 | `GET /calendar/calendars` | `calendar:calendars:list` |
 | `POST /calendar/calendars/create` | `calendar:calendars:create` |
 | `POST /calendar/calendars/update` | `calendar:calendars:update` |

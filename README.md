@@ -3,7 +3,7 @@
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.121+-green.svg)](https://fastapi.tiangolo.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Tests](https://img.shields.io/badge/tests-3560%20passing-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/tests-3565%20passing-brightgreen.svg)](#testing)
 
 An AI-driven testing and prototyping tool for AI personal assistants. UES provides a simple web-based UI and comprehensive REST API for simulating a variety of input modalities, enabling customizable and reproducible testing of AI agent capabilities.
 

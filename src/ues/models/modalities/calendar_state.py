@@ -328,6 +328,8 @@ class CalendarState(ModalityState):
             self._handle_update(input_data)
         elif input_data.operation == "delete":
             self._handle_delete(input_data)
+        elif input_data.operation == "respond":
+            self._handle_respond(input_data)
         else:
             raise ValueError(f"Unknown operation: {input_data.operation}")
 
@@ -580,6 +582,39 @@ class CalendarState(ModalityState):
         else:
             self.calendars[event.calendar_id].event_ids.discard(event.event_id)
             del self.events[event.event_id]
+
+    def _handle_respond(self, input_data: CalendarInput) -> None:
+        """Handle responding to an event invitation.
+
+        Updates the attendee's response status for the specified event.
+
+        Args:
+            input_data: CalendarInput with respond operation.
+
+        Raises:
+            ValueError: If event not found or attendee not found in event.
+        """
+        if input_data.event_id not in self.events:
+            raise ValueError(f"Event {input_data.event_id} not found")
+
+        event = self.events[input_data.event_id]
+
+        # Find the attendee and update their response
+        attendee_found = False
+        for attendee in event.attendees:
+            if attendee.email.lower() == input_data.attendee_email.lower():
+                attendee.response = input_data.response
+                if input_data.response_comment:
+                    attendee.comment = input_data.response_comment
+                attendee_found = True
+                break
+
+        if not attendee_found:
+            raise ValueError(
+                f"Attendee {input_data.attendee_email} not found in event {input_data.event_id}"
+            )
+
+        event.updated_at = input_data.timestamp
 
     def get_snapshot(self) -> dict[str, Any]:
         """Return a compact snapshot of current calendar state.

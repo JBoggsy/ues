@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-01-29
+
+### Added
+- **Calendar RSVP Support** - Respond to calendar event invitations
+  - `POST /calendar/respond` endpoint for updating attendee response status
+  - `respond_to_event()` method in `CalendarClient` and `AsyncCalendarClient`
+  - `respond` operation in `CalendarInput` with `attendee_email`, `response`, `response_comment` fields
+  - `_handle_respond()` handler in `CalendarState`
+  - `calendar:respond` permission for access control
+  - 5 new client tests for respond_to_event functionality
+
 ## [0.2.0] - 2026-01-28
 
 ### Added
@@ -120,6 +131,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - React 18 + TypeScript + Vite for modern web UI
 - 1,242+ tests with comprehensive coverage
 
-[Unreleased]: https://github.com/JBoggsy/ues/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/JBoggsy/ues/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/JBoggsy/ues/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/JBoggsy/ues/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/JBoggsy/ues/releases/tag/v0.1.0

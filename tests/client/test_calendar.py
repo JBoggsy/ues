@@ -522,6 +522,81 @@ class TestCalendarClientDelete:
         assert call_args[1]["json"]["recurrence_scope"] == "all"
 
 
+class TestCalendarClientRespondToEvent:
+    """Tests for CalendarClient.respond_to_event() method."""
+
+    def test_respond_accepted(self):
+        """Test responding to an event with 'accepted' status."""
+        mock_http = MagicMock()
+        mock_http.post.return_value = {
+            "event_id": "evt-123",
+            "scheduled_time": "2025-01-15T10:00:00+00:00",
+            "status": "executed",
+            "message": "Responded to event",
+            "modality": "calendar",
+        }
+
+        client = CalendarClient(mock_http)
+        result = client.respond_to_event(
+            event_id="evt-123",
+            attendee_email="attendee@example.com",
+            response="accepted",
+        )
+
+        mock_http.post.assert_called_once()
+        call_args = mock_http.post.call_args
+        assert call_args[0][0] == "/calendar/respond"
+        assert call_args[1]["json"]["event_id"] == "evt-123"
+        assert call_args[1]["json"]["attendee_email"] == "attendee@example.com"
+        assert call_args[1]["json"]["response"] == "accepted"
+        assert "comment" not in call_args[1]["json"]
+        assert isinstance(result, ModalityActionResponse)
+
+    def test_respond_declined_with_comment(self):
+        """Test responding to an event with 'declined' status and comment."""
+        mock_http = MagicMock()
+        mock_http.post.return_value = {
+            "event_id": "evt-123",
+            "scheduled_time": "2025-01-15T10:00:00+00:00",
+            "status": "executed",
+            "message": "Responded to event",
+            "modality": "calendar",
+        }
+
+        client = CalendarClient(mock_http)
+        result = client.respond_to_event(
+            event_id="evt-123",
+            attendee_email="attendee@example.com",
+            response="declined",
+            comment="Sorry, I have a conflict.",
+        )
+
+        call_args = mock_http.post.call_args
+        assert call_args[1]["json"]["response"] == "declined"
+        assert call_args[1]["json"]["comment"] == "Sorry, I have a conflict."
+
+    def test_respond_tentative(self):
+        """Test responding to an event with 'tentative' status."""
+        mock_http = MagicMock()
+        mock_http.post.return_value = {
+            "event_id": "evt-123",
+            "scheduled_time": "2025-01-15T10:00:00+00:00",
+            "status": "executed",
+            "message": "Responded to event",
+            "modality": "calendar",
+        }
+
+        client = CalendarClient(mock_http)
+        result = client.respond_to_event(
+            event_id="evt-123",
+            attendee_email="maybe@example.com",
+            response="tentative",
+        )
+
+        call_args = mock_http.post.call_args
+        assert call_args[1]["json"]["response"] == "tentative"
+
+
 # =============================================================================
 # AsyncCalendarClient Tests
 # =============================================================================
@@ -639,3 +714,54 @@ class TestAsyncCalendarClientDelete:
 
         mock_http.post.assert_called_once()
         assert isinstance(result, ModalityActionResponse)
+
+class TestAsyncCalendarClientRespondToEvent:
+    """Tests for AsyncCalendarClient.respond_to_event() method."""
+
+    async def test_respond_accepted(self):
+        """Test responding to an event with 'accepted' status asynchronously."""
+        mock_http = AsyncMock()
+        mock_http.post.return_value = {
+            "event_id": "evt-123",
+            "scheduled_time": "2025-01-15T10:00:00+00:00",
+            "status": "executed",
+            "message": "Responded to event",
+            "modality": "calendar",
+        }
+
+        client = AsyncCalendarClient(mock_http)
+        result = await client.respond_to_event(
+            event_id="evt-123",
+            attendee_email="attendee@example.com",
+            response="accepted",
+        )
+
+        mock_http.post.assert_called_once()
+        call_args = mock_http.post.call_args
+        assert call_args[0][0] == "/calendar/respond"
+        assert call_args[1]["json"]["event_id"] == "evt-123"
+        assert call_args[1]["json"]["attendee_email"] == "attendee@example.com"
+        assert call_args[1]["json"]["response"] == "accepted"
+        assert isinstance(result, ModalityActionResponse)
+
+    async def test_respond_with_comment(self):
+        """Test responding to an event with a comment asynchronously."""
+        mock_http = AsyncMock()
+        mock_http.post.return_value = {
+            "event_id": "evt-123",
+            "scheduled_time": "2025-01-15T10:00:00+00:00",
+            "status": "executed",
+            "message": "Responded to event",
+            "modality": "calendar",
+        }
+
+        client = AsyncCalendarClient(mock_http)
+        result = await client.respond_to_event(
+            event_id="evt-123",
+            attendee_email="attendee@example.com",
+            response="declined",
+            comment="Sorry, I cannot make it.",
+        )
+
+        call_args = mock_http.post.call_args
+        assert call_args[1]["json"]["comment"] == "Sorry, I cannot make it."

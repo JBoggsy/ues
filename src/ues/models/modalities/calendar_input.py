@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field, field_validator
 from ues.models.base_input import ModalityInput
 
 
-CalendarOperation = Literal["create", "update", "delete"]
+CalendarOperation = Literal["create", "update", "delete", "respond"]
 RecurrenceScope = Literal["this", "this_and_future", "all"]
 AttendeeResponse = Literal["accepted", "declined", "tentative", "needs-action"]
 EventStatus = Literal["confirmed", "tentative", "cancelled"]
@@ -302,6 +302,16 @@ class CalendarInput(ModalityInput):
     conference_link: Optional[str] = Field(
         default=None, description="Video conference URL"
     )
+    # Fields for respond operation
+    attendee_email: Optional[str] = Field(
+        default=None, description="Email of attendee responding (for respond operation)"
+    )
+    response: Optional[AttendeeResponse] = Field(
+        default=None, description="Attendee response status (for respond operation)"
+    )
+    response_comment: Optional[str] = Field(
+        default=None, description="Optional comment with response"
+    )
 
     def validate_input(self) -> None:
         """Validate calendar input constraints.
@@ -332,6 +342,13 @@ class CalendarInput(ModalityInput):
         elif self.operation in ["update", "delete"]:
             if not self.event_id:
                 raise ValueError(f"event_id is required for {self.operation} operation")
+        elif self.operation == "respond":
+            if not self.event_id:
+                raise ValueError("event_id is required for respond operation")
+            if not self.attendee_email:
+                raise ValueError("attendee_email is required for respond operation")
+            if not self.response:
+                raise ValueError("response is required for respond operation")
 
     def _validate_time_logic(self) -> None:
         """Validate time-related constraints.
@@ -412,6 +429,8 @@ class CalendarInput(ModalityInput):
                 updates.append(f"start={self.start.strftime('%Y-%m-%d %H:%M')}")
             update_str = ", ".join(updates) if updates else "fields"
             return f"Update event {self.event_id}: {update_str}"
+        elif self.operation == "respond":
+            return f"Respond to event {self.event_id}: {self.attendee_email} -> {self.response}"
         else:
             return f"Delete event {self.event_id} ({self.recurrence_scope})"
 

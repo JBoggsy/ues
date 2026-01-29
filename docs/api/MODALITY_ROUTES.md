@@ -370,7 +370,7 @@ app.include_router({modality}.router)
 ### Calendar Modality
 - **State**: All calendars and events (with recurring event expansion optional)
 - **Query Filters**: calendar_id, date range, status, has_attendees, recurring, text search, color
-- **Actions**: create, update, delete, accept, decline, tentative
+- **Actions**: create, update, delete, respond (RSVP to event invitations)
 
 ### Location Modality
 - **State**: Current coordinates, history, tracking status

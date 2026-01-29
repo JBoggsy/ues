@@ -352,9 +352,10 @@ client.sms.receive_message(from_number="...", body="...")
 ```python
 state = client.calendar.get_state()
 result = client.calendar.query(start_time=..., end_time=..., attendee=...)
-client.calendar.create_event(summary="...", start_time=..., end_time=...)
-client.calendar.update_event(event_id="...", summary="...")
-client.calendar.delete_event(event_id="...")
+client.calendar.create(title="...", start=..., end=...)
+client.calendar.update(event_id="...", title="...")
+client.calendar.delete(event_id="...")
+client.calendar.respond_to_event(event_id="...", attendee_email="...", response="accepted")
 ```
 
 ### Location (`client.location`)

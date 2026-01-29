@@ -196,6 +196,22 @@ class DeleteCalendarEventRequest(BaseModel):
     )
 
 
+class RespondToEventRequest(BaseModel):
+    """Request to respond to a calendar event invitation.
+
+    Args:
+        event_id: Event to respond to.
+        attendee_email: Email of the attendee responding.
+        response: The response status (accepted, declined, tentative, needs-action).
+        comment: Optional comment with the response.
+    """
+
+    event_id: str = Field(description="Event ID to respond to")
+    attendee_email: str = Field(description="Email of the attendee responding")
+    response: AttendeeResponse = Field(description="Response status")
+    comment: Optional[str] = Field(default=None, description="Optional response comment")
+
+
 class CalendarQueryRequest(BaseModel):
     """Request to query calendar events.
 
@@ -337,19 +353,6 @@ class ListCalendarsResponse(BaseModel):
     calendars: list[CalendarInfo]
     count: int
     default_calendar_id: str
-
-
-# TODO: Invitation response not implemented in CalendarInput/CalendarState
-# These endpoints are planned but need backend implementation first:
-# - POST /calendar/accept - Accept calendar invitation
-# - POST /calendar/decline - Decline calendar invitation  
-# - POST /calendar/tentative - Mark invitation as tentative
-#
-# Implementation would require:
-# 1. Add "respond_to_invitation" operation to CalendarInput
-# 2. Add attendee_email and response fields to CalendarInput
-# 3. Implement _handle_respond_to_invitation in CalendarState
-# 4. The handler would find the event and update the attendee's response status
 
 
 # Response Models
@@ -788,6 +791,79 @@ async def delete_calendar_event(
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Failed to delete calendar event: {str(e)}"
+        )
+
+
+@router.post("/respond", response_model=ModalityActionResponse)
+async def respond_to_event(
+    request: RespondToEventRequest,
+    engine: SimulationEngineDep,
+    _: Annotated[APIKey, Depends(require_permission(Permissions.CALENDAR_RESPOND))],
+):
+    """Respond to a calendar event invitation.
+
+    Updates the attendee's response status (RSVP) for an event invitation.
+
+    Args:
+        request: Event ID, attendee email, and response status.
+        engine: Simulation engine dependency.
+
+    Returns:
+        Action response with execution status.
+
+    Raises:
+        HTTPException: If response fails (event not found, attendee not in event).
+
+    Requires:
+        Permission: calendar:respond
+    """
+    try:
+        current_time = engine.environment.time_state.current_time
+
+        # Create calendar input for respond operation
+        calendar_input = CalendarInput(
+            operation="respond",
+            timestamp=current_time,
+            event_id=request.event_id,
+            attendee_email=request.attendee_email,
+            response=request.response,
+            response_comment=request.comment,
+        )
+
+        # Validate
+        calendar_input.validate_input()
+
+        # Create and execute immediate event
+        event = create_immediate_event(
+            engine=engine,
+            modality="calendar",
+            data=calendar_input,
+            priority=100,
+        )
+
+        # Broadcast calendar event updated (response changed)
+        await broadcast_event(WSEventType.CALENDAR_EVENT_UPDATED, {
+            "event_id": request.event_id,
+            "attendee_email": request.attendee_email,
+            "response": request.response,
+        })
+
+        return ModalityActionResponse(
+            event_id=event.event_id,
+            scheduled_time=event.scheduled_time,
+            status="executed",
+            message=f"Responded to event {request.event_id}: {request.attendee_email} -> {request.response}",
+            modality="calendar",
+        )
+    except ValidationError as e:
+        # Pydantic validation failed
+        raise HTTPException(status_code=422, detail=f"Validation error: {str(e)}")
+    except ValueError as e:
+        # Business logic error (e.g., event not found, attendee not found)
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to respond to calendar event: {str(e)}"
         )
 
 

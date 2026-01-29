@@ -151,6 +151,7 @@ class Permissions:
     CALENDAR_CREATE = "calendar:create"
     CALENDAR_UPDATE = "calendar:update"
     CALENDAR_DELETE = "calendar:delete"
+    CALENDAR_RESPOND = "calendar:respond"
     CALENDAR_CALENDARS_LIST = "calendar:calendars:list"
     CALENDAR_CALENDARS_CREATE = "calendar:calendars:create"
     CALENDAR_CALENDARS_UPDATE = "calendar:calendars:update"
