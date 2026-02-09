@@ -230,23 +230,45 @@ class APIKeyRegistry:
         """Get the admin key ID, if an admin key has been created."""
         return self._admin_key_id
     
-    def create_admin_key(self) -> tuple[str, APIKey]:
+    _MINIMUM_SECRET_LENGTH = 32
+
+    def create_admin_key(
+        self,
+        secret: Optional[str] = None,
+    ) -> tuple[str, APIKey]:
         """Create the admin key at startup.
         
         The admin key has full access to all endpoints ('*' permission).
         This method should only be called once at server startup.
+        
+        Args:
+            secret: Optional pre-set secret for the admin key. When provided,
+                this secret is used instead of generating a random one. This
+                enables automated server deployments where the admin key needs
+                to be known in advance. Must be at least 32 characters long.
         
         Returns:
             A tuple of (secret, APIKey) where secret is the plaintext
             key that should be printed to the console and never stored.
         
         Raises:
-            ValueError: If an admin key has already been created.
+            ValueError: If an admin key has already been created, or if the
+                provided secret is too short.
         """
         if self._admin_key_id is not None:
             raise ValueError("Admin key already exists")
         
-        secret = generate_key_secret()
+        if secret is not None:
+            if len(secret) < self._MINIMUM_SECRET_LENGTH:
+                raise ValueError(
+                    f"Admin key secret must be at least "
+                    f"{self._MINIMUM_SECRET_LENGTH} characters long, "
+                    f"got {len(secret)}"
+                )
+            logger.info("Using pre-set admin key secret")
+        else:
+            secret = generate_key_secret()
+        
         key = APIKey(
             key_hash=hash_secret(secret),
             name="Admin Key",
@@ -437,18 +459,30 @@ def get_api_key_registry() -> APIKeyRegistry:
     return _api_key_registry
 
 
-def initialize_api_key_registry() -> tuple[str, APIKey]:
+def initialize_api_key_registry(
+    admin_secret: Optional[str] = None,
+) -> tuple[str, APIKey]:
     """Initialize the global API key registry and create the admin key.
     
     This should be called once when the FastAPI app starts up.
     
+    Args:
+        admin_secret: Optional pre-set secret for the admin key. When
+            provided, this exact secret is used instead of generating a
+            random one. Useful for automated deployments where the admin
+            key needs to be known in advance (e.g., via UES_ADMIN_KEY
+            environment variable). Must be at least 32 characters long.
+    
     Returns:
         A tuple of (admin_secret, admin_key) for printing to console.
+    
+    Raises:
+        ValueError: If the provided admin_secret is too short.
     """
     global _api_key_registry
     
     _api_key_registry = APIKeyRegistry()
-    return _api_key_registry.create_admin_key()
+    return _api_key_registry.create_admin_key(secret=admin_secret)
 
 
 def shutdown_api_key_registry() -> None:

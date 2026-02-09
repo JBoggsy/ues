@@ -4,12 +4,14 @@
 This module provides CLI commands to start and manage the UES server.
 
 Usage:
-    ues --help                     Show help
-    ues server                     Start the API server (development mode)
-    ues server --host 0.0.0.0      Start server on all interfaces
-    ues server --port 8080         Start server on custom port
-    ues server --reload            Enable auto-reload for development
-    ues version                    Show version information
+    ues --help                                  Show help
+    ues server                                  Start the API server (development mode)
+    ues server --host 0.0.0.0                   Start server on all interfaces
+    ues server --port 8080                      Start server on custom port
+    ues server --reload                         Enable auto-reload for development
+    ues server --admin-key <secret>             Use a pre-set admin API key
+    ues server --admin-key-file /tmp/key.json   Write admin key to a file
+    ues version                                 Show version information
 
 Examples:
     # Start development server with auto-reload
@@ -18,11 +20,18 @@ Examples:
     # Start production server
     ues server --host 0.0.0.0 --port 8000
     
+    # Use a known admin key for automated deployments
+    ues server --admin-key $(cat /secrets/ues-admin-key)
+    
+    # Write admin key to file for programmatic retrieval
+    ues server --admin-key-file /tmp/ues-admin-key.json
+    
     # Quick start (alias)
     ues-server
 """
 
 import argparse
+import os
 import sys
 from typing import Optional
 
@@ -45,6 +54,8 @@ def run_server(
     port: int = 8000,
     reload: bool = False,
     workers: Optional[int] = None,
+    admin_key: Optional[str] = None,
+    admin_key_file: Optional[str] = None,
 ) -> None:
     """Start the UES API server using uvicorn.
     
@@ -53,6 +64,12 @@ def run_server(
         port: Port number to listen on.
         reload: Enable auto-reload for development.
         workers: Number of worker processes (production only).
+        admin_key: Pre-set admin API key secret. Sets the UES_ADMIN_KEY
+            environment variable so the lifespan handler uses this secret
+            instead of generating a random one.
+        admin_key_file: Path to write the admin key credentials as JSON.
+            Sets the UES_ADMIN_KEY_FILE environment variable so the
+            lifespan handler writes the key to this file at startup.
     """
     try:
         import uvicorn
@@ -71,6 +88,14 @@ def run_server(
     print(f"📖 API Documentation: http://{host}:{port}/docs")
     print(f"📖 ReDoc: http://{host}:{port}/redoc")
     print()
+    
+    # Set environment variables for the lifespan handler to read.
+    # These are set here (not in lifespan) because uvicorn.run() may
+    # fork worker processes and the lifespan runs inside each worker.
+    if admin_key:
+        os.environ["UES_ADMIN_KEY"] = admin_key
+    if admin_key_file:
+        os.environ["UES_ADMIN_KEY_FILE"] = admin_key_file
     
     uvicorn.run(
         "ues.main:app",
@@ -92,6 +117,8 @@ def cmd_server(args: argparse.Namespace) -> None:
         port=args.port,
         reload=args.reload,
         workers=args.workers,
+        admin_key=args.admin_key,
+        admin_key_file=args.admin_key_file,
     )
 
 
@@ -165,6 +192,27 @@ For more information, visit: https://github.com/JBoggsy/ues
         type=int,
         default=None,
         help="Number of worker processes (production only, incompatible with --reload)",
+    )
+    server_parser.add_argument(
+        "--admin-key",
+        type=str,
+        default=None,
+        help=(
+            "Pre-set admin API key secret (at least 32 chars). "
+            "Avoids random key generation, useful for automated deployments. "
+            "Can also be set via UES_ADMIN_KEY environment variable."
+        ),
+    )
+    server_parser.add_argument(
+        "--admin-key-file",
+        type=str,
+        default=None,
+        help=(
+            "Path to write admin key credentials as JSON "
+            '({"secret": "...", "key_id": "..."}). '
+            "File is created with 0600 permissions on Unix. "
+            "Can also be set via UES_ADMIN_KEY_FILE environment variable."
+        ),
     )
     server_parser.set_defaults(func=cmd_server)
     

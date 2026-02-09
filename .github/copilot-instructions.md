@@ -30,12 +30,14 @@ When the server is running (`uv run uvicorn ues.main:app --reload`):
 - **OpenAPI Schema**: http://localhost:8000/openapi.json
 - **Web UI**: http://localhost:5173 (run `cd webapp && npm run dev`)
 
-**Note**: When the server starts, an admin API key is printed to the console. Save this key - it's required for all API requests.
+**Note**: When the server starts, an admin API key is printed to the console. Save this key - it's required for all API requests. For automated deployments, use `UES_ADMIN_KEY` or `UES_ADMIN_KEY_FILE` env vars (see `docs/api/AUTHENTICATION.md`).
 
 ### Environment Variables
 The project uses `python-dotenv` to load environment variables from `.env` files:
 - `CORS_ORIGINS`: Comma-separated list of allowed CORS origins (default: localhost:5173, localhost:3000)
 - `OPENWEATHER_API_KEY`: Optional API key for real weather data fetching
+- `UES_ADMIN_KEY`: Pre-set admin API key secret (at least 32 chars). Avoids random key generation.
+- `UES_ADMIN_KEY_FILE`: Path to write admin key credentials as JSON at startup.
 
 See `webapp/.env.example` for web UI environment variables.
 

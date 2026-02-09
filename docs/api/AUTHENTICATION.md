@@ -27,6 +27,8 @@ INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
 
 **Save this key!** It won't be shown again. This admin key has full access (`*` permission) to all endpoints.
 
+For automated deployments, see [Programmatic Key Retrieval](#programmatic-key-retrieval) below.
+
 ### 2. Use the Key in Requests
 
 Include the API key in the `X-API-Key` header:
@@ -62,6 +64,103 @@ async with AsyncUESClient(api_key="ues_a1b2c3d4e5f6g7h8...") as client:
     await client.simulation.start()
     status = await client.simulation.status()
 ```
+
+---
+
+## Programmatic Key Retrieval
+
+For automated deployments, CI/CD pipelines, and orchestration tools, UES provides two mechanisms to avoid parsing stdout for the admin key.
+
+### Option 1: Pre-set Admin Key (`UES_ADMIN_KEY`)
+
+Set the `UES_ADMIN_KEY` environment variable to supply a known admin key secret. The server will use this exact value instead of generating a random one.
+
+```bash
+# Via environment variable
+export UES_ADMIN_KEY=$(openssl rand -hex 32)
+ues server
+
+# Or inline
+UES_ADMIN_KEY=my_known_secret_at_least_32_chars_long ues server
+
+# Via CLI flag (sets the env var internally)
+ues server --admin-key $(openssl rand -hex 32)
+```
+
+**Requirements:**
+- The secret must be at least 32 characters long
+- Any string format is accepted (hex, alphanumeric, etc.)
+- The secret is used as-is — UES does not modify or hash it before using it as the API key
+
+When `UES_ADMIN_KEY` is set, the server prints a confirmation instead of the key:
+```
+🔑 Admin key loaded from UES_ADMIN_KEY environment variable
+   Key ID: ues_12345678
+```
+
+**Use case**: Container orchestration (Docker, Kubernetes), where the key is injected as a secret.
+
+```yaml
+# docker-compose.yml
+services:
+  ues:
+    image: ues:latest
+    environment:
+      UES_ADMIN_KEY: ${UES_ADMIN_KEY}
+```
+
+### Option 2: Key File Output (`UES_ADMIN_KEY_FILE`)
+
+Set the `UES_ADMIN_KEY_FILE` environment variable (or `--admin-key-file` CLI flag) to write the admin key credentials to a JSON file at startup.
+
+```bash
+# Via environment variable
+export UES_ADMIN_KEY_FILE=/tmp/ues-admin-key.json
+ues server
+
+# Via CLI flag
+ues server --admin-key-file /tmp/ues-admin-key.json
+```
+
+The file is written as JSON with restricted permissions (`0600` on Unix):
+
+```json
+{
+  "secret": "a1b2c3d4e5f6...",
+  "key_id": "ues_12345678"
+}
+```
+
+**Reading the key file programmatically:**
+
+```python
+import json
+
+with open("/tmp/ues-admin-key.json") as f:
+    key_data = json.load(f)
+
+api_key = key_data["secret"]
+key_id = key_data["key_id"]
+```
+
+```bash
+# Shell script
+API_KEY=$(jq -r '.secret' /tmp/ues-admin-key.json)
+curl -H "X-API-Key: $API_KEY" http://localhost:8000/simulation/status
+```
+
+**Use case**: Process management scripts that spawn UES and need to retrieve the key without parsing stdout.
+
+### Combining Both Options
+
+If `UES_ADMIN_KEY` is set, the pre-set key takes priority and no key file is written (since the caller already knows the key). If only `UES_ADMIN_KEY_FILE` is set, a random key is generated and written to the file.
+
+| `UES_ADMIN_KEY` | `UES_ADMIN_KEY_FILE` | Behavior |
+|:---:|:---:|---|
+| Not set | Not set | Random key printed to stdout (default) |
+| Set | Not set | Pre-set key used, confirmation printed |
+| Not set | Set | Random key generated and written to file |
+| Set | Set | Pre-set key used, no file written |
 
 ---
 
@@ -538,7 +637,7 @@ The created event will have:
 
 ## Security Best Practices
 
-1. **Secure the Admin Key**: The admin key is printed to console at startup. Ensure console output is protected in production.
+1. **Secure the Admin Key**: Use `UES_ADMIN_KEY` or `UES_ADMIN_KEY_FILE` for automated deployments instead of parsing stdout. If using stdout, ensure console output is protected.
 
 2. **Use Least Privilege**: Create keys with only the permissions needed for each use case.
 
@@ -549,6 +648,8 @@ The created event will have:
 5. **Monitor Access Logs**: Regularly review access logs for suspicious activity.
 
 6. **Don't Commit Keys**: Never commit API keys to version control. Use environment variables instead.
+
+7. **Key File Permissions**: When using `UES_ADMIN_KEY_FILE`, the file is created with `0600` permissions on Unix. Ensure the directory has appropriate access controls.
 
 ---
 

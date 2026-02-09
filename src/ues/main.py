@@ -10,14 +10,21 @@ To run in production:
     uv run uvicorn main:app --host 0.0.0.0 --port 8000
 """
 
+import json
+import logging
 import os
+import stat
+import sys
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import ValidationError
+
+logger = logging.getLogger(__name__)
 
 # Load environment variables from .env file before any other imports
 # that might depend on them (e.g., WeatherState reads OPENWEATHER_API_KEY)
@@ -59,12 +66,60 @@ from ues.api.routes import websocket as websocket_routes
 from ues.api.webhooks import webhook_dispatcher
 
 
+def _write_admin_key_file(
+    file_path: str,
+    secret: str,
+    key_id: str,
+) -> bool:
+    """Write admin key credentials to a JSON file with restricted permissions.
+    
+    The file is written with owner-only read/write permissions (0600) on Unix
+    systems. On Windows, standard file permissions apply.
+    
+    Args:
+        file_path: Path where the key file should be written.
+        secret: The admin key secret (plaintext).
+        key_id: The admin key ID.
+    
+    Returns:
+        True if the file was written successfully, False otherwise.
+    """
+    key_data = {
+        "secret": secret,
+        "key_id": key_id,
+    }
+    try:
+        path = Path(file_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(key_data, indent=2) + "\n")
+        # Set owner-only read/write permissions on Unix
+        if sys.platform != "win32":
+            path.chmod(stat.S_IRUSR | stat.S_IWUSR)
+        return True
+    except OSError as e:
+        logger.error(f"Failed to write admin key file to {file_path}: {e}")
+        print(
+            f"⚠️  WARNING: Failed to write admin key file to {file_path}: {e}",
+            file=sys.stderr,
+        )
+        return False
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage application lifespan events.
     
     This context manager runs code at startup (before yield) and shutdown (after yield).
     It's the modern way to handle FastAPI lifecycle events.
+    
+    Supports the following environment variables for automated key management:
+    
+    - ``UES_ADMIN_KEY``: Pre-set the admin key secret instead of generating a
+      random one. The server will use this exact value as the admin API key.
+      Must be at least 32 characters long.
+    - ``UES_ADMIN_KEY_FILE``: Path to a file where the admin key credentials
+      will be written as JSON (``{"secret": "...", "key_id": "..."}``). The
+      file is created with 0600 permissions on Unix systems.
     
     Args:
         app: The FastAPI application instance.
@@ -78,15 +133,40 @@ async def lifespan(app: FastAPI):
     print("✅ SimulationEngine initialized")
     
     # Initialize API key registry and create admin key
+    # Check for pre-set admin key from environment variable
+    preset_admin_key = os.getenv("UES_ADMIN_KEY")
+    admin_key_file = os.getenv("UES_ADMIN_KEY_FILE")
+    
     print("🔐 Initializing API key registry...")
-    admin_secret, admin_key = initialize_api_key_registry()
+    admin_secret, admin_key = initialize_api_key_registry(
+        admin_secret=preset_admin_key
+    )
     print("✅ API key registry initialized")
-    print("")
-    print("=" * 60)
-    print("🔑 ADMIN API KEY (save this - it won't be shown again!):")
-    print(f"   Secret: {admin_secret}")
-    print(f"   Key ID: {admin_key.key_id}")
-    print("=" * 60)
+
+    # Report admin key source and optionally write to file
+    if preset_admin_key:
+        print("")
+        print("=" * 60)
+        print("🔑 Admin key loaded from UES_ADMIN_KEY environment variable")
+        print(f"   Key ID: {admin_key.key_id}")
+        print("=" * 60)
+    elif admin_key_file:
+        print("")
+        print("=" * 60)
+        if _write_admin_key_file(admin_key_file, admin_secret, admin_key.key_id):
+            print(f"🔑 Admin key written to: {admin_key_file}")
+        else:
+            print(f"🔑 ADMIN API KEY (file write failed, showing here):")
+            print(f"   Secret: {admin_secret}")
+        print(f"   Key ID: {admin_key.key_id}")
+        print("=" * 60)
+    else:
+        print("")
+        print("=" * 60)
+        print("🔑 ADMIN API KEY (save this - it won't be shown again!):")
+        print(f"   Secret: {admin_secret}")
+        print(f"   Key ID: {admin_key.key_id}")
+        print("=" * 60)
     print("")
     
     # Initialize access logging

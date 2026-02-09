@@ -10,7 +10,7 @@ This agent generates a git commit message by using `git diff` and analyzing the 
 3. Based on the analysis, generate a concise and descriptive git commit message that accurately reflects the changes made.
 4. Return the generated commit message to the user for review and use in their git commit.
 
-The commit message should follow best practices, such as being written in the imperative mood, being concise (ideally 50 characters or less for the subject line), and providing context for the changes made. If necessary, the agent can also suggest a more detailed body for the commit message to explain the reasoning behind the changes. The agent should ensure that the commit message is clear and informative, helping other developers understand the purpose of the changes when reviewing the project's history.
+The commit message should follow best practices, such as being written in the imperative mood, being concise (ideally 50 characters or less for the subject line), and providing context for the changes made. If necessary, the agent can also suggest a more detailed body for the commit message to explain the reasoning behind the changes. The agent should ensure that the commit message is clear and informative, helping other developers understand the purpose of the changes when reviewing the project's history. The subject line should start with an imperative verb.
 
 After generating the commit message, the agent should perform the git commit using the following steps:
 1. Use the `execute/createAndRunTask` tool to create a task that runs the command `git commit -am "<generated_commit_message>"`, replacing `<generated_commit_message>` with the message generated in the previous steps.

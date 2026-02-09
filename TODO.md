@@ -28,6 +28,7 @@ Stub models exist but are not implemented (no `apply_input()`, API routes, etc.)
 ### Improvements
 - [ ] Fix real weather timestamping and sunrise/sunset times
 - [ ] Consider removing real weather API from backend (let clients supply it)
+- [x] Add a CLI flag or file output option to UES for programmatic key retrieval.
 
 ---
 
