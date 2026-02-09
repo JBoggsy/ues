@@ -126,15 +126,13 @@ class WeatherClient(BaseClient):
         units: UnitSystem = "standard",
         from_time: int | None = None,
         to_time: int | None = None,
-        real: bool = False,
         limit: int | None = None,
         offset: int = 0,
     ) -> WeatherQueryResponse:
         """Query weather data for a specific location with filters.
         
-        Supports querying simulated weather history or real-time weather from
-        OpenWeather API. Can filter by time range, exclude sections, and convert
-        units.
+        Supports querying simulated weather history with filtering by time
+        range, excluded sections, and unit conversion.
         
         Args:
             lat: Location latitude to query (required).
@@ -145,7 +143,6 @@ class WeatherClient(BaseClient):
             from_time: Unix timestamp - return all reports since this time.
             to_time: Unix timestamp - return reports up to this time 
                 (requires from_time).
-            real: If True, query OpenWeather API instead of simulated data.
             limit: Maximum number of reports to return.
             offset: Number of reports to skip (for pagination).
         
@@ -170,8 +167,6 @@ class WeatherClient(BaseClient):
             request_data["from_time"] = from_time
         if to_time is not None:
             request_data["to_time"] = to_time
-        if real:
-            request_data["real"] = real
         if limit is not None:
             request_data["limit"] = limit
         if offset != 0:
@@ -292,15 +287,13 @@ class AsyncWeatherClient(AsyncBaseClient):
         units: UnitSystem = "standard",
         from_time: int | None = None,
         to_time: int | None = None,
-        real: bool = False,
         limit: int | None = None,
         offset: int = 0,
     ) -> WeatherQueryResponse:
         """Query weather data for a specific location with filters.
         
-        Supports querying simulated weather history or real-time weather from
-        OpenWeather API. Can filter by time range, exclude sections, and convert
-        units.
+        Supports querying simulated weather history with filtering by time
+        range, excluded sections, and unit conversion.
         
         Args:
             lat: Location latitude to query (required).
@@ -311,7 +304,6 @@ class AsyncWeatherClient(AsyncBaseClient):
             from_time: Unix timestamp - return all reports since this time.
             to_time: Unix timestamp - return reports up to this time 
                 (requires from_time).
-            real: If True, query OpenWeather API instead of simulated data.
             limit: Maximum number of reports to return.
             offset: Number of reports to skip (for pagination).
         
@@ -336,8 +328,6 @@ class AsyncWeatherClient(AsyncBaseClient):
             request_data["from_time"] = from_time
         if to_time is not None:
             request_data["to_time"] = to_time
-        if real:
-            request_data["real"] = real
         if limit is not None:
             request_data["limit"] = limit
         if offset != 0:

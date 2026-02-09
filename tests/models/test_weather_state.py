@@ -32,17 +32,13 @@ class TestWeatherStateInstantiation:
     default values, and proper inheritance from ModalityState.
     """
 
-    def test_instantiation_with_defaults(self, monkeypatch):
+    def test_instantiation_with_defaults(self):
         """Test creating WeatherState with default values."""
-        # Ensure no API key is picked up from environment
-        monkeypatch.delenv("OPENWEATHER_API_KEY", raising=False)
-        
         now = datetime.now(timezone.utc)
         state = create_weather_state(last_updated=now)
         
         assert state.locations == {}
         assert state.max_history_per_location == 100
-        assert state.openweather_api_key is None
         assert state.last_updated == now
         assert state.update_count == 0
 
@@ -55,16 +51,6 @@ class TestWeatherStateInstantiation:
         state = create_weather_state(last_updated=now, max_history_per_location=24)
         
         assert state.max_history_per_location == 24
-
-    def test_instantiation_with_api_key(self):
-        """Test creating WeatherState with API key.
-        
-        WEATHER-SPECIFIC: Supports OpenWeather API integration.
-        """
-        now = datetime.now(timezone.utc)
-        state = create_weather_state(last_updated=now, openweather_api_key="test_key_12345")
-        
-        assert state.openweather_api_key == "test_key_12345"
 
     def test_instantiation_with_existing_locations(self):
         """Test creating WeatherState with pre-populated locations.
@@ -608,27 +594,6 @@ class TestWeatherStateSerialization:
         assert restored.longitude == location.longitude
         assert restored.update_count == location.update_count
         assert restored.first_seen == location.first_seen
-
-    def test_serialization_with_api_key(self):
-        """Test that API key is preserved during serialization."""
-        original = create_weather_state(openweather_api_key="test_key_12345")
-        
-        data = original.model_dump()
-        restored = WeatherState.model_validate(data)
-        
-        assert restored.openweather_api_key == original.openweather_api_key
-
-    def test_serialization_handles_none_api_key(self, monkeypatch):
-        """Test serialization when API key is None."""
-        # Ensure no API key is picked up from environment
-        monkeypatch.delenv("OPENWEATHER_API_KEY", raising=False)
-        
-        original = create_weather_state()
-        
-        data = original.model_dump()
-        restored = WeatherState.model_validate(data)
-        
-        assert restored.openweather_api_key is None
 
 
 class TestWeatherStateEdgeCases:

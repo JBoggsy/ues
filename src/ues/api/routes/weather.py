@@ -2,7 +2,7 @@
 
 Provides REST API access to weather state and operations.
 Supports querying weather data for multiple locations with optional filtering
-and unit conversion. Also supports real-time weather queries via OpenWeather API.
+and unit conversion.
 
 All endpoints require authentication via X-API-Key header.
 """
@@ -55,7 +55,6 @@ class WeatherQueryRequest(BaseModel):
         units: Unit system (standard, metric, imperial) - default: standard.
         from_time: Unix timestamp - return all reports since this time.
         to_time: Unix timestamp - return reports up to this time (requires from_time).
-        real: If True, query OpenWeather API instead of simulated data.
         limit: Maximum number of reports to return.
         offset: Number of reports to skip (for pagination).
     """
@@ -74,9 +73,6 @@ class WeatherQueryRequest(BaseModel):
     )
     to_time: Optional[int] = Field(
         default=None, description="Return reports up to this Unix timestamp"
-    )
-    real: bool = Field(
-        default=False, description="Query OpenWeather API for real weather data"
     )
     limit: Optional[int] = Field(default=None, description="Maximum reports to return", ge=1)
     offset: Optional[int] = Field(default=0, description="Reports to skip", ge=0)
@@ -197,8 +193,8 @@ async def query_weather(
 ):
     """Query weather data for a specific location with filters.
 
-    Supports querying simulated weather history or real-time weather from
-    OpenWeather API. Can filter by time range, exclude sections, and convert units.
+    Supports querying simulated weather history with filtering by time range,
+    excluded sections, and unit conversion.
 
     Args:
         request: Query parameters including location, filters, and options.

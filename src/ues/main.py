@@ -27,7 +27,7 @@ from pydantic import ValidationError
 logger = logging.getLogger(__name__)
 
 # Load environment variables from .env file before any other imports
-# that might depend on them (e.g., WeatherState reads OPENWEATHER_API_KEY)
+# that might depend on them (e.g., CORS_ORIGINS, UES_ADMIN_KEY)
 load_dotenv()
 
 from ues.api.auth import initialize_api_key_registry, shutdown_api_key_registry

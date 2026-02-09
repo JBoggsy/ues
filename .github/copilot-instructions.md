@@ -35,7 +35,6 @@ When the server is running (`uv run uvicorn ues.main:app --reload`):
 ### Environment Variables
 The project uses `python-dotenv` to load environment variables from `.env` files:
 - `CORS_ORIGINS`: Comma-separated list of allowed CORS origins (default: localhost:5173, localhost:3000)
-- `OPENWEATHER_API_KEY`: Optional API key for real weather data fetching
 - `UES_ADMIN_KEY`: Pre-set admin API key secret (at least 32 chars). Avoids random key generation.
 - `UES_ADMIN_KEY_FILE`: Path to write admin key credentials as JSON at startup.
 

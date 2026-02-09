@@ -233,25 +233,6 @@ class TestWeatherClientQuery:
         assert call_args[1]["json"]["from_time"] == 1705315200
         assert call_args[1]["json"]["to_time"] == 1705401600
 
-    def test_query_real_weather(self):
-        """Test querying real weather data."""
-        mock_http = MagicMock()
-        mock_http.post.return_value = {
-            "reports": [],
-            "count": 0,
-            "total_count": 0,
-        }
-
-        client = WeatherClient(mock_http)
-        result = client.query(
-            lat=40.7128,
-            lon=-74.0060,
-            real=True,
-        )
-
-        call_args = mock_http.post.call_args
-        assert call_args[1]["json"]["real"] is True
-
     def test_query_with_pagination(self):
         """Test querying weather with pagination."""
         mock_http = MagicMock()

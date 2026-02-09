@@ -1,8 +1,7 @@
 """Weather state model."""
 
-import os
 from copy import deepcopy
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -86,7 +85,6 @@ class WeatherState(ModalityState):
     """Current weather state.
 
     Tracks weather conditions at multiple locations with historical data.
-    Supports both simulated weather updates and real weather queries via OpenWeather API.
 
     Args:
         modality_type: Always "weather" for this state type.
@@ -94,7 +92,6 @@ class WeatherState(ModalityState):
         update_count: Number of times this state has been modified.
         locations: Dict mapping location keys to WeatherLocationState objects.
         max_history_per_location: Maximum historical reports per location.
-        openweather_api_key: Optional API key for real weather queries.
     """
 
     modality_type: str = Field(default="weather", frozen=True)
@@ -104,23 +101,8 @@ class WeatherState(ModalityState):
     max_history_per_location: int = Field(
         default=100, description="Maximum historical reports per location"
     )
-    openweather_api_key: Optional[str] = Field(
-        default=None, description="OpenWeather API key for real weather queries"
-    )
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
-
-    def __init__(self, **data):
-        """Initialize weather state.
-
-        Attempts to load OpenWeather API key from environment variable if not provided.
-
-        Args:
-            **data: Keyword arguments for Pydantic model initialization.
-        """
-        if "openweather_api_key" not in data or data["openweather_api_key"] is None:
-            data["openweather_api_key"] = os.environ.get("OPENWEATHER_API_KEY")
-        super().__init__(**data)
 
     def _get_location_key(self, lat: float, lon: float) -> str:
         """Normalize coordinates to a location key.
@@ -449,78 +431,10 @@ class WeatherState(ModalityState):
 
         return converted_report
 
-    def query_openweather_api(
-        self,
-        lat: float,
-        lon: float,
-        exclude: Optional[list[str]] = None,
-        units: Literal["standard", "metric", "imperial"] = "standard",
-    ) -> WeatherReport:
-        """Query OpenWeather API for real weather data.
-
-        Makes HTTP request to OpenWeather One Call API, parses response,
-        creates WeatherInput, and applies it to state.
-
-        Args:
-            lat: Latitude to query.
-            lon: Longitude to query.
-            exclude: Sections to exclude from API query.
-            units: Unit system to use (API returns data in these units).
-
-        Returns:
-            Weather report from OpenWeather API.
-
-        Raises:
-            ValueError: If API key is not configured.
-            RuntimeError: If API request fails.
-        """
-        import requests
-
-        from ues.models.modalities.weather_input import WeatherInput
-
-        if not self.openweather_api_key:
-            raise ValueError(
-                "OpenWeather API key not configured. Set OPENWEATHER_API_KEY environment variable."
-            )
-
-        url = "https://api.openweathermap.org/data/3.0/onecall"
-        params = {
-            "lat": lat,
-            "lon": lon,
-            "appid": self.openweather_api_key,
-            "units": "standard",
-        }
-
-        if exclude:
-            params["exclude"] = ",".join(exclude)
-
-        response = requests.get(url, params=params, timeout=10)
-
-        if response.status_code != 200:
-            raise RuntimeError(
-                f"OpenWeather API request failed: {response.status_code} {response.text}"
-            )
-
-        data = response.json()
-        report = WeatherReport(**data)
-
-        weather_input = WeatherInput(
-            timestamp=datetime.now(timezone.utc),
-            input_id=f"openweather_{lat}_{lon}_{datetime.now(timezone.utc).timestamp()}",
-            latitude=lat,
-            longitude=lon,
-            report=report,
-        )
-
-        self.apply_input(weather_input)
-
-        return report
-
     def query(self, query_params: dict[str, Any]) -> dict[str, Any]:
         """Execute a query against this state.
 
         Supports filtering weather data by location, time range, and format options.
-        Special case: real=true queries OpenWeather API and updates state.
 
         Supported query parameters:
             - lat (required): Latitude to query
@@ -529,7 +443,6 @@ class WeatherState(ModalityState):
             - units: Unit system (standard, metric, imperial) - default: standard
             - from: Unix timestamp - return all reports since this time
             - to: Unix timestamp - return reports up to this time (requires from)
-            - real: If True, query OpenWeather API instead of simulated data
             - limit: Maximum number of reports to return
             - offset: Number of reports to skip (for pagination)
 
@@ -557,13 +470,6 @@ class WeatherState(ModalityState):
         units = query_params.get("units", "standard")
         from_time = query_params.get("from")
         to_time = query_params.get("to")
-        real = query_params.get("real", False)
-
-        if real:
-            report = self.query_openweather_api(lat, lon, exclude, units)
-            filtered_report = self._filter_report(report, exclude)
-            converted_report = self._convert_units(filtered_report, units)
-            return {"reports": [converted_report.model_dump()], "count": 1}
 
         location_key = self._get_location_key(lat, lon)
 
@@ -614,7 +520,7 @@ class WeatherState(ModalityState):
         """Reset weather state to empty defaults.
 
         Clears all location weather data, returning the state to
-        a freshly created condition. Preserves the API key configuration.
+        a freshly created condition.
         """
         self.locations.clear()
         self.update_count = 0

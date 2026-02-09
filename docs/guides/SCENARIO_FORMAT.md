@@ -362,8 +362,7 @@ All `ModalityInput` objects (in event `data` field) include these base fields:
       "report_history": [ ... ]
     }
   },
-  "max_history_per_location": 100,
-  "openweather_api_key": null
+  "max_history_per_location": 100
 }
 ```
 

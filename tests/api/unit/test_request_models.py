@@ -1184,7 +1184,6 @@ class TestWeatherQueryRequest:
         assert request.lat == 37.7749
         assert request.lon == -122.4194
         assert request.units == "standard"  # Default
-        assert request.real is False  # Default
 
     def test_default_values(self):
         """Test default values for optional fields."""
@@ -1193,7 +1192,6 @@ class TestWeatherQueryRequest:
         assert request.units == "standard"
         assert request.from_time is None
         assert request.to_time is None
-        assert request.real is False
         assert request.limit is None
         assert request.offset == 0
 

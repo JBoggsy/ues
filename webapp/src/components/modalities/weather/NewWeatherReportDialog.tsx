@@ -1,6 +1,6 @@
 /**
  * Dialog for creating a new weather report for a location.
- * Supports presets, live weather fetch, and manual entry.
+ * Supports presets and manual entry.
  */
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import {
@@ -10,12 +10,10 @@ import {
   CloudLightning,
   CloudSun,
   Loader2,
-  Globe,
   SlidersHorizontal,
   Sparkles,
   ChevronDown,
   ChevronRight,
-  AlertTriangle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -39,7 +37,6 @@ import {
 } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import apiClient from '@/api/client';
 import type {
   WeatherReport,
   CurrentWeather,
@@ -241,16 +238,11 @@ export function NewWeatherReportDialog({
 }: NewWeatherReportDialogProps) {
   const [activeTab, setActiveTab] = useState<string>('presets');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isFetchingLive, setIsFetchingLive] = useState(false);
 
   // Preset selections
   const [selectedSky, setSelectedSky] = useState<string>('sunny');
   const [selectedTemp, setSelectedTemp] = useState<string>('warm');
   const [selectedWind, setSelectedWind] = useState<string>('breezy');
-
-  // Live weather data
-  const [liveWeather, setLiveWeather] = useState<WeatherReport | null>(null);
-  const [liveError, setLiveError] = useState<string | null>(null);
 
   // Manual entry state (stored in user's unit preference)
   const [manualCondition, setManualCondition] = useState<string>('800');
@@ -272,8 +264,6 @@ export function NewWeatherReportDialog({
       setSelectedSky('sunny');
       setSelectedTemp('warm');
       setSelectedWind('breezy');
-      setLiveWeather(null);
-      setLiveError(null);
       // Set manual defaults based on units
       const defaultTempK = 295.37; // ~72°F
       setManualTemp(kelvinToUserTemp(defaultTempK, units).toString());
@@ -329,10 +319,6 @@ export function NewWeatherReportDialog({
       };
     }
 
-    if (activeTab === 'live' && liveWeather) {
-      return liveWeather;
-    }
-
     if (activeTab === 'manual') {
       const conditionOpt = CONDITION_OPTIONS.find((c) => c.id.toString() === manualCondition);
       if (!conditionOpt) return null;
@@ -380,7 +366,6 @@ export function NewWeatherReportDialog({
     selectedSky,
     selectedTemp,
     selectedWind,
-    liveWeather,
     manualCondition,
     manualTemp,
     manualFeelsLike,
@@ -395,36 +380,6 @@ export function NewWeatherReportDialog({
     longitude,
     units,
   ]);
-
-  // Fetch live weather from API
-  const handleFetchLive = useCallback(async () => {
-    setIsFetchingLive(true);
-    setLiveError(null);
-    setLiveWeather(null);
-
-    try {
-      const response = await apiClient.post('/weather/query', {
-        lat: latitude,
-        lon: longitude,
-        real: true,
-      });
-
-      if (response.data.error) {
-        setLiveError(response.data.error);
-      } else if (response.data.reports && response.data.reports.length > 0) {
-        setLiveWeather(response.data.reports[0]);
-        toast.success('Live weather data fetched');
-      } else {
-        setLiveError('No weather data returned');
-      }
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Failed to fetch live weather';
-      setLiveError(message);
-      toast.error(message);
-    } finally {
-      setIsFetchingLive(false);
-    }
-  }, [latitude, longitude]);
 
   // Submit the weather report
   const handleSubmit = useCallback(async () => {
@@ -464,14 +419,10 @@ export function NewWeatherReportDialog({
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="presets" className="gap-1">
               <Sparkles className="h-3 w-3" />
               Presets
-            </TabsTrigger>
-            <TabsTrigger value="live" className="gap-1">
-              <Globe className="h-3 w-3" />
-              Live Weather
             </TabsTrigger>
             <TabsTrigger value="manual" className="gap-1">
               <SlidersHorizontal className="h-3 w-3" />
@@ -566,69 +517,7 @@ export function NewWeatherReportDialog({
             </div>
           </TabsContent>
 
-          {/* Live Weather Tab */}
-          <TabsContent value="live" className="flex-1 space-y-4 mt-4">
-            <div className="text-center p-4 border rounded-lg bg-muted/50">
-              <Globe className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-              <p className="text-sm mb-2">
-                Fetch real-time weather data from OpenWeather API
-              </p>
-              <p className="text-xs text-muted-foreground mb-4">
-                📍 {latitude.toFixed(4)}, {longitude.toFixed(4)}
-              </p>
-              <Button onClick={handleFetchLive} disabled={isFetchingLive}>
-                {isFetchingLive ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Fetching...
-                  </>
-                ) : (
-                  <>
-                    <Globe className="h-4 w-4 mr-2" />
-                    Fetch Current Weather
-                  </>
-                )}
-              </Button>
-            </div>
-
-            <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg text-sm">
-              <AlertTriangle className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
-              <p className="text-amber-800 dark:text-amber-200">
-                Requires <code className="bg-amber-100 dark:bg-amber-900 px-1 rounded">OPENWEATHER_API_KEY</code> environment variable to be set on the server.
-              </p>
-            </div>
-
-            {liveError && (
-              <div className="p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-800 dark:text-red-200">
-                Error: {liveError}
-              </div>
-            )}
-
-            {liveWeather?.current && (
-              <div className="p-4 border rounded-lg bg-green-50/50 dark:bg-green-950/20 border-green-200 dark:border-green-800">
-                <h4 className="font-medium text-sm mb-2 text-green-800 dark:text-green-200">
-                  ✓ Weather Data Retrieved
-                </h4>
-                <div className="flex items-center gap-3">
-                  <span className="text-3xl">
-                    {liveWeather.current.weather?.[0]
-                      ? getWeatherEmoji(liveWeather.current.weather[0].icon)
-                      : '🌡️'}
-                  </span>
-                  <div>
-                    <p className="font-semibold">
-                      {formatTemperature(liveWeather.current.temp, units)}
-                    </p>
-                    <p className="text-sm text-muted-foreground capitalize">
-                      {liveWeather.current.weather?.[0]?.description}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </TabsContent>
-
-          {/* Manual Entry Tab */}
+          {/* Manual Entry Tab */}}
           <TabsContent value="manual" className="flex-1 space-y-4 mt-4 overflow-y-auto">
             {/* Condition */}
             <div className="space-y-2">
@@ -822,8 +711,6 @@ export function NewWeatherReportDialog({
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 Adding...
               </>
-            ) : activeTab === 'live' ? (
-              'Use This Weather'
             ) : (
               'Add Weather Report'
             )}

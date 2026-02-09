@@ -1,11 +1,11 @@
 # Weather Modality Design
 
-The weather modality allows the UES to provide simulated (or real) weather data via its REST API,
+The weather modality allows the UES to provide simulated weather data via its REST API,
 allowing the developer to test an agent's weather-based capabilities. The UES allows specifying the
 simulated weather at multiple locations and allows creating weather events which update the weather
 at these locations as part of the simulation. In order to provide a realistic interface for the
-tested agent, the UES provides realistic weather API based on (but not identical to) the
-[OpenWeather One Call API](https://openweathermap.org/api/one-call-3) format. 
+tested agent, the UES provides realistic weather data based on (but not identical to) the
+[OpenWeather One Call API](https://openweathermap.org/api/one-call-3) format.
 
 ## Data Model Design
 
@@ -51,7 +51,6 @@ Tracks current weather conditions at multiple locations with historical data.
 - `update_count`: Number of updates applied
 - `locations`: Dict mapping (lat, lon) tuples to `WeatherLocationState` objects
 - `max_history_per_location`: Maximum historical reports per location (default: 100)
-- `openweather_api_key`: Optional API key for real weather queries (from env)
 
 **Helper Class:**
 - `WeatherLocationState`: State for a single location
@@ -75,13 +74,6 @@ Tracks current weather conditions at multiple locations with historical data.
 - `validate_state()`: Checks location coordinate validity, history ordering
 - `query(query_params)`: Filters weather data
   - Supports: lat/lon (required), exclude (parts), units (conversion), from/to (time range)
-  - **Special case: `real=true`** - Queries OpenWeather API and updates state
-- `query_openweather_api(lat, lon, exclude, units)`: Helper for real weather queries
-  - Makes HTTP request to OpenWeather One Call API
-  - Parses response into WeatherReport
-  - Creates WeatherInput with current simulator time
-  - Applies input to state (updating historical data)
-  - Returns the report
 - `_convert_units(report, units)`: Helper to convert between standard/metric/imperial
 - `_filter_report(report, exclude)`: Helper to remove excluded sections
 - `_get_location_key(lat, lon)`: Normalizes coordinates to location key (rounds to ~1km precision)
@@ -96,25 +88,15 @@ simultaneously. A tested agent might query weather for multiple cities in one si
 Solution: `WeatherState.locations` is a dict keyed by normalized (lat, lon) tuples. Coordinates
 are rounded to ~0.01 degrees (~1km) to prevent duplicate nearby locations.
 
-**2. Real Weather Integration**
+**2. REST API vs Event Pipeline**
 
-The `real=true` query parameter requires special handling because it both queries external API
-and updates internal state.
-
-Solution: The `query()` method detects `real=true` and delegates to `query_openweather_api()`,
-which constructs a `WeatherInput` and applies it via `apply_input()`. This keeps the update
-logic centralized in `apply_input()` and ensures real weather is treated as historical data.
-
-**3. REST API vs Event Pipeline**
-
-Both paths update state:
+State updates flow through the event pipeline:
 - Event pipeline: `SimulatorEvent` → `WeatherInput` → `WeatherState.apply_input()`
-- REST API: Query with `real=true` → `query_openweather_api()` → `WeatherInput` → `apply_input()`
+- REST API update: `POST /weather/update` → `WeatherInput` → `apply_input()`
 
-Solution: All state updates flow through `apply_input()`. The REST API handler calls
-`WeatherState.query()` which may internally call `apply_input()` for real weather.
+Solution: All state updates flow through `apply_input()`. This keeps the update logic centralized.
 
-**4. Complex Data Structures**
+**3. Complex Data Structures**
 
 Weather reports have deeply nested structures (minutely/hourly/daily forecasts with many fields).
 
@@ -122,16 +104,16 @@ Solution: Define comprehensive Pydantic models for all nested structures. This p
 - Type safety and validation
 - Clear documentation of expected format
 - Easy serialization/deserialization
-- Compatibility with OpenWeather API format
+- Compatibility with OpenWeather API data format
 
-**5. Unit Conversions**
+**4. Unit Conversions**
 
 Queries can request different unit systems (standard/metric/imperial).
 
 Solution: Store all weather internally in standard units (Kelvin, m/s). Convert on query
 using `_convert_units()` helper. This prevents confusion about what units are stored.
 
-**6. Historical Data Management**
+**5. Historical Data Management**
 
 Weather changes frequently, so history can grow large.
 
@@ -166,9 +148,6 @@ Simulated weather data is retrieved using the normal UES REST API, offering thre
 - `to` [optional]: Timestamp in seconds. If `from` is specified and prior to this, only weather
   reports in the specified timeframe are returned. If `from` is not specified or is after `to`, `to`
   is ignored.
-- `real` [optional]: If set, queries the OpenWeather API using the filters above (excluding `from`
-  and `to`) and reports the result. Only available if the `OPENWEATHER_API_KEY` environment variable
-  is set to a valid OpenWeather API key.
 
 ### Return Format
 The UES returns weather data as a list of JSON objects, where each object in the list is the weather
@@ -304,24 +283,14 @@ format](https://openweathermap.org/api/one-call-3) for details on the response f
 
 ## Implementation Notes
 
-### Thread Safety
-Since `WeatherState.query()` with `real=true` can be called from REST API handlers (potentially
-concurrent requests), the `query_openweather_api()` method should use appropriate locking when
-updating state to prevent race conditions.
-
 ### Error Handling
-- If OpenWeather API key is not set and `real=true` is requested, return error response
-- If OpenWeather API request fails (network, rate limit, invalid key), return error but don't update state
 - Invalid coordinates should fail fast with validation errors
+- Missing weather data for a location should return empty results
 
 ### Timestamp Handling
-All weather reports use **simulator time**, not wall-clock time. When querying real weather:
-1. Query OpenWeather API (which returns real-world timestamps)
-2. Convert real timestamps to simulator time context
-3. Store with current simulator time as the update timestamp
+All weather reports use **simulator time**, not wall-clock time.
 
 ### Testing Considerations
-- Mock OpenWeather API responses in unit tests
 - Test coordinate normalization (nearby coordinates should map to same location)
 - Test history management (verify old reports are discarded)
 - Test unit conversions (standard ↔ metric ↔ imperial)
