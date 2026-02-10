@@ -66,10 +66,18 @@ When implementing a new modality, follow this checklist:
 5. **Client Sub-client**: Create `src/ues/client/_<modality>.py` with sync/async methods
 6. **Client Integration**: Add to `UESClient` and `AsyncUESClient` in `src/ues/client/client.py`
 7. **Tests**: Add `tests/models/test_<modality>_input.py`, `test_<modality>_state.py`, and `tests/api/modalities/test_<modality>_routes.py`
-8. **Web UI**: Add viewer component in `webapp/src/components/modalities/<modality>/`
-9. **Permissions**: Add permission constants to `src/ues/api/auth.py` `Permissions` class
+8. **Schema sync tests**: Add model pairs to `tests/client/test_model_schema_sync.py` and round-trip tests to `tests/client/test_roundtrip.py`
+9. **Web UI**: Add viewer component in `webapp/src/components/modalities/<modality>/`
+10. **Permissions**: Add permission constants to `src/ues/api/auth.py` `Permissions` class
 
 See `docs/api/MODALITY_ROUTES.md` for detailed API patterns and `docs/models/MODALITY_UNDO_NOTES.md` for undo implementation.
+
+### Client/Server Model Sync
+When modifying server models (`src/ues/models/modalities/`) or client models (`src/ues/client/_*.py`), always run the schema sync and round-trip tests to catch drift:
+```bash
+uv run pytest tests/client/test_model_schema_sync.py tests/client/test_roundtrip.py -v
+```
+See `tests/API_TESTING_GUIDELINES.md` for details on the three-layer drift prevention strategy.
 
 ## API Access Control
 

@@ -88,6 +88,7 @@ from ues.client._sms import (
     MessageAttachment,
     MessageReaction,
     SMSClient,
+    SMSCompactStateResponse,
     SMSConversation,
     SMSMessage,
     SMSQueryResponse,
@@ -96,6 +97,7 @@ from ues.client._sms import (
 from ues.client._chat import (
     AsyncChatClient,
     ChatClient,
+    ChatCompactStateResponse,
     ChatMessage,
     ChatQueryResponse,
     ChatStateResponse,
@@ -115,13 +117,24 @@ from ues.client._calendar import (
 from ues.client._location import (
     AsyncLocationClient,
     LocationClient,
+    LocationCompactStateResponse,
     LocationQueryResponse,
     LocationStateResponse,
 )
 from ues.client._weather import (
     AsyncWeatherClient,
+    CurrentWeather,
+    DailyFeelsLike,
+    DailyForecast,
+    DailyTemperature,
+    HourlyForecast,
+    MinutelyForecast,
+    WeatherAlert,
     WeatherClient,
+    WeatherCompactStateResponse,
+    WeatherCondition,
     WeatherQueryResponse,
+    WeatherReport,
     WeatherStateResponse,
 )
 from ues.client._environment import (
@@ -222,6 +235,7 @@ __all__ = [
     "SMSMessage",
     "SMSConversation",
     "SMSStateResponse",
+    "SMSCompactStateResponse",
     "SMSQueryResponse",
     "MessageAttachment",
     "MessageReaction",
@@ -229,6 +243,7 @@ __all__ = [
     # Response models - Chat
     "ChatMessage",
     "ChatStateResponse",
+    "ChatCompactStateResponse",
     "ChatQueryResponse",
     "ConversationMetadata",
     # Response models - Calendar
@@ -243,10 +258,21 @@ __all__ = [
     "RecurrenceRule",
     # Response models - Location
     "LocationStateResponse",
+    "LocationCompactStateResponse",
     "LocationQueryResponse",
     # Response models - Weather
     "WeatherStateResponse",
+    "WeatherCompactStateResponse",
     "WeatherQueryResponse",
+    "WeatherCondition",
+    "CurrentWeather",
+    "MinutelyForecast",
+    "HourlyForecast",
+    "DailyTemperature",
+    "DailyFeelsLike",
+    "DailyForecast",
+    "WeatherAlert",
+    "WeatherReport",
     # Response models - Environment
     "EnvironmentStateResponse",
     "EnvironmentClient",

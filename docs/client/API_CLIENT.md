@@ -547,9 +547,16 @@ client.email.remove_labels(message_ids=["msg_123"], labels=["work"])
 ### Getting SMS State
 
 ```python
+# Full state with all messages and conversations
 state = client.sms.get_state()
-print(f"Total messages: {state.message_count}")
-print(f"Conversations: {state.conversation_count}")
+print(f"Total messages: {state.total_message_count}")
+print(f"Conversations: {state.total_conversation_count}")
+
+# Compact state (conversation metadata only, no message content)
+compact = client.sms.get_state(compact=True)
+print(f"Total messages: {compact.total_messages}")
+print(f"Unread: {compact.unread_total}")
+print(f"Conversations: {compact.total_conversations}")
 ```
 
 ### Querying Messages
@@ -619,9 +626,15 @@ client.sms.react(message_id="sms_123", reaction="👍")
 ### Getting Chat State
 
 ```python
+# Full state with all messages
 state = client.chat.get_state()
 print(f"Total messages: {state.total_message_count}")
 print(f"Conversations: {state.conversation_count}")
+
+# Compact state (conversation metadata only, no message content)
+compact = client.chat.get_state(compact=True)
+print(f"Total messages: {compact.total_message_count}")
+print(f"Conversations: {compact.conversation_count}")
 ```
 
 ### Querying Messages
@@ -714,9 +727,10 @@ result = client.calendar.create(
     start=datetime(2025, 1, 15, 9, 0),
     end=datetime(2025, 1, 15, 9, 15),
     recurrence={
-        "frequency": "DAILY",
+        "frequency": "daily",
+        "end_type": "count",
         "count": 30,
-        "by_day": ["MO", "TU", "WE", "TH", "FR"],
+        "days_of_week": ["monday", "tuesday", "wednesday", "thursday", "friday"],
     },
 )
 
@@ -730,8 +744,8 @@ result = client.calendar.create(
         {"email": "bob@example.com", "optional": True},
     ],
     reminders=[
-        {"method": "popup", "minutes": 15},
-        {"method": "email", "minutes": 60},
+        {"type": "notification", "minutes_before": 15},
+        {"type": "email", "minutes_before": 60},
     ],
 )
 ```
@@ -764,7 +778,7 @@ client.calendar.delete(event_id="cal_123")
 # Delete recurring event (this and future)
 client.calendar.delete(
     event_id="cal_456",
-    recurrence_scope="future",
+    recurrence_scope="this_and_future",
 )
 ```
 
@@ -775,9 +789,15 @@ client.calendar.delete(
 ### Getting Location State
 
 ```python
+# Full state with history
 state = client.location.get_state()
 print(f"Current: {state.current}")
 print(f"History entries: {len(state.history)}")
+
+# Compact state (current location only, no history)
+compact = client.location.get_state(compact=True)
+print(f"Current: {compact.current}")
+print(f"History count: {compact.history_count}")
 ```
 
 ### Querying Location History
@@ -816,8 +836,13 @@ client.location.update(
 ### Getting Weather State
 
 ```python
+# Full state with report history
 state = client.weather.get_state()
 print(f"Tracked locations: {state.location_count}")
+
+# Compact state (current weather only, no history)
+compact = client.weather.get_state(compact=True)
+print(f"Tracked locations: {compact.location_count}")
 ```
 
 ### Querying Weather
@@ -909,21 +934,23 @@ Use the modality-specific sub-clients to get state for individual modalities:
 email_state = client.email.get_state()
 print(f"Email messages: {email_state.total_email_count}")
 
-# Get compact state (optimized for LLM context)
-email_compact = client.email.get_state(compact=True)
-print(f"Unread emails: {email_compact['statistics']['unread_count']}")
+# Get compact SMS state (returns SMSCompactStateResponse)
+sms_compact = client.sms.get_state(compact=True)
+print(f"Unread SMS: {sms_compact.unread_total}")
+
+# Get compact location state (returns LocationCompactStateResponse)
+loc_compact = client.location.get_state(compact=True)
+print(f"History entries: {loc_compact.history_count}")
 ```
 
-All modality state endpoints support the `compact` parameter:
+Modalities with `compact` parameter support in the client:
 
-| Modality | Default (full state) | `compact=True` |
-|----------|---------------------|----------------|
-| `email` | All emails with bodies | Statistics + summaries |
-| `sms` | All messages | Conversation metadata only |
-| `chat` | Full message history | Conversation metadata only |
-| `calendar` | All events | Calendar metadata only |
-| `location` | Current + history | Current location only |
-| `weather` | Full reports | Current conditions only |
+| Modality | Default (full state) | `compact=True` | Return Type |
+|----------|---------------------|----------------|-------------|
+| `sms` | All messages | `SMSCompactStateResponse` | Conversation metadata only |
+| `chat` | Full message history | `ChatCompactStateResponse` | Conversation metadata only |
+| `location` | Current + history | `LocationCompactStateResponse` | Current location + history count |
+| `weather` | Full reports | `WeatherCompactStateResponse` | Current conditions only |
 
 ### Querying Modalities
 
@@ -1163,9 +1190,12 @@ The client returns strongly-typed Pydantic models for all responses. Key models 
 
 ### Calendar Models
 
-- `CalendarEvent`: Calendar event with all properties
-- `Attendee`: Event attendee
-- `RecurrenceRule`: Recurrence configuration
+- `CalendarEvent`: Calendar event with all properties (including `parent_event_id`, `recurrence_exceptions`, `deleted_at`)
+- `Attendee`: Event attendee (fields: `email`, `display_name`, `response`, `optional`, `comment`)
+- `Attachment`: Event file attachment (fields: `filename`, `size`, `mime_type`, `url`, `data`, `attachment_id`)
+- `RecurrenceRule`: Recurrence configuration (fields: `frequency`, `interval`, `days_of_week`, `day_of_month`, `month_of_year`, `end_type`, `end_date`, `count`)
+- `Reminder`: Event reminder (fields: `minutes_before`, `type`)
+- `CalendarContainer`: Calendar container with event IDs
 
 See the API reference documentation for complete model details.
 

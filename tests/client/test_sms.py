@@ -15,6 +15,7 @@ from ues.client._sms import (
     MessageAttachment,
     MessageReaction,
     SMSClient,
+    SMSCompactStateResponse,
     SMSConversation,
     SMSMessage,
     SMSQueryResponse,
@@ -54,7 +55,8 @@ class TestMessageAttachment:
             size=1024,
             mime_type="application/pdf",
         )
-        assert attachment.attachment_id is None
+        assert attachment.attachment_id is not None  # auto-generated UUID
+        assert len(attachment.attachment_id) > 0
         assert attachment.thumbnail_url is None
         assert attachment.duration is None
 
@@ -88,14 +90,16 @@ class TestMessageReaction:
         assert reaction.phone_number == "+1234567890"
 
     def test_instantiation_with_defaults(self):
-        """Test creating a MessageReaction with only required fields."""
+        """Test creating a MessageReaction with auto-generated IDs."""
         reaction = MessageReaction(
+            message_id="sms-456",
             emoji="❤️",
             phone_number="+1234567890",
             timestamp=datetime(2025, 1, 15, 10, 0, tzinfo=timezone.utc),
         )
-        assert reaction.reaction_id is None
-        assert reaction.message_id is None
+        assert reaction.reaction_id is not None  # auto-generated UUID
+        assert len(reaction.reaction_id) > 0
+        assert reaction.message_id == "sms-456"
 
 
 class TestSMSMessage:
@@ -276,6 +280,61 @@ class TestSMSClientGetState:
         mock_http.get.assert_called_once_with("/sms/state", params=None)
         assert isinstance(result, SMSStateResponse)
         assert result.total_message_count == 10
+
+    def test_get_state_compact(self):
+        """Test getting compact SMS state."""
+        mock_http = MagicMock()
+        mock_http.get.return_value = {
+            "modality_type": "sms",
+            "last_updated": "2025-01-15T10:00:00+00:00",
+            "update_count": 7,
+            "user_phone_number": "+1234567890",
+            "conversations": {
+                "thread-1": {
+                    "thread_id": "thread-1",
+                    "participants": ["+1234567890", "+9876543210"],
+                    "message_count": 5,
+                    "unread_count": 2,
+                    "last_message_at": "2025-01-15T10:00:00+00:00",
+                    "created_at": "2025-01-14T08:00:00+00:00",
+                },
+            },
+            "total_conversations": 1,
+            "total_messages": 5,
+            "unread_total": 2,
+        }
+
+        client = SMSClient(mock_http)
+        result = client.get_state(compact=True)
+
+        mock_http.get.assert_called_once_with("/sms/state", params={"compact": True})
+        assert isinstance(result, SMSCompactStateResponse)
+        assert result.total_messages == 5
+        assert result.unread_total == 2
+        assert result.total_conversations == 1
+        assert result.user_phone_number == "+1234567890"
+        assert result.update_count == 7
+        assert "thread-1" in result.conversations
+
+    def test_get_state_compact_false_returns_full(self):
+        """Test that compact=False returns full state (default behavior)."""
+        mock_http = MagicMock()
+        mock_http.get.return_value = {
+            "modality_type": "sms",
+            "current_time": "2025-01-15T10:00:00+00:00",
+            "user_phone_number": "+1234567890",
+            "messages": {},
+            "conversations": {},
+            "total_message_count": 0,
+            "unread_count": 0,
+            "total_conversation_count": 0,
+        }
+
+        client = SMSClient(mock_http)
+        result = client.get_state(compact=False)
+
+        mock_http.get.assert_called_once_with("/sms/state", params=None)
+        assert isinstance(result, SMSStateResponse)
 
 
 class TestSMSClientQuery:
@@ -577,7 +636,26 @@ class TestAsyncSMSClientGetState:
         mock_http.get.assert_called_once_with("/sms/state", params=None)
         assert isinstance(result, SMSStateResponse)
 
+    async def test_get_state_compact(self):
+        """Test getting compact SMS state asynchronously."""
+        mock_http = AsyncMock()
+        mock_http.get.return_value = {
+            "modality_type": "sms",
+            "last_updated": "2025-01-15T10:00:00+00:00",
+            "update_count": 3,
+            "user_phone_number": "+1234567890",
+            "conversations": {},
+            "total_conversations": 0,
+            "total_messages": 0,
+            "unread_total": 0,
+        }
 
+        client = AsyncSMSClient(mock_http)
+        result = await client.get_state(compact=True)
+
+        mock_http.get.assert_called_once_with("/sms/state", params={"compact": True})
+        assert isinstance(result, SMSCompactStateResponse)
+        assert result.update_count == 3
 class TestAsyncSMSClientQuery:
     """Tests for AsyncSMSClient.query() method."""
 

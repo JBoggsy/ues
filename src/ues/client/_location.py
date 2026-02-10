@@ -32,11 +32,32 @@ class LocationStateResponse(BaseModel):
         history: List of recent location history entries.
     """
 
-    modality_type: str = "location"
+    modality_type: str
     last_updated: str
     update_count: int
     current: dict[str, Any]
     history: list[dict[str, Any]]
+
+
+class LocationCompactStateResponse(BaseModel):
+    """Compact response model for location state endpoint.
+
+    Returned when ``compact=True`` is passed to ``get_state()``. Optimized
+    for LLM context — includes current location without full history.
+
+    Attributes:
+        modality_type: Always "location".
+        last_updated: ISO format timestamp of last update.
+        update_count: Number of location updates.
+        current: Current location data.
+        history_count: Number of entries in location history (history not included).
+    """
+
+    modality_type: str
+    last_updated: str
+    update_count: int
+    current: dict[str, Any]
+    history_count: int
 
 
 class LocationQueryResponse(BaseModel):
@@ -88,20 +109,30 @@ class LocationClient(BaseClient):
 
     _BASE_PATH = "/location"
 
-    def get_state(self) -> LocationStateResponse:
+    def get_state(
+        self, compact: bool = False,
+    ) -> LocationStateResponse | LocationCompactStateResponse:
         """Get the current location state.
         
-        Returns a complete snapshot of the user's current location and recent
-        location history.
+        Returns a snapshot of the user's current location and recent
+        location history. When ``compact=True``, returns a lightweight
+        response with current location and a history count (without full
+        history entries), optimized for LLM context windows.
+        
+        Args:
+            compact: If True, return compact state without full history.
+                Default is False (full state).
         
         Returns:
-            Current location state including coordinates, address, metadata,
-            and location history.
+            Full location state, or compact state if ``compact=True``.
         
         Raises:
             APIError: If the request fails.
         """
-        data = self._get(f"{self._BASE_PATH}/state")
+        params = {"compact": True} if compact else None
+        data = self._get(f"{self._BASE_PATH}/state", params=params)
+        if compact:
+            return LocationCompactStateResponse(**data)
         return LocationStateResponse(**data)
 
     def query(
@@ -124,8 +155,8 @@ class LocationClient(BaseClient):
             since: Return locations after this time.
             until: Return locations before this time.
             named_location: Filter by semantic location name (e.g., "Home", "Office").
-            limit: Maximum number of results to return.
-            offset: Number of results to skip (for pagination).
+            limit: Maximum number of results to return (must be >= 1).
+            offset: Number of results to skip for pagination (must be >= 0).
             include_current: Whether to include current location in results.
             sort_by: Field to sort by (default: "timestamp").
             sort_order: Sort direction ("asc" or "desc", default: "desc").
@@ -251,20 +282,30 @@ class AsyncLocationClient(AsyncBaseClient):
 
     _BASE_PATH = "/location"
 
-    async def get_state(self) -> LocationStateResponse:
+    async def get_state(
+        self, compact: bool = False,
+    ) -> LocationStateResponse | LocationCompactStateResponse:
         """Get the current location state.
         
-        Returns a complete snapshot of the user's current location and recent
-        location history.
+        Returns a snapshot of the user's current location and recent
+        location history. When ``compact=True``, returns a lightweight
+        response with current location and a history count (without full
+        history entries), optimized for LLM context windows.
+        
+        Args:
+            compact: If True, return compact state without full history.
+                Default is False (full state).
         
         Returns:
-            Current location state including coordinates, address, metadata,
-            and location history.
+            Full location state, or compact state if ``compact=True``.
         
         Raises:
             APIError: If the request fails.
         """
-        data = await self._get(f"{self._BASE_PATH}/state")
+        params = {"compact": True} if compact else None
+        data = await self._get(f"{self._BASE_PATH}/state", params=params)
+        if compact:
+            return LocationCompactStateResponse(**data)
         return LocationStateResponse(**data)
 
     async def query(
@@ -287,8 +328,8 @@ class AsyncLocationClient(AsyncBaseClient):
             since: Return locations after this time.
             until: Return locations before this time.
             named_location: Filter by semantic location name (e.g., "Home", "Office").
-            limit: Maximum number of results to return.
-            offset: Number of results to skip (for pagination).
+            limit: Maximum number of results to return (must be >= 1).
+            offset: Number of results to skip for pagination (must be >= 0).
             include_current: Whether to include current location in results.
             sort_by: Field to sort by (default: "timestamp").
             sort_order: Sort direction ("asc" or "desc", default: "desc").

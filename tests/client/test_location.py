@@ -12,6 +12,7 @@ import pytest
 from ues.client._location import (
     AsyncLocationClient,
     LocationClient,
+    LocationCompactStateResponse,
     LocationQueryResponse,
     LocationStateResponse,
 )
@@ -71,6 +72,16 @@ class TestLocationStateResponse:
         )
         assert response.history == []
 
+    def test_no_default_modality_type(self):
+        """Test that modality_type has no default and must be provided."""
+        with pytest.raises(Exception):
+            LocationStateResponse(
+                last_updated="2025-01-15T10:00:00+00:00",
+                update_count=1,
+                current={"latitude": 0, "longitude": 0},
+                history=[],
+            )
+
 
 class TestLocationQueryResponse:
     """Tests for the LocationQueryResponse model."""
@@ -129,6 +140,47 @@ class TestLocationClientGetState:
         mock_http.get.assert_called_once_with("/location/state", params=None)
         assert isinstance(result, LocationStateResponse)
         assert result.current["latitude"] == 40.7128
+
+    def test_get_state_compact(self):
+        """Test getting compact location state."""
+        mock_http = MagicMock()
+        mock_http.get.return_value = {
+            "modality_type": "location",
+            "last_updated": "2025-01-15T10:00:00+00:00",
+            "update_count": 5,
+            "current": {
+                "latitude": 40.7128,
+                "longitude": -74.0060,
+                "address": "New York, NY",
+            },
+            "history_count": 12,
+        }
+
+        client = LocationClient(mock_http)
+        result = client.get_state(compact=True)
+
+        mock_http.get.assert_called_once_with("/location/state", params={"compact": True})
+        assert isinstance(result, LocationCompactStateResponse)
+        assert result.history_count == 12
+        assert result.current["latitude"] == 40.7128
+        assert result.update_count == 5
+
+    def test_get_state_compact_false_returns_full(self):
+        """Test that compact=False returns full state (default behavior)."""
+        mock_http = MagicMock()
+        mock_http.get.return_value = {
+            "modality_type": "location",
+            "last_updated": "2025-01-15T10:00:00+00:00",
+            "update_count": 0,
+            "current": {},
+            "history": [],
+        }
+
+        client = LocationClient(mock_http)
+        result = client.get_state(compact=False)
+
+        mock_http.get.assert_called_once_with("/location/state", params=None)
+        assert isinstance(result, LocationStateResponse)
 
 
 class TestLocationClientQuery:
@@ -323,6 +375,27 @@ class TestAsyncLocationClientGetState:
 
         mock_http.get.assert_called_once_with("/location/state", params=None)
         assert isinstance(result, LocationStateResponse)
+
+    async def test_get_state_compact(self):
+        """Test getting compact location state asynchronously."""
+        mock_http = AsyncMock()
+        mock_http.get.return_value = {
+            "modality_type": "location",
+            "last_updated": "2025-01-15T10:00:00+00:00",
+            "update_count": 2,
+            "current": {
+                "latitude": 34.0522,
+                "longitude": -118.2437,
+            },
+            "history_count": 3,
+        }
+
+        client = AsyncLocationClient(mock_http)
+        result = await client.get_state(compact=True)
+
+        mock_http.get.assert_called_once_with("/location/state", params={"compact": True})
+        assert isinstance(result, LocationCompactStateResponse)
+        assert result.history_count == 3
 
 
 class TestAsyncLocationClientQuery:

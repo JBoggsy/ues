@@ -10,11 +10,352 @@ import pytest
 
 from ues.client._weather import (
     AsyncWeatherClient,
+    CurrentWeather,
+    DailyFeelsLike,
+    DailyForecast,
+    DailyTemperature,
+    HourlyForecast,
+    MinutelyForecast,
+    WeatherAlert,
     WeatherClient,
+    WeatherCompactStateResponse,
+    WeatherCondition,
     WeatherQueryResponse,
+    WeatherReport,
     WeatherStateResponse,
 )
 from ues.client.models import ModalityActionResponse
+
+
+# =============================================================================
+# Typed Weather Model Tests
+# =============================================================================
+
+
+class TestWeatherCondition:
+    """Tests for the WeatherCondition model."""
+
+    def test_instantiation(self):
+        """Test creating a WeatherCondition."""
+        condition = WeatherCondition(
+            id=800,
+            main="Clear",
+            description="clear sky",
+            icon="01d",
+        )
+        assert condition.id == 800
+        assert condition.main == "Clear"
+        assert condition.description == "clear sky"
+        assert condition.icon == "01d"
+
+
+class TestCurrentWeather:
+    """Tests for the CurrentWeather model."""
+
+    def test_instantiation(self):
+        """Test creating a CurrentWeather with all fields."""
+        weather = CurrentWeather(
+            dt=1705315200,
+            sunrise=1705294800,
+            sunset=1705330800,
+            temp=280.0,
+            feels_like=277.5,
+            pressure=1013,
+            humidity=60,
+            dew_point=272.0,
+            uvi=1.5,
+            clouds=10,
+            visibility=10000,
+            wind_speed=5.0,
+            wind_deg=180,
+            wind_gust=8.5,
+            weather=[
+                WeatherCondition(
+                    id=800, main="Clear", description="clear sky", icon="01d"
+                )
+            ],
+        )
+        assert weather.dt == 1705315200
+        assert weather.temp == 280.0
+        assert weather.wind_gust == 8.5
+        assert len(weather.weather) == 1
+
+    def test_instantiation_without_optional(self):
+        """Test creating CurrentWeather without optional wind_gust."""
+        weather = CurrentWeather(
+            dt=1705315200,
+            sunrise=1705294800,
+            sunset=1705330800,
+            temp=280.0,
+            feels_like=277.5,
+            pressure=1013,
+            humidity=60,
+            dew_point=272.0,
+            uvi=1.5,
+            clouds=10,
+            visibility=10000,
+            wind_speed=5.0,
+            wind_deg=180,
+            weather=[
+                WeatherCondition(
+                    id=800, main="Clear", description="clear sky", icon="01d"
+                )
+            ],
+        )
+        assert weather.wind_gust is None
+
+
+class TestMinutelyForecast:
+    """Tests for the MinutelyForecast model."""
+
+    def test_instantiation(self):
+        """Test creating a MinutelyForecast."""
+        forecast = MinutelyForecast(dt=1705315200, precipitation=0.5)
+        assert forecast.dt == 1705315200
+        assert forecast.precipitation == 0.5
+
+
+class TestHourlyForecast:
+    """Tests for the HourlyForecast model."""
+
+    def test_instantiation(self):
+        """Test creating an HourlyForecast with all fields."""
+        forecast = HourlyForecast(
+            dt=1705315200,
+            temp=280.0,
+            feels_like=277.5,
+            pressure=1013,
+            humidity=60,
+            dew_point=272.0,
+            uvi=1.5,
+            clouds=10,
+            visibility=10000,
+            wind_speed=5.0,
+            wind_deg=180,
+            wind_gust=8.5,
+            weather=[
+                WeatherCondition(
+                    id=800, main="Clear", description="clear sky", icon="01d"
+                )
+            ],
+            pop=0.2,
+            rain={"1h": 0.5},
+            snow=None,
+        )
+        assert forecast.pop == 0.2
+        assert forecast.rain == {"1h": 0.5}
+        assert forecast.snow is None
+
+    def test_instantiation_minimal(self):
+        """Test creating HourlyForecast without optional fields."""
+        forecast = HourlyForecast(
+            dt=1705315200,
+            temp=280.0,
+            feels_like=277.5,
+            pressure=1013,
+            humidity=60,
+            dew_point=272.0,
+            uvi=1.5,
+            clouds=10,
+            wind_speed=5.0,
+            wind_deg=180,
+            weather=[
+                WeatherCondition(
+                    id=800, main="Clear", description="clear sky", icon="01d"
+                )
+            ],
+            pop=0.0,
+        )
+        assert forecast.visibility is None
+        assert forecast.wind_gust is None
+        assert forecast.rain is None
+
+
+class TestDailyTemperature:
+    """Tests for the DailyTemperature model."""
+
+    def test_instantiation(self):
+        """Test creating a DailyTemperature."""
+        temp = DailyTemperature(
+            day=285.0, min=278.0, max=288.0,
+            night=280.0, eve=283.0, morn=279.0,
+        )
+        assert temp.day == 285.0
+        assert temp.min == 278.0
+        assert temp.max == 288.0
+
+
+class TestDailyFeelsLike:
+    """Tests for the DailyFeelsLike model."""
+
+    def test_instantiation(self):
+        """Test creating a DailyFeelsLike."""
+        feels = DailyFeelsLike(day=283.0, night=278.0, eve=281.0, morn=277.0)
+        assert feels.day == 283.0
+        assert feels.night == 278.0
+
+
+class TestDailyForecast:
+    """Tests for the DailyForecast model."""
+
+    def test_instantiation(self):
+        """Test creating a DailyForecast with all fields."""
+        forecast = DailyForecast(
+            dt=1705315200,
+            sunrise=1705294800,
+            sunset=1705330800,
+            moonrise=1705310000,
+            moonset=1705350000,
+            moon_phase=0.5,
+            summary="Partly cloudy",
+            temp=DailyTemperature(
+                day=285.0, min=278.0, max=288.0,
+                night=280.0, eve=283.0, morn=279.0,
+            ),
+            feels_like=DailyFeelsLike(
+                day=283.0, night=278.0, eve=281.0, morn=277.0,
+            ),
+            pressure=1013,
+            humidity=60,
+            dew_point=272.0,
+            wind_speed=5.0,
+            wind_deg=180,
+            wind_gust=8.5,
+            weather=[
+                WeatherCondition(
+                    id=802, main="Clouds",
+                    description="scattered clouds", icon="03d",
+                )
+            ],
+            clouds=40,
+            pop=0.3,
+            rain=1.5,
+            snow=None,
+            uvi=3.0,
+        )
+        assert forecast.summary == "Partly cloudy"
+        assert forecast.temp.max == 288.0
+        assert forecast.feels_like.day == 283.0
+        assert forecast.rain == 1.5
+
+    def test_instantiation_minimal(self):
+        """Test creating DailyForecast without optional fields."""
+        forecast = DailyForecast(
+            dt=1705315200,
+            sunrise=1705294800,
+            sunset=1705330800,
+            moonrise=1705310000,
+            moonset=1705350000,
+            moon_phase=0.5,
+            temp=DailyTemperature(
+                day=285.0, min=278.0, max=288.0,
+                night=280.0, eve=283.0, morn=279.0,
+            ),
+            feels_like=DailyFeelsLike(
+                day=283.0, night=278.0, eve=281.0, morn=277.0,
+            ),
+            pressure=1013,
+            humidity=60,
+            dew_point=272.0,
+            wind_speed=5.0,
+            wind_deg=180,
+            weather=[
+                WeatherCondition(
+                    id=800, main="Clear", description="clear sky", icon="01d",
+                )
+            ],
+            clouds=10,
+            pop=0.0,
+            uvi=3.0,
+        )
+        assert forecast.summary is None
+        assert forecast.wind_gust is None
+        assert forecast.rain is None
+        assert forecast.snow is None
+
+
+class TestWeatherAlert:
+    """Tests for the WeatherAlert model."""
+
+    def test_instantiation(self):
+        """Test creating a WeatherAlert."""
+        alert = WeatherAlert(
+            sender_name="NWS",
+            event="Winter Storm Warning",
+            start=1705315200,
+            end=1705401600,
+            description="Heavy snow expected.",
+            tags=["Snow", "Winter"],
+        )
+        assert alert.sender_name == "NWS"
+        assert alert.event == "Winter Storm Warning"
+        assert len(alert.tags) == 2
+
+    def test_instantiation_default_tags(self):
+        """Test WeatherAlert with default empty tags."""
+        alert = WeatherAlert(
+            sender_name="NWS",
+            event="Heat Advisory",
+            start=1705315200,
+            end=1705401600,
+            description="Extreme heat expected.",
+        )
+        assert alert.tags == []
+
+
+class TestWeatherReport:
+    """Tests for the WeatherReport model."""
+
+    def test_instantiation_minimal(self):
+        """Test creating a WeatherReport with only required fields."""
+        report = WeatherReport(
+            lat=40.7128,
+            lon=-74.0060,
+            timezone="America/New_York",
+            timezone_offset=-18000,
+        )
+        assert report.lat == 40.7128
+        assert report.lon == -74.0060
+        assert report.timezone == "America/New_York"
+        assert report.timezone_offset == -18000
+        assert report.current is None
+        assert report.minutely is None
+        assert report.hourly is None
+        assert report.daily is None
+        assert report.alerts is None
+
+    def test_instantiation_with_current(self):
+        """Test creating a WeatherReport with current weather."""
+        report = WeatherReport(
+            lat=40.7128,
+            lon=-74.0060,
+            timezone="America/New_York",
+            timezone_offset=-18000,
+            current=CurrentWeather(
+                dt=1705315200,
+                sunrise=1705294800,
+                sunset=1705330800,
+                temp=280.0,
+                feels_like=277.5,
+                pressure=1013,
+                humidity=60,
+                dew_point=272.0,
+                uvi=1.5,
+                clouds=10,
+                visibility=10000,
+                wind_speed=5.0,
+                wind_deg=180,
+                weather=[
+                    WeatherCondition(
+                        id=800, main="Clear",
+                        description="clear sky", icon="01d",
+                    )
+                ],
+            ),
+        )
+        assert report.current is not None
+        assert report.current.temp == 280.0
+
 
 
 # =============================================================================
@@ -63,31 +404,76 @@ class TestWeatherStateResponse:
         assert response.locations == {}
         assert response.location_count == 0
 
+    def test_no_default_modality_type(self):
+        """Test that modality_type has no default and must be provided."""
+        with pytest.raises(Exception):
+            WeatherStateResponse(
+                last_updated="2025-01-15T10:00:00+00:00",
+                update_count=0,
+                locations={},
+                location_count=0,
+            )
+
 
 class TestWeatherQueryResponse:
     """Tests for the WeatherQueryResponse model."""
 
     def test_instantiation(self):
-        """Test creating a WeatherQueryResponse."""
+        """Test creating a WeatherQueryResponse with typed WeatherReport objects."""
+        report = WeatherReport(
+            lat=40.7128,
+            lon=-74.0060,
+            timezone="America/New_York",
+            timezone_offset=-18000,
+            current=CurrentWeather(
+                dt=1705315200,
+                sunrise=1705294800,
+                sunset=1705330800,
+                temp=280.0,
+                feels_like=277.5,
+                pressure=1013,
+                humidity=60,
+                dew_point=272.0,
+                uvi=1.5,
+                clouds=10,
+                visibility=10000,
+                wind_speed=5.0,
+                wind_deg=180,
+                weather=[
+                    WeatherCondition(
+                        id=800, main="Clear",
+                        description="clear sky", icon="01d",
+                    )
+                ],
+            ),
+        )
         response = WeatherQueryResponse(
-            reports=[
-                {
-                    "lat": 40.7128,
-                    "lon": -74.0060,
-                    "timezone": "America/New_York",
-                    "current": {
-                        "dt": 1705315200,
-                        "temp": 45.0,
-                        "humidity": 60,
-                    },
-                },
-            ],
+            reports=[report],
             count=1,
             total_count=1,
         )
         assert response.count == 1
         assert response.total_count == 1
         assert len(response.reports) == 1
+        assert isinstance(response.reports[0], WeatherReport)
+        assert response.reports[0].lat == 40.7128
+
+    def test_instantiation_from_dict(self):
+        """Test creating a WeatherQueryResponse from dict data (as from JSON)."""
+        response = WeatherQueryResponse(
+            reports=[
+                {
+                    "lat": 40.7128,
+                    "lon": -74.0060,
+                    "timezone": "America/New_York",
+                    "timezone_offset": -18000,
+                },
+            ],
+            count=1,
+            total_count=1,
+        )
+        assert len(response.reports) == 1
+        assert isinstance(response.reports[0], WeatherReport)
 
     def test_instantiation_with_error(self):
         """Test WeatherQueryResponse with an error message."""
@@ -143,6 +529,59 @@ class TestWeatherClientGetState:
         assert isinstance(result, WeatherStateResponse)
         assert result.location_count == 1
 
+    def test_get_state_compact(self):
+        """Test getting compact weather state."""
+        mock_http = MagicMock()
+        mock_http.get.return_value = {
+            "modality_type": "weather",
+            "last_updated": "2025-01-15T10:00:00+00:00",
+            "update_count": 5,
+            "location_count": 2,
+            "locations": {
+                "40.71,-74.01": {
+                    "latitude": 40.7128,
+                    "longitude": -74.0060,
+                    "last_updated": "2025-01-15T10:00:00+00:00",
+                    "current_report": {"temp": 45.0},
+                    "report_count": 3,
+                },
+                "34.05,-118.24": {
+                    "latitude": 34.0522,
+                    "longitude": -118.2437,
+                    "last_updated": "2025-01-15T09:00:00+00:00",
+                    "current_report": None,
+                    "report_count": 0,
+                },
+            },
+        }
+
+        client = WeatherClient(mock_http)
+        result = client.get_state(compact=True)
+
+        mock_http.get.assert_called_once_with("/weather/state", params={"compact": True})
+        assert isinstance(result, WeatherCompactStateResponse)
+        assert result.location_count == 2
+        assert result.update_count == 5
+        assert "40.71,-74.01" in result.locations
+        assert "34.05,-118.24" in result.locations
+
+    def test_get_state_compact_false_returns_full(self):
+        """Test that compact=False returns full state (default behavior)."""
+        mock_http = MagicMock()
+        mock_http.get.return_value = {
+            "modality_type": "weather",
+            "last_updated": "2025-01-15T10:00:00+00:00",
+            "update_count": 0,
+            "locations": {},
+            "location_count": 0,
+        }
+
+        client = WeatherClient(mock_http)
+        result = client.get_state(compact=False)
+
+        mock_http.get.assert_called_once_with("/weather/state", params=None)
+        assert isinstance(result, WeatherStateResponse)
+
 
 class TestWeatherClientQuery:
     """Tests for WeatherClient.query() method."""
@@ -156,7 +595,7 @@ class TestWeatherClientQuery:
                     "lat": 40.7128,
                     "lon": -74.0060,
                     "timezone": "America/New_York",
-                    "current": {"temp": 45.0},
+                    "timezone_offset": -18000,
                 },
             ],
             "count": 1,
@@ -334,6 +773,59 @@ class TestWeatherClientUpdate:
         assert "hourly" in call_args[1]["json"]["report"]
         assert "daily" in call_args[1]["json"]["report"]
 
+    def test_update_with_typed_report(self):
+        """Test updating weather using a WeatherReport model instance."""
+        mock_http = MagicMock()
+        mock_http.post.return_value = {
+            "event_id": "evt-123",
+            "scheduled_time": "2025-01-15T10:00:00+00:00",
+            "status": "executed",
+            "message": "Weather updated",
+            "modality": "weather",
+        }
+
+        report = WeatherReport(
+            lat=40.7128,
+            lon=-74.0060,
+            timezone="America/New_York",
+            timezone_offset=-18000,
+            current=CurrentWeather(
+                dt=1705315200,
+                sunrise=1705294800,
+                sunset=1705330800,
+                temp=280.0,
+                feels_like=277.5,
+                pressure=1013,
+                humidity=60,
+                dew_point=272.0,
+                uvi=1.5,
+                clouds=10,
+                visibility=10000,
+                wind_speed=5.0,
+                wind_deg=180,
+                weather=[
+                    WeatherCondition(
+                        id=800, main="Clear",
+                        description="clear sky", icon="01d",
+                    )
+                ],
+            ),
+        )
+
+        client = WeatherClient(mock_http)
+        result = client.update(
+            latitude=40.7128,
+            longitude=-74.0060,
+            report=report,
+        )
+
+        call_args = mock_http.post.call_args
+        report_data = call_args[1]["json"]["report"]
+        assert report_data["lat"] == 40.7128
+        assert report_data["timezone"] == "America/New_York"
+        assert report_data["current"]["temp"] == 280.0
+        assert isinstance(result, ModalityActionResponse)
+
 
 # =============================================================================
 # AsyncWeatherClient Tests
@@ -360,6 +852,24 @@ class TestAsyncWeatherClientGetState:
         mock_http.get.assert_called_once_with("/weather/state", params=None)
         assert isinstance(result, WeatherStateResponse)
 
+    async def test_get_state_compact(self):
+        """Test getting compact weather state asynchronously."""
+        mock_http = AsyncMock()
+        mock_http.get.return_value = {
+            "modality_type": "weather",
+            "last_updated": "2025-01-15T10:00:00+00:00",
+            "update_count": 1,
+            "location_count": 0,
+            "locations": {},
+        }
+
+        client = AsyncWeatherClient(mock_http)
+        result = await client.get_state(compact=True)
+
+        mock_http.get.assert_called_once_with("/weather/state", params={"compact": True})
+        assert isinstance(result, WeatherCompactStateResponse)
+        assert result.update_count == 1
+
 
 class TestAsyncWeatherClientQuery:
     """Tests for AsyncWeatherClient.query() method."""
@@ -372,7 +882,8 @@ class TestAsyncWeatherClientQuery:
                 {
                     "lat": 40.7128,
                     "lon": -74.0060,
-                    "current": {"temp": 45.0},
+                    "timezone": "America/New_York",
+                    "timezone_offset": -18000,
                 },
             ],
             "count": 1,

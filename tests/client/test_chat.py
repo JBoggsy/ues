@@ -12,6 +12,7 @@ import pytest
 from ues.client._chat import (
     AsyncChatClient,
     ChatClient,
+    ChatCompactStateResponse,
     ChatMessage,
     ChatQueryResponse,
     ChatStateResponse,
@@ -80,12 +81,11 @@ class TestConversationMetadata:
             created_at=datetime(2025, 1, 15, 10, 0, tzinfo=timezone.utc),
             last_message_at=datetime(2025, 1, 15, 12, 0, tzinfo=timezone.utc),
             message_count=10,
-            user_message_count=5,
-            assistant_message_count=5,
+            participant_roles={"user", "assistant"},
         )
         assert metadata.conversation_id == "conv-123"
         assert metadata.message_count == 10
-        assert metadata.user_message_count == 5
+        assert metadata.participant_roles == {"user", "assistant"}
 
     def test_instantiation_with_defaults(self):
         """Test ConversationMetadata with default counts."""
@@ -95,8 +95,7 @@ class TestConversationMetadata:
             last_message_at=datetime(2025, 1, 15, 10, 0, tzinfo=timezone.utc),
         )
         assert metadata.message_count == 0
-        assert metadata.user_message_count == 0
-        assert metadata.assistant_message_count == 0
+        assert metadata.participant_roles == set()
 
 
 class TestChatStateResponse:
@@ -113,8 +112,7 @@ class TestChatStateResponse:
                     created_at=datetime(2025, 1, 15, 10, 0, tzinfo=timezone.utc),
                     last_message_at=datetime(2025, 1, 15, 10, 0, tzinfo=timezone.utc),
                     message_count=5,
-                    user_message_count=3,
-                    assistant_message_count=2,
+                    participant_roles={"user", "assistant"},
                 ),
             },
             messages=[],
@@ -163,8 +161,7 @@ class TestChatClientGetState:
                     "created_at": "2025-01-15T10:00:00+00:00",
                     "last_message_at": "2025-01-15T10:00:00+00:00",
                     "message_count": 5,
-                    "user_message_count": 3,
-                    "assistant_message_count": 2,
+                    "participant_roles": ["user", "assistant"],
                 },
             },
             "messages": [],
@@ -179,6 +176,55 @@ class TestChatClientGetState:
         mock_http.get.assert_called_once_with("/chat/state", params=None)
         assert isinstance(result, ChatStateResponse)
         assert result.total_message_count == 5
+
+    def test_get_state_compact(self):
+        """Test getting compact chat state."""
+        mock_http = MagicMock()
+        mock_http.get.return_value = {
+            "modality_type": "chat",
+            "last_updated": "2025-01-15T10:30:00+00:00",
+            "update_count": 12,
+            "conversations": {
+                "default": {
+                    "conversation_id": "default",
+                    "created_at": "2025-01-15T10:00:00+00:00",
+                    "last_message_at": "2025-01-15T10:30:00+00:00",
+                    "message_count": 5,
+                    "participant_roles": ["user", "assistant"],
+                },
+            },
+            "total_message_count": 5,
+            "conversation_count": 1,
+        }
+
+        client = ChatClient(mock_http)
+        result = client.get_state(compact=True)
+
+        mock_http.get.assert_called_once_with("/chat/state", params={"compact": True})
+        assert isinstance(result, ChatCompactStateResponse)
+        assert result.total_message_count == 5
+        assert result.conversation_count == 1
+        assert result.update_count == 12
+        assert "default" in result.conversations
+
+    def test_get_state_compact_false_returns_full(self):
+        """Test that compact=False returns full state (default behavior)."""
+        mock_http = MagicMock()
+        mock_http.get.return_value = {
+            "modality_type": "chat",
+            "current_time": "2025-01-15T10:00:00+00:00",
+            "conversations": {},
+            "messages": [],
+            "total_message_count": 0,
+            "conversation_count": 0,
+            "max_history_size": 1000,
+        }
+
+        client = ChatClient(mock_http)
+        result = client.get_state(compact=False)
+
+        mock_http.get.assert_called_once_with("/chat/state", params=None)
+        assert isinstance(result, ChatStateResponse)
 
 
 class TestChatClientQuery:
@@ -438,6 +484,25 @@ class TestAsyncChatClientGetState:
 
         mock_http.get.assert_called_once_with("/chat/state", params=None)
         assert isinstance(result, ChatStateResponse)
+
+    async def test_get_state_compact(self):
+        """Test getting compact chat state asynchronously."""
+        mock_http = AsyncMock()
+        mock_http.get.return_value = {
+            "modality_type": "chat",
+            "last_updated": "2025-01-15T10:00:00+00:00",
+            "update_count": 4,
+            "conversations": {},
+            "total_message_count": 0,
+            "conversation_count": 0,
+        }
+
+        client = AsyncChatClient(mock_http)
+        result = await client.get_state(compact=True)
+
+        mock_http.get.assert_called_once_with("/chat/state", params={"compact": True})
+        assert isinstance(result, ChatCompactStateResponse)
+        assert result.update_count == 4
 
 
 class TestAsyncChatClientQuery:

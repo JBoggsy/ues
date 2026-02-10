@@ -8,6 +8,7 @@ This is an internal module. Import from `client` instead.
 
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Literal
+from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
@@ -29,12 +30,14 @@ class EmailAttachment(BaseModel):
         size: File size in bytes.
         mime_type: MIME type of the attachment.
         content_id: Optional content ID for inline images.
+        attachment_id: Unique identifier (auto-generated UUID).
     """
 
     filename: str
     size: int
     mime_type: str
     content_id: str | None = None
+    attachment_id: str = Field(default_factory=lambda: str(uuid4()))
 
 
 class Email(BaseModel):
@@ -92,6 +95,9 @@ class EmailThread(BaseModel):
         thread_id: Unique thread identifier.
         subject: Thread subject (from first email).
         participant_addresses: All email addresses involved.
+            Note: Server uses ``set[str]`` for uniqueness enforcement,
+            but JSON serialization converts sets to arrays, so we use
+            ``list[str]`` here. Duplicates are not expected in practice.
         message_ids: Ordered list of message IDs in thread.
         created_at: When thread started.
         last_message_at: When last email was added.

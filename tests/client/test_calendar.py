@@ -38,7 +38,6 @@ class TestAttendee:
             display_name="John Doe",
             response="accepted",
             optional=False,
-            organizer=False,
             comment="Looking forward to it!",
         )
         assert attendee.email == "attendee@example.com"
@@ -51,7 +50,6 @@ class TestAttendee:
         assert attendee.display_name is None
         assert attendee.response == "needs-action"
         assert attendee.optional is False
-        assert attendee.organizer is False
 
 
 class TestReminder:
@@ -75,25 +73,29 @@ class TestRecurrenceRule:
     def test_instantiation_daily(self):
         """Test creating a daily recurrence rule."""
         rule = RecurrenceRule(
-            frequency="DAILY",
+            frequency="daily",
             interval=1,
+            end_type="count",
             count=10,
         )
-        assert rule.frequency == "DAILY"
+        assert rule.frequency == "daily"
         assert rule.interval == 1
+        assert rule.end_type == "count"
         assert rule.count == 10
 
     def test_instantiation_weekly(self):
         """Test creating a weekly recurrence rule."""
         rule = RecurrenceRule(
-            frequency="WEEKLY",
+            frequency="weekly",
             interval=2,
-            by_day=["MO", "WE", "FR"],
-            until="2025-12-31",
+            days_of_week=["monday", "wednesday", "friday"],
+            end_type="until",
+            end_date="2025-12-31",
         )
-        assert rule.frequency == "WEEKLY"
-        assert rule.by_day == ["MO", "WE", "FR"]
-        assert rule.until == "2025-12-31"
+        assert rule.frequency == "weekly"
+        assert rule.days_of_week == ["monday", "wednesday", "friday"]
+        assert rule.end_type == "until"
+        assert str(rule.end_date) == "2025-12-31"
 
 
 class TestCalendarEvent:
@@ -117,6 +119,8 @@ class TestCalendarEvent:
                 Attendee(email="attendee@example.com", response="accepted"),
             ],
             recurrence=None,
+            recurrence_exceptions=set(),
+            parent_event_id=None,
             reminders=[Reminder(minutes_before=10, type="notification")],
             color="#4285F4",
             visibility="default",
@@ -125,11 +129,15 @@ class TestCalendarEvent:
             conference_link="https://meet.example.com/123",
             created_at=datetime(2025, 1, 14, 10, 0, tzinfo=timezone.utc),
             updated_at=datetime(2025, 1, 14, 12, 0, tzinfo=timezone.utc),
+            deleted_at=None,
         )
         assert event.event_id == "evt-123"
         assert event.title == "Team Meeting"
         assert event.location == "Conference Room A"
         assert len(event.attendees) == 1
+        assert event.parent_event_id is None
+        assert event.deleted_at is None
+        assert event.recurrence_exceptions == set()
 
     def test_instantiation_with_defaults(self):
         """Test creating a CalendarEvent with minimal required fields."""
@@ -139,6 +147,8 @@ class TestCalendarEvent:
             title="Quick Meeting",
             start=datetime(2025, 1, 15, 10, 0, tzinfo=timezone.utc),
             end=datetime(2025, 1, 15, 11, 0, tzinfo=timezone.utc),
+            created_at=datetime(2025, 1, 15, 9, 0, tzinfo=timezone.utc),
+            updated_at=datetime(2025, 1, 15, 9, 0, tzinfo=timezone.utc),
         )
         assert event.all_day is False
         assert event.timezone == "UTC"
@@ -147,6 +157,9 @@ class TestCalendarEvent:
         assert event.transparency == "opaque"
         assert event.attendees == []
         assert event.reminders == []
+        assert event.recurrence_exceptions == set()
+        assert event.parent_event_id is None
+        assert event.deleted_at is None
 
 
 class TestCalendarStateResponse:
@@ -179,6 +192,8 @@ class TestCalendarStateResponse:
                     "title": "Meeting",
                     "start": "2025-01-15T14:00:00+00:00",
                     "end": "2025-01-15T15:00:00+00:00",
+                    "created_at": "2025-01-14T10:00:00+00:00",
+                    "updated_at": "2025-01-14T10:00:00+00:00",
                 }
             },
             calendar_count=1,
@@ -385,7 +400,7 @@ class TestCalendarClientCreate:
             attendees=[
                 {"email": "attendee@example.com", "response": "needs-action"},
             ],
-            recurrence={"frequency": "WEEKLY", "interval": 1},
+            recurrence={"frequency": "weekly", "interval": 1, "end_type": "never"},
             reminders=[{"minutes_before": 15, "type": "notification"}],
             color="#4285F4",
             visibility="default",
@@ -398,7 +413,7 @@ class TestCalendarClientCreate:
         assert call_args[1]["json"]["description"] == "Weekly sync meeting"
         assert call_args[1]["json"]["location"] == "Conference Room A"
         assert len(call_args[1]["json"]["attendees"]) == 1
-        assert call_args[1]["json"]["recurrence"]["frequency"] == "WEEKLY"
+        assert call_args[1]["json"]["recurrence"]["frequency"] == "weekly"
 
 
 class TestCalendarClientUpdate:
@@ -430,7 +445,7 @@ class TestCalendarClientUpdate:
         assert isinstance(result, ModalityActionResponse)
 
     def test_update_recurring_future(self):
-        """Test updating a recurring event for future occurrences."""
+        """Test updating a recurring event for this and future occurrences."""
         mock_http = MagicMock()
         mock_http.post.return_value = {
             "event_id": "evt-123",
@@ -443,12 +458,12 @@ class TestCalendarClientUpdate:
         client = CalendarClient(mock_http)
         result = client.update(
             event_id="evt-123",
-            recurrence_scope="future",
+            recurrence_scope="this_and_future",
             location="New Location",
         )
 
         call_args = mock_http.post.call_args
-        assert call_args[1]["json"]["recurrence_scope"] == "future"
+        assert call_args[1]["json"]["recurrence_scope"] == "this_and_future"
         assert call_args[1]["json"]["location"] == "New Location"
 
     def test_update_time(self):

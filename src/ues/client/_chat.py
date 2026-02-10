@@ -49,16 +49,14 @@ class ConversationMetadata(BaseModel):
         created_at: When the conversation started.
         last_message_at: When the last message was sent.
         message_count: Total number of messages.
-        user_message_count: Number of user messages.
-        assistant_message_count: Number of assistant messages.
+        participant_roles: Set of roles that have participated.
     """
 
     conversation_id: str
     created_at: datetime
     last_message_at: datetime
     message_count: int = 0
-    user_message_count: int = 0
-    assistant_message_count: int = 0
+    participant_roles: set[str] = Field(default_factory=set)
 
 
 class ChatStateResponse(BaseModel):
@@ -81,6 +79,30 @@ class ChatStateResponse(BaseModel):
     total_message_count: int
     conversation_count: int
     max_history_size: int
+
+
+class ChatCompactStateResponse(BaseModel):
+    """Compact response model for chat state endpoint.
+
+    Returned when ``compact=True`` is passed to ``get_state()``. Optimized
+    for LLM context — includes conversation metadata without full message
+    content.
+
+    Attributes:
+        modality_type: Always "chat".
+        last_updated: ISO timestamp of last state update.
+        update_count: Number of chat state changes.
+        conversations: Conversation metadata (without message content).
+        total_message_count: Total number of messages.
+        conversation_count: Number of conversations.
+    """
+
+    modality_type: str = "chat"
+    last_updated: str
+    update_count: int
+    conversations: dict[str, Any]
+    total_message_count: int
+    conversation_count: int
 
 
 class ChatQueryResponse(BaseModel):
@@ -135,18 +157,30 @@ class ChatClient(BaseClient):
 
     _BASE_PATH = "/chat"
 
-    def get_state(self) -> ChatStateResponse:
+    def get_state(
+        self, compact: bool = False,
+    ) -> ChatStateResponse | ChatCompactStateResponse:
         """Get the current chat state.
         
-        Returns a complete snapshot of all chat conversations and messages.
+        Returns a snapshot of all chat conversations and messages. When
+        ``compact=True``, returns a lightweight response with conversation
+        metadata only (no message content), optimized for LLM context
+        windows.
+        
+        Args:
+            compact: If True, return compact state with conversation metadata
+                only. Default is False (full state).
         
         Returns:
-            Complete chat state with conversations and messages.
+            Full chat state, or compact state if ``compact=True``.
         
         Raises:
             APIError: If the request fails.
         """
-        data = self._get(f"{self._BASE_PATH}/state")
+        params = {"compact": True} if compact else None
+        data = self._get(f"{self._BASE_PATH}/state", params=params)
+        if compact:
+            return ChatCompactStateResponse(**data)
         return ChatStateResponse(**data)
 
     def query(
@@ -326,18 +360,30 @@ class AsyncChatClient(AsyncBaseClient):
 
     _BASE_PATH = "/chat"
 
-    async def get_state(self) -> ChatStateResponse:
+    async def get_state(
+        self, compact: bool = False,
+    ) -> ChatStateResponse | ChatCompactStateResponse:
         """Get the current chat state.
         
-        Returns a complete snapshot of all chat conversations and messages.
+        Returns a snapshot of all chat conversations and messages. When
+        ``compact=True``, returns a lightweight response with conversation
+        metadata only (no message content), optimized for LLM context
+        windows.
+        
+        Args:
+            compact: If True, return compact state with conversation metadata
+                only. Default is False (full state).
         
         Returns:
-            Complete chat state with conversations and messages.
+            Full chat state, or compact state if ``compact=True``.
         
         Raises:
             APIError: If the request fails.
         """
-        data = await self._get(f"{self._BASE_PATH}/state")
+        params = {"compact": True} if compact else None
+        data = await self._get(f"{self._BASE_PATH}/state", params=params)
+        if compact:
+            return ChatCompactStateResponse(**data)
         return ChatStateResponse(**data)
 
     async def query(

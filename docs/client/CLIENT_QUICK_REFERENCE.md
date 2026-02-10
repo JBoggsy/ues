@@ -343,7 +343,8 @@ scenario = response.json()
 
 ### SMS (`client.sms`)
 ```python
-state = client.sms.get_state()
+state = client.sms.get_state()                         # Full state
+compact = client.sms.get_state(compact=True)            # Compact (metadata only)
 result = client.sms.query(thread_id=..., from_number=..., is_read=...)
 client.sms.send_message(to_numbers=[...], body="...")
 client.sms.receive_message(from_number="...", body="...")
@@ -361,21 +362,24 @@ client.calendar.respond_to_event(event_id="...", attendee_email="...", response=
 
 ### Location (`client.location`)
 ```python
-state = client.location.get_state()
+state = client.location.get_state()                     # Full state with history
+compact = client.location.get_state(compact=True)        # Compact (no history)
 result = client.location.query(named_location=..., start_time=...)
 client.location.update(latitude=..., longitude=..., address="...")
 ```
 
 ### Weather (`client.weather`)
 ```python
-state = client.weather.get_state()
+state = client.weather.get_state()                      # Full state with report history
+compact = client.weather.get_state(compact=True)         # Compact (current only)
 result = client.weather.query(lat=..., lon=..., units="imperial")
 client.weather.update(latitude=..., longitude=..., report={...})
 ```
 
 ### Chat (`client.chat`)
 ```python
-state = client.chat.get_state()
+state = client.chat.get_state()                         # Full state
+compact = client.chat.get_state(compact=True)            # Compact (metadata only)
 result = client.chat.query(conversation_id=..., role=...)
 client.chat.send_message(role="user", content="...", conversation_id="...")
 ```

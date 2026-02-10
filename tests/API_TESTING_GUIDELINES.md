@@ -460,3 +460,63 @@ When adding custom exception handlers in FastAPI:
 - Route logic validates business rules (400 errors)
 - Don't assume all "invalid input" returns the same status code
 - Read the route implementation to understand which layer catches what
+
+## Client/Server Model Sync Tests
+
+### Why Schema Sync Tests Matter
+
+When client and server Pydantic models drift (e.g., a new field is added to the server but not the client), the failure is **silent**: the new field simply becomes `None` or takes a default value. Existing tests using mocked responses or hand-crafted HTTP responses won't catch this because the mock data itself is stale.
+
+The `tests/client/` directory has three layers of defense against model drift:
+
+### Layer 1: Schema Comparison (`tests/client/test_model_schema_sync.py`)
+
+These tests import both client and server Pydantic model classes and compare their fields:
+
+```python
+from ues.models.modalities.email_state import Email as ServerEmail
+from ues.client._email import Email as ClientEmail
+
+def test_email_sync():
+    assert_models_in_sync(ClientEmail, ServerEmail)
+```
+
+They catch: missing/extra fields, type mismatches, optionality changes. They run in < 0.2s and require no server instance.
+
+### Layer 2: Round-Trip Deserialization (`tests/client/test_roundtrip.py`)
+
+These tests construct server model instances with realistic data, serialize them via `model_dump(mode="json")`, and deserialize into client models:
+
+```python
+server = ServerEmail(message_id="msg-001", subject="Test", ...)
+client = _roundtrip(server, ClientEmail)
+assert client.message_id == "msg-001"
+assert client.subject == "Test"
+```
+
+They catch: field serializer format mismatches (e.g., `datetime` → ISO string edge cases), nested sub-model structure issues.
+
+### Layer 3: Integration Sub-Model Tests (`tests/client/test_integration.py`)
+
+These tests exercise sub-model parameters through the full API stack (client → HTTP → server → response → client deserialization):
+
+```python
+sync_client.calendar.create(
+    title="Meeting",
+    attendees=[{"email": "alice@example.com", "response": "accepted"}],
+    recurrence={"frequency": "weekly", "days_of_week": ["monday"]},
+)
+state = sync_client.calendar.get_state()
+assert state.events[...].attendees[0].email == "alice@example.com"
+```
+
+They catch: API serialization/deserialization mismatches that only appear in live server communication.
+
+### When to Run These Tests
+
+**Always run `tests/client/test_model_schema_sync.py`** when you modify:
+- Any server model in `src/ues/models/modalities/`
+- Any client model in `src/ues/client/_*.py`
+- API response model construction in route handlers
+
+Quick check: `uv run pytest tests/client/test_model_schema_sync.py tests/client/test_roundtrip.py -v`

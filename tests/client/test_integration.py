@@ -1028,6 +1028,736 @@ class TestWeatherIntegration:
 
 
 # =============================================================================
+# Sub-Model & Field Value Integration Tests (Phase 5.3)
+# =============================================================================
+
+
+class TestEmailSubModelIntegration:
+    """Integration tests exercising email sub-models and field value assertions."""
+
+    def test_send_email_with_attachments(self, sync_client):
+        """Verify email attachments round-trip through the API."""
+        sync_client.simulation.start()
+
+        sync_client.email.send(
+            from_address="user@example.com",
+            to_addresses=["recipient@example.com"],
+            subject="With Attachments",
+            body_text="See attached files.",
+            attachments=[
+                {
+                    "filename": "report.pdf",
+                    "size": 102400,
+                    "mime_type": "application/pdf",
+                },
+                {
+                    "filename": "photo.jpg",
+                    "size": 2048000,
+                    "mime_type": "image/jpeg",
+                    "content_id": "cid-photo-001",
+                },
+            ],
+        )
+
+        state = sync_client.email.get_state()
+        email = list(state.emails.values())[0]
+        assert email.subject == "With Attachments"
+        assert len(email.attachments) == 2
+
+        # Assert individual attachment field values
+        filenames = {a.filename for a in email.attachments}
+        assert filenames == {"report.pdf", "photo.jpg"}
+
+        pdf = next(a for a in email.attachments if a.filename == "report.pdf")
+        assert pdf.size == 102400
+        assert pdf.mime_type == "application/pdf"
+
+        jpg = next(a for a in email.attachments if a.filename == "photo.jpg")
+        assert jpg.size == 2048000
+        assert jpg.content_id == "cid-photo-001"
+
+    def test_receive_email_with_all_fields(self, sync_client):
+        """Verify all email fields round-trip, including optional ones."""
+        sync_client.simulation.start()
+
+        sync_client.email.receive(
+            from_address="alice@example.com",
+            to_addresses=["user@example.com"],
+            cc_addresses=["cc@example.com"],
+            bcc_addresses=["bcc@example.com"],
+            reply_to_address="reply@example.com",
+            subject="Full Email",
+            body_text="Plain text body",
+            body_html="<p>HTML body</p>",
+            priority="high",
+        )
+
+        state = sync_client.email.get_state()
+        email = list(state.emails.values())[0]
+        assert email.from_address == "alice@example.com"
+        assert email.to_addresses == ["user@example.com"]
+        assert email.cc_addresses == ["cc@example.com"]
+        assert email.bcc_addresses == ["bcc@example.com"]
+        assert email.reply_to_address == "reply@example.com"
+        assert email.body_text == "Plain text body"
+        assert email.body_html == "<p>HTML body</p>"
+        assert email.priority == "high"
+        assert email.folder == "inbox"
+        assert email.is_read is False
+        assert email.is_starred is False
+
+    def test_email_thread_fields(self, sync_client):
+        """Verify thread-level fields after sending and replying."""
+        sync_client.simulation.start()
+
+        # Send initial email
+        sync_client.email.receive(
+            from_address="alice@example.com",
+            to_addresses=["user@example.com"],
+            subject="Thread Test",
+            body_text="First message",
+        )
+
+        state = sync_client.email.get_state()
+        first_email = list(state.emails.values())[0]
+        thread_id = first_email.thread_id
+
+        # Reply in the same thread
+        sync_client.email.send(
+            from_address="user@example.com",
+            to_addresses=["alice@example.com"],
+            subject="Re: Thread Test",
+            body_text="Reply message",
+            thread_id=thread_id,
+            in_reply_to=first_email.message_id,
+        )
+
+        state = sync_client.email.get_state()
+        assert len(state.threads) >= 1
+        thread = state.threads[thread_id]
+        assert thread.message_count >= 2
+        assert thread.subject is not None
+
+
+class TestSMSSubModelIntegration:
+    """Integration tests exercising SMS sub-models and field value assertions."""
+
+    def test_send_sms_with_attachments(self, sync_client):
+        """Verify SMS attachments round-trip through the API."""
+        sync_client.simulation.start()
+
+        sync_client.sms.send(
+            from_number="+15551234567",
+            to_numbers=["+15559876543"],
+            body="Check this photo",
+            attachments=[
+                {
+                    "filename": "vacation.jpg",
+                    "size": 3072000,
+                    "mime_type": "image/jpeg",
+                    "thumbnail_url": "https://example.com/thumb.jpg",
+                },
+            ],
+        )
+
+        state = sync_client.sms.get_state()
+        message = list(state.messages.values())[0]
+        assert message.body == "Check this photo"
+        assert len(message.attachments) == 1
+        assert message.attachments[0].filename == "vacation.jpg"
+        assert message.attachments[0].size == 3072000
+        assert message.attachments[0].mime_type == "image/jpeg"
+
+    def test_sms_reaction(self, sync_client):
+        """Verify SMS reaction fields round-trip through the API."""
+        sync_client.simulation.start()
+
+        sync_client.sms.receive(
+            from_number="+15559876543",
+            to_numbers=["+15551234567"],
+            body="Did you see the game?",
+        )
+
+        state = sync_client.sms.get_state()
+        message_id = list(state.messages.keys())[0]
+
+        sync_client.sms.react(
+            message_id=message_id,
+            phone_number="+15551234567",
+            emoji="👍",
+        )
+
+        state = sync_client.sms.get_state()
+        message = state.messages[message_id]
+        assert len(message.reactions) == 1
+        assert message.reactions[0].emoji == "👍"
+        assert message.reactions[0].phone_number == "+15551234567"
+        assert message.reactions[0].message_id == message_id
+
+    def test_sms_field_values(self, sync_client):
+        """Verify all SMS message fields including direction and type."""
+        sync_client.simulation.start()
+
+        # Get the simulated user's phone number so direction is set correctly
+        state = sync_client.sms.get_state()
+        user_phone = state.user_phone_number
+
+        sync_client.sms.send(
+            from_number=user_phone,
+            to_numbers=["+15559876543"],
+            body="RCS message",
+            message_type="rcs",
+        )
+
+        state = sync_client.sms.get_state()
+        message = list(state.messages.values())[0]
+        assert message.from_number == user_phone
+        assert message.to_numbers == ["+15559876543"]
+        assert message.body == "RCS message"
+        assert message.message_type == "rcs"
+        assert message.direction == "outgoing"
+
+    def test_sms_conversation_fields(self, sync_client):
+        """Verify conversation metadata fields."""
+        sync_client.simulation.start()
+
+        sync_client.sms.send(
+            from_number="+15551234567",
+            to_numbers=["+15559876543"],
+            body="First message",
+        )
+        sync_client.sms.receive(
+            from_number="+15559876543",
+            to_numbers=["+15551234567"],
+            body="Reply",
+        )
+
+        state = sync_client.sms.get_state()
+        assert state.total_conversation_count >= 1
+        conv = list(state.conversations.values())[0]
+        assert conv.message_count >= 2
+        assert conv.thread_id is not None
+
+
+class TestCalendarSubModelIntegration:
+    """Integration tests exercising calendar sub-models."""
+
+    def test_create_event_with_attendees(self, sync_client):
+        """Verify attendee fields round-trip through the API."""
+        sync_client.simulation.start()
+
+        start = datetime(2025, 7, 1, 9, 0, 0, tzinfo=timezone.utc)
+        end = datetime(2025, 7, 1, 10, 0, 0, tzinfo=timezone.utc)
+
+        sync_client.calendar.create(
+            title="Meeting with Attendees",
+            start=start,
+            end=end,
+            attendees=[
+                {
+                    "email": "alice@example.com",
+                    "display_name": "Alice",
+                    "optional": False,
+                    "response": "accepted",
+                },
+                {
+                    "email": "bob@example.com",
+                    "display_name": "Bob",
+                    "optional": True,
+                    "response": "tentative",
+                    "comment": "Might be late",
+                },
+            ],
+        )
+
+        state = sync_client.calendar.get_state()
+        event = list(state.events.values())[0]
+        assert event.title == "Meeting with Attendees"
+        assert len(event.attendees) == 2
+
+        emails = {a.email for a in event.attendees}
+        assert emails == {"alice@example.com", "bob@example.com"}
+
+        bob = next(a for a in event.attendees if a.email == "bob@example.com")
+        assert bob.display_name == "Bob"
+        assert bob.optional is True
+        assert bob.response == "tentative"
+        assert bob.comment == "Might be late"
+
+    def test_create_event_with_recurrence(self, sync_client):
+        """Verify recurrence rule fields round-trip through the API."""
+        sync_client.simulation.start()
+
+        start = datetime(2025, 7, 1, 9, 0, 0, tzinfo=timezone.utc)
+        end = datetime(2025, 7, 1, 10, 0, 0, tzinfo=timezone.utc)
+
+        sync_client.calendar.create(
+            title="Weekly Standup",
+            start=start,
+            end=end,
+            recurrence={
+                "frequency": "weekly",
+                "interval": 1,
+                "days_of_week": ["monday", "wednesday", "friday"],
+                "end_type": "count",
+                "count": 12,
+            },
+        )
+
+        state = sync_client.calendar.get_state()
+        event = list(state.events.values())[0]
+        assert event.recurrence is not None
+        assert event.recurrence.frequency == "weekly"
+        assert event.recurrence.interval == 1
+        assert event.recurrence.days_of_week == [
+            "monday", "wednesday", "friday",
+        ]
+        assert event.recurrence.end_type == "count"
+        assert event.recurrence.count == 12
+
+    def test_create_event_with_reminders(self, sync_client):
+        """Verify reminder fields round-trip through the API."""
+        sync_client.simulation.start()
+
+        start = datetime(2025, 7, 1, 14, 0, 0, tzinfo=timezone.utc)
+        end = datetime(2025, 7, 1, 15, 0, 0, tzinfo=timezone.utc)
+
+        sync_client.calendar.create(
+            title="Reminded Event",
+            start=start,
+            end=end,
+            reminders=[
+                {"minutes_before": 15, "type": "notification"},
+                {"minutes_before": 60, "type": "email"},
+            ],
+        )
+
+        state = sync_client.calendar.get_state()
+        event = list(state.events.values())[0]
+        assert len(event.reminders) == 2
+
+        mins = {r.minutes_before for r in event.reminders}
+        assert mins == {15, 60}
+
+        email_reminder = next(
+            r for r in event.reminders if r.type == "email"
+        )
+        assert email_reminder.minutes_before == 60
+
+    def test_create_event_with_attachments(self, sync_client):
+        """Verify calendar event attachment fields round-trip."""
+        sync_client.simulation.start()
+
+        start = datetime(2025, 7, 1, 14, 0, 0, tzinfo=timezone.utc)
+        end = datetime(2025, 7, 1, 15, 0, 0, tzinfo=timezone.utc)
+
+        sync_client.calendar.create(
+            title="Event with Files",
+            start=start,
+            end=end,
+            attachments=[
+                {
+                    "filename": "agenda.pdf",
+                    "size": 10240,
+                    "mime_type": "application/pdf",
+                    "url": "https://files.example.com/agenda.pdf",
+                },
+            ],
+        )
+
+        state = sync_client.calendar.get_state()
+        event = list(state.events.values())[0]
+        assert len(event.attachments) == 1
+        assert event.attachments[0].filename == "agenda.pdf"
+        assert event.attachments[0].size == 10240
+        assert event.attachments[0].mime_type == "application/pdf"
+        assert event.attachments[0].url == "https://files.example.com/agenda.pdf"
+
+    def test_create_event_all_fields(self, sync_client):
+        """Verify all CalendarEvent fields persist through the API."""
+        sync_client.simulation.start()
+
+        start = datetime(2025, 8, 1, 10, 0, 0, tzinfo=timezone.utc)
+        end = datetime(2025, 8, 1, 12, 0, 0, tzinfo=timezone.utc)
+
+        sync_client.calendar.create(
+            title="Full Event",
+            start=start,
+            end=end,
+            description="Detailed description",
+            all_day=False,
+            timezone="America/New_York",
+            location="Conference Room A",
+            status="confirmed",
+            organizer="manager@example.com",
+            color="#dc2626",
+            visibility="private",
+            transparency="opaque",
+            conference_link="https://meet.example.com/room",
+        )
+
+        state = sync_client.calendar.get_state()
+        event = list(state.events.values())[0]
+        assert event.title == "Full Event"
+        assert event.description == "Detailed description"
+        assert event.all_day is False
+        assert event.timezone == "America/New_York"
+        assert event.location == "Conference Room A"
+        assert event.status == "confirmed"
+        assert event.organizer == "manager@example.com"
+        assert event.color == "#dc2626"
+        assert event.visibility == "private"
+        assert event.transparency == "opaque"
+        assert event.conference_link == "https://meet.example.com/room"
+        assert event.created_at is not None
+        assert event.updated_at is not None
+
+    def test_calendar_container_fields(self, sync_client):
+        """Verify calendar container fields from get_state()."""
+        sync_client.simulation.start()
+
+        state = sync_client.calendar.get_state()
+        # Default "primary" calendar should exist
+        assert "primary" in state.calendars
+        cal = state.calendars["primary"]
+        assert cal.calendar_id == "primary"
+        assert cal.name is not None
+        assert cal.visible is True
+        assert cal.created_at is not None
+
+
+class TestChatSubModelIntegration:
+    """Integration tests exercising chat sub-models."""
+
+    def test_send_with_metadata(self, sync_client):
+        """Verify metadata dict round-trips through the API."""
+        sync_client.simulation.start()
+
+        sync_client.chat.send(
+            role="assistant",
+            content="Here's the answer.",
+            metadata={
+                "model": "gpt-4",
+                "token_count": 42,
+                "latency_ms": 150.5,
+            },
+        )
+
+        state = sync_client.chat.get_state()
+        msg = state.messages[0]
+        assert msg.role == "assistant"
+        assert msg.content == "Here's the answer."
+        assert msg.metadata is not None
+        assert msg.metadata["model"] == "gpt-4"
+        assert msg.metadata["token_count"] == 42
+        assert msg.metadata["latency_ms"] == 150.5
+
+    def test_send_multimodal_content(self, sync_client):
+        """Verify multimodal (list) content round-trips through the API."""
+        sync_client.simulation.start()
+
+        sync_client.chat.send(
+            role="user",
+            content=[
+                {"type": "text", "text": "What's in this image?"},
+                {"type": "image_url", "url": "https://example.com/photo.jpg"},
+            ],
+        )
+
+        state = sync_client.chat.get_state()
+        msg = state.messages[0]
+        assert msg.role == "user"
+        assert isinstance(msg.content, list)
+        assert len(msg.content) == 2
+        assert msg.content[0]["type"] == "text"
+        assert msg.content[0]["text"] == "What's in this image?"
+        assert msg.content[1]["type"] == "image_url"
+
+    def test_conversation_metadata_fields(self, sync_client):
+        """Verify conversation metadata in query response."""
+        sync_client.simulation.start()
+
+        sync_client.chat.send(role="user", content="Hello")
+        sync_client.chat.send(role="assistant", content="Hi there!")
+
+        result = sync_client.chat.query()
+        assert result.total_count == 2
+        assert len(result.messages) == 2
+        # Verify message fields are populated
+        for msg in result.messages:
+            assert msg.message_id is not None
+            assert msg.conversation_id is not None
+            assert msg.role in ("user", "assistant")
+            assert msg.content is not None
+
+
+class TestWeatherSubModelIntegration:
+    """Integration tests exercising weather sub-models and nested field values."""
+
+    def _build_full_weather_report(self) -> dict:
+        """Build a full weather report dict with all sub-models."""
+        import time
+        now = int(time.time())
+        return {
+            "lat": 40.7128,
+            "lon": -74.0060,
+            "timezone": "America/New_York",
+            "timezone_offset": -18000,
+            "current": {
+                "dt": now,
+                "sunrise": now - 21600,
+                "sunset": now + 21600,
+                "temp": 295.5,
+                "feels_like": 296.0,
+                "pressure": 1013,
+                "humidity": 65,
+                "dew_point": 288.0,
+                "uvi": 5.0,
+                "clouds": 40,
+                "visibility": 10000,
+                "wind_speed": 5.5,
+                "wind_deg": 180,
+                "wind_gust": 8.2,
+                "weather": [
+                    {
+                        "id": 802,
+                        "main": "Clouds",
+                        "description": "scattered clouds",
+                        "icon": "03d",
+                    }
+                ],
+            },
+            "minutely": [
+                {"dt": now + i * 60, "precipitation": 0.0}
+                for i in range(3)
+            ],
+            "hourly": [
+                {
+                    "dt": now + i * 3600,
+                    "temp": 295.0 + i,
+                    "feels_like": 293.0 + i,
+                    "pressure": 1013,
+                    "humidity": 60 + i,
+                    "dew_point": 287.0,
+                    "uvi": max(0, 5.0 - i),
+                    "clouds": 40,
+                    "visibility": 10000,
+                    "wind_speed": 4.0 + i * 0.5,
+                    "wind_deg": 180,
+                    "weather": [
+                        {
+                            "id": 802,
+                            "main": "Clouds",
+                            "description": "scattered clouds",
+                            "icon": "03d",
+                        }
+                    ],
+                    "pop": 0.1 * i,
+                }
+                for i in range(3)
+            ],
+            "daily": [
+                {
+                    "dt": now + i * 86400,
+                    "sunrise": now + i * 86400 - 21600,
+                    "sunset": now + i * 86400 + 21600,
+                    "moonrise": now + i * 86400 - 10800,
+                    "moonset": now + i * 86400 + 32400,
+                    "moon_phase": 0.25 * i,
+                    "summary": f"Day {i} forecast",
+                    "temp": {
+                        "day": 295.0,
+                        "min": 288.0,
+                        "max": 300.0,
+                        "night": 290.0,
+                        "eve": 293.0,
+                        "morn": 289.0,
+                    },
+                    "feels_like": {
+                        "day": 293.0,
+                        "night": 288.0,
+                        "eve": 291.0,
+                        "morn": 287.0,
+                    },
+                    "pressure": 1013,
+                    "humidity": 55,
+                    "dew_point": 284.0,
+                    "wind_speed": 4.0,
+                    "wind_deg": 200,
+                    "weather": [
+                        {
+                            "id": 800,
+                            "main": "Clear",
+                            "description": "clear sky",
+                            "icon": "01d",
+                        }
+                    ],
+                    "clouds": 10,
+                    "pop": 0.05,
+                    "uvi": 7.0,
+                }
+                for i in range(2)
+            ],
+            "alerts": [
+                {
+                    "sender_name": "National Weather Service",
+                    "event": "Heat Advisory",
+                    "start": now,
+                    "end": now + 86400,
+                    "description": "High temperatures expected.",
+                    "tags": ["Heat", "Extreme"],
+                },
+            ],
+        }
+
+    def test_weather_current_nested_fields(self, sync_client):
+        """Verify current weather nested fields round-trip."""
+        sync_client.simulation.start()
+
+        report = self._build_full_weather_report()
+        sync_client.weather.update(
+            latitude=40.7128, longitude=-74.0060, report=report,
+        )
+
+        result = sync_client.weather.query(lat=40.7128, lon=-74.0060)
+        assert result.count >= 1
+
+        weather_report = result.reports[0]
+        assert weather_report.current is not None
+        assert weather_report.current.temp == 295.5
+        assert weather_report.current.humidity == 65
+        assert weather_report.current.wind_speed == 5.5
+        assert weather_report.current.wind_gust == 8.2
+        assert len(weather_report.current.weather) == 1
+        assert weather_report.current.weather[0].main == "Clouds"
+        assert weather_report.current.weather[0].description == "scattered clouds"
+        assert weather_report.current.weather[0].icon == "03d"
+
+    def test_weather_hourly_nested_fields(self, sync_client):
+        """Verify hourly forecast nested fields round-trip."""
+        sync_client.simulation.start()
+
+        report = self._build_full_weather_report()
+        sync_client.weather.update(
+            latitude=40.7128, longitude=-74.0060, report=report,
+        )
+
+        result = sync_client.weather.query(lat=40.7128, lon=-74.0060)
+        weather_report = result.reports[0]
+        assert weather_report.hourly is not None
+        assert len(weather_report.hourly) == 3
+        # First hour
+        assert weather_report.hourly[0].temp == 295.0
+        assert weather_report.hourly[0].pop == 0.0
+        # Second hour has incremented values
+        assert weather_report.hourly[1].temp == 296.0
+        assert weather_report.hourly[1].humidity == 61
+
+    def test_weather_daily_nested_fields(self, sync_client):
+        """Verify daily forecast nested temp/feels_like round-trip."""
+        sync_client.simulation.start()
+
+        report = self._build_full_weather_report()
+        sync_client.weather.update(
+            latitude=40.7128, longitude=-74.0060, report=report,
+        )
+
+        result = sync_client.weather.query(lat=40.7128, lon=-74.0060)
+        weather_report = result.reports[0]
+        assert weather_report.daily is not None
+        assert len(weather_report.daily) == 2
+
+        day0 = weather_report.daily[0]
+        assert day0.temp.day == 295.0
+        assert day0.temp.min == 288.0
+        assert day0.temp.max == 300.0
+        assert day0.feels_like.day == 293.0
+        assert day0.feels_like.night == 288.0
+        assert day0.summary == "Day 0 forecast"
+
+    def test_weather_alerts_nested_fields(self, sync_client):
+        """Verify weather alert nested fields round-trip."""
+        sync_client.simulation.start()
+
+        report = self._build_full_weather_report()
+        sync_client.weather.update(
+            latitude=40.7128, longitude=-74.0060, report=report,
+        )
+
+        result = sync_client.weather.query(lat=40.7128, lon=-74.0060)
+        weather_report = result.reports[0]
+        assert weather_report.alerts is not None
+        assert len(weather_report.alerts) == 1
+        assert weather_report.alerts[0].sender_name == "National Weather Service"
+        assert weather_report.alerts[0].event == "Heat Advisory"
+        assert weather_report.alerts[0].tags == ["Heat", "Extreme"]
+
+    def test_weather_minutely_fields(self, sync_client):
+        """Verify minutely forecast round-trips."""
+        sync_client.simulation.start()
+
+        report = self._build_full_weather_report()
+        sync_client.weather.update(
+            latitude=40.7128, longitude=-74.0060, report=report,
+        )
+
+        result = sync_client.weather.query(lat=40.7128, lon=-74.0060)
+        weather_report = result.reports[0]
+        assert weather_report.minutely is not None
+        assert len(weather_report.minutely) == 3
+        assert weather_report.minutely[0].precipitation == 0.0
+
+
+class TestLocationSubModelIntegration:
+    """Integration tests exercising location field values."""
+
+    def test_location_all_fields(self, sync_client):
+        """Verify all location fields round-trip through the API."""
+        sync_client.simulation.start()
+
+        sync_client.location.update(
+            latitude=40.7128,
+            longitude=-74.0060,
+            address="350 5th Ave, New York, NY",
+            named_location="Empire State Building",
+            altitude=443.0,
+            accuracy=5.0,
+            speed=0.0,
+            bearing=90.0,
+        )
+
+        state = sync_client.location.get_state()
+        assert abs(state.current["latitude"] - 40.7128) < 0.001
+        assert abs(state.current["longitude"] - (-74.0060)) < 0.001
+        assert state.current["address"] == "350 5th Ave, New York, NY"
+        assert state.current["named_location"] == "Empire State Building"
+        assert state.current["altitude"] == 443.0
+        assert state.current["accuracy"] == 5.0
+        assert state.current["speed"] == 0.0
+        assert state.current["bearing"] == 90.0
+
+    def test_location_history_field_values(self, sync_client):
+        """Verify location history entries have correct field values."""
+        sync_client.simulation.start()
+
+        sync_client.location.update(
+            latitude=40.7128, longitude=-74.0060,
+            named_location="NYC",
+        )
+        sync_client.location.update(
+            latitude=34.0522, longitude=-118.2437,
+            named_location="LA",
+        )
+
+        result = sync_client.location.query()
+        assert result.total_count >= 2
+        # Verify entries have location data
+        for entry in result.locations:
+            assert "latitude" in entry
+            assert "longitude" in entry
+
+
+# =============================================================================
 # Cross-Modality Workflow Tests
 # =============================================================================
 

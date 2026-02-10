@@ -38,11 +38,13 @@ class TestEmailAttachment:
             size=1024,
             mime_type="application/pdf",
             content_id="cid:doc123",
+            attachment_id="att-custom-id",
         )
         assert attachment.filename == "document.pdf"
         assert attachment.size == 1024
         assert attachment.mime_type == "application/pdf"
         assert attachment.content_id == "cid:doc123"
+        assert attachment.attachment_id == "att-custom-id"
 
     def test_instantiation_with_required_fields_only(self):
         """Test creating an EmailAttachment with only required fields."""
@@ -53,6 +55,24 @@ class TestEmailAttachment:
         )
         assert attachment.filename == "image.png"
         assert attachment.content_id is None
+
+    def test_attachment_id_auto_generated(self):
+        """Test that attachment_id is auto-generated as a UUID when not provided."""
+        attachment = EmailAttachment(
+            filename="file.txt",
+            size=100,
+            mime_type="text/plain",
+        )
+        assert attachment.attachment_id is not None
+        assert len(attachment.attachment_id) > 0
+        # Verify it looks like a UUID (36 chars with hyphens)
+        assert len(attachment.attachment_id) == 36
+
+    def test_attachment_id_unique_per_instance(self):
+        """Test that each attachment gets a unique auto-generated ID."""
+        att1 = EmailAttachment(filename="a.txt", size=1, mime_type="text/plain")
+        att2 = EmailAttachment(filename="b.txt", size=2, mime_type="text/plain")
+        assert att1.attachment_id != att2.attachment_id
 
 
 class TestEmail:

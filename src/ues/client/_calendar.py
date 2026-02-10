@@ -6,8 +6,9 @@ the calendar modality endpoints (/calendar/*).
 This is an internal module. Import from `client` instead.
 """
 
-from datetime import datetime
-from typing import TYPE_CHECKING, Any, Literal
+from datetime import date, datetime
+from typing import TYPE_CHECKING, Any, Literal, Optional
+from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
@@ -20,10 +21,15 @@ if TYPE_CHECKING:
 
 # Type aliases for calendar fields
 EventStatus = Literal["confirmed", "tentative", "cancelled"]
-EventVisibility = Literal["default", "public", "private", "confidential"]
+EventVisibility = Literal["public", "private", "default"]
 EventTransparency = Literal["opaque", "transparent"]
-RecurrenceScope = Literal["this", "future", "all"]
+RecurrenceScope = Literal["this", "this_and_future", "all"]
 AttendeeResponse = Literal["accepted", "declined", "tentative", "needs-action"]
+RecurrenceFrequency = Literal["daily", "weekly", "monthly", "yearly"]
+RecurrenceEndType = Literal["never", "until", "count"]
+DayOfWeek = Literal[
+    "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"
+]
 
 
 # Response models for calendar endpoints
@@ -37,8 +43,6 @@ class Attendee(BaseModel):
         display_name: Optional display name.
         response: Response status (accepted, declined, tentative, needs-action).
         optional: Whether attendance is optional.
-        organizer: Whether this attendee is the organizer.
-        self_: Whether this is the current user.
         comment: Optional response comment.
     """
 
@@ -46,8 +50,6 @@ class Attendee(BaseModel):
     display_name: str | None = None
     response: AttendeeResponse = "needs-action"
     optional: bool = False
-    organizer: bool = False
-    self_: bool = Field(default=False, alias="self")
     comment: str | None = None
 
 
@@ -55,11 +57,11 @@ class Reminder(BaseModel):
     """Represents an event reminder.
     
     Attributes:
-        minutes_before: Minutes before event to trigger reminder.
+        minutes_before: Minutes before event to trigger reminder (must be >= 0).
         type: Type of reminder ("notification", "email", "both").
     """
 
-    minutes_before: int
+    minutes_before: int = Field(ge=0)
     type: Literal["notification", "email", "both"] = "notification"
 
 
@@ -67,42 +69,46 @@ class Attachment(BaseModel):
     """Represents a calendar event attachment.
     
     Attributes:
-        file_url: URL to the file.
-        title: Display title.
+        filename: Name of the attached file.
+        size: File size in bytes (must be >= 0).
         mime_type: MIME type of the file.
-        icon_link: Optional icon URL.
-        file_id: Optional file ID (for cloud storage).
+        url: Optional URL to the attachment.
+        data: Optional inline attachment data.
+        attachment_id: Unique identifier (auto-generated).
     """
 
-    file_url: str
-    title: str
-    mime_type: str | None = None
-    icon_link: str | None = None
-    file_id: str | None = None
+    filename: str
+    size: int = Field(ge=0)
+    mime_type: str
+    url: Optional[str] = None
+    data: Optional[str] = None
+    attachment_id: str = Field(
+        default_factory=lambda: str(uuid4())
+    )
 
 
 class RecurrenceRule(BaseModel):
     """Represents a recurrence rule for repeating events.
     
     Attributes:
-        frequency: Recurrence frequency (DAILY, WEEKLY, MONTHLY, YEARLY).
-        interval: Interval between recurrences (default 1).
-        count: Number of occurrences (if not using until).
-        until: End date for recurrence (if not using count).
-        by_day: Days of week for weekly recurrence (MO, TU, WE, TH, FR, SA, SU).
-        by_month_day: Days of month for monthly recurrence (1-31, or -1 for last).
-        by_month: Months for yearly recurrence (1-12).
-        by_set_pos: Position within set for complex rules.
+        frequency: Recurrence frequency (daily, weekly, monthly, yearly).
+        interval: Repeat every N periods (default 1, must be >= 1).
+        days_of_week: For weekly recurrence - which days to repeat on.
+        day_of_month: For monthly recurrence - which day of month (1-31).
+        month_of_year: For yearly recurrence - which month (1-12).
+        end_type: How recurrence ends (never, until date, or after count).
+        end_date: End date if end_type is "until".
+        count: Number of occurrences if end_type is "count".
     """
 
-    frequency: Literal["DAILY", "WEEKLY", "MONTHLY", "YEARLY"]
-    interval: int = 1
-    count: int | None = None
-    until: str | None = None
-    by_day: list[str] | None = None
-    by_month_day: list[int] | None = None
-    by_month: list[int] | None = None
-    by_set_pos: list[int] | None = None
+    frequency: RecurrenceFrequency
+    interval: int = Field(default=1, ge=1)
+    days_of_week: Optional[list[DayOfWeek]] = None
+    day_of_month: Optional[int] = Field(default=None, ge=1, le=31)
+    month_of_year: Optional[int] = Field(default=None, ge=1, le=12)
+    end_type: RecurrenceEndType = "never"
+    end_date: Optional[date] = None
+    count: Optional[int] = Field(default=None, ge=1)
 
 
 class CalendarEvent(BaseModel):
@@ -122,8 +128,9 @@ class CalendarEvent(BaseModel):
         organizer: Organizer email address.
         attendees: List of attendees.
         recurrence: Recurrence rule if recurring.
+        recurrence_exceptions: Set of skipped dates (ISO format).
         recurrence_id: For recurring events, ID of specific occurrence.
-        recurring_event_id: For recurring events, ID of the master event.
+        parent_event_id: For recurring events, ID of the parent event.
         reminders: List of reminders.
         color: Event color.
         visibility: Visibility level.
@@ -132,6 +139,7 @@ class CalendarEvent(BaseModel):
         conference_link: Video conference URL.
         created_at: When event was created.
         updated_at: When event was last updated.
+        deleted_at: When event was deleted (if soft-deleted).
     """
 
     event_id: str
@@ -147,16 +155,18 @@ class CalendarEvent(BaseModel):
     organizer: str | None = None
     attendees: list[Attendee] = Field(default_factory=list)
     recurrence: RecurrenceRule | None = None
+    recurrence_exceptions: set[str] = Field(default_factory=set)
     recurrence_id: str | None = None
-    recurring_event_id: str | None = None
+    parent_event_id: str | None = None
     reminders: list[Reminder] = Field(default_factory=list)
     color: str | None = None
-    visibility: EventVisibility = "default"
-    transparency: EventTransparency = "opaque"
+    visibility: str = "default"
+    transparency: str = "opaque"
     attachments: list[Attachment] = Field(default_factory=list)
     conference_link: str | None = None
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
+    created_at: datetime
+    updated_at: datetime
+    deleted_at: datetime | None = None
 
 
 class CalendarContainer(BaseModel):
@@ -179,7 +189,7 @@ class CalendarContainer(BaseModel):
     visible: bool = True
     created_at: datetime | str
     updated_at: datetime | str
-    event_ids: list[str] = Field(default_factory=list)
+    event_ids: set[str] = Field(default_factory=set)
     default_reminders: list[Reminder] = Field(default_factory=list)
 
 
@@ -523,7 +533,7 @@ class CalendarClient(BaseClient):
             event_id: Event ID to update.
             calendar_id: Calendar containing the event (default: "primary").
             recurrence_scope: For recurring events - which occurrences to affect
-                ("this", "future", or "all").
+                ("this", "this_and_future", or "all").
             title: Updated event title.
             description: Updated event description.
             start: Updated start datetime.
@@ -616,7 +626,7 @@ class CalendarClient(BaseClient):
             event_id: Event ID to delete.
             calendar_id: Calendar containing the event (default: "primary").
             recurrence_scope: For recurring events - which occurrences to delete
-                ("this", "future", or "all").
+                ("this", "this_and_future", or "all").
             recurrence_id: For recurring events - which occurrence to delete.
         
         Returns:
@@ -1086,7 +1096,7 @@ class AsyncCalendarClient(AsyncBaseClient):
             event_id: Event ID to update.
             calendar_id: Calendar containing the event (default: "primary").
             recurrence_scope: For recurring events - which occurrences to affect
-                ("this", "future", or "all").
+                ("this", "this_and_future", or "all").
             title: Updated event title.
             description: Updated event description.
             start: Updated start datetime.
@@ -1179,7 +1189,7 @@ class AsyncCalendarClient(AsyncBaseClient):
             event_id: Event ID to delete.
             calendar_id: Calendar containing the event (default: "primary").
             recurrence_scope: For recurring events - which occurrences to delete
-                ("this", "future", or "all").
+                ("this", "this_and_future", or "all").
             recurrence_id: For recurring events - which occurrence to delete.
         
         Returns:

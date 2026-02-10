@@ -8,6 +8,7 @@ This is an internal module. Import from `client` instead.
 
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Literal
+from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
@@ -28,7 +29,7 @@ class MessageAttachment(BaseModel):
         filename: Original filename.
         size: File size in bytes.
         mime_type: MIME type of the attachment.
-        attachment_id: Unique identifier (auto-generated UUID on server).
+        attachment_id: Unique identifier (auto-generated UUID).
         thumbnail_url: Optional thumbnail URL for images/videos.
         duration: Optional duration in seconds for audio/video.
     """
@@ -36,7 +37,7 @@ class MessageAttachment(BaseModel):
     filename: str
     size: int
     mime_type: str
-    attachment_id: str | None = None
+    attachment_id: str = Field(default_factory=lambda: str(uuid4()))
     thumbnail_url: str | None = None
     duration: int | None = None
 
@@ -52,8 +53,8 @@ class MessageReaction(BaseModel):
         timestamp: When the reaction was added.
     """
 
-    reaction_id: str | None = None
-    message_id: str | None = None
+    reaction_id: str = Field(default_factory=lambda: str(uuid4()))
+    message_id: str
     emoji: str
     phone_number: str
     timestamp: datetime
@@ -140,8 +141,8 @@ class SMSConversation(BaseModel):
     """
 
     thread_id: str
-    conversation_type: str = "one_on_one"
-    participants: list[GroupParticipant] = Field(default_factory=list)
+    conversation_type: str
+    participants: list[GroupParticipant]
     group_name: str | None = None
     group_photo_url: str | None = None
     created_at: datetime
@@ -177,6 +178,34 @@ class SMSStateResponse(BaseModel):
     total_message_count: int
     unread_count: int
     total_conversation_count: int
+
+
+class SMSCompactStateResponse(BaseModel):
+    """Compact response model for SMS state endpoint.
+
+    Returned when ``compact=True`` is passed to ``get_state()``. Optimized
+    for LLM context — includes conversation metadata without full message
+    content.
+
+    Attributes:
+        modality_type: Always "sms".
+        last_updated: ISO timestamp of last state update.
+        update_count: Number of SMS state changes.
+        user_phone_number: The simulated user's phone number.
+        conversations: Conversation metadata (without full message content).
+        total_conversations: Number of conversations.
+        total_messages: Total message count.
+        unread_total: Total unread message count.
+    """
+
+    modality_type: str = "sms"
+    last_updated: str
+    update_count: int
+    user_phone_number: str
+    conversations: dict[str, Any]
+    total_conversations: int
+    total_messages: int
+    unread_total: int
 
 
 class SMSQueryResponse(BaseModel):
@@ -227,19 +256,29 @@ class SMSClient(BaseClient):
 
     _BASE_PATH = "/sms"
 
-    def get_state(self) -> SMSStateResponse:
+    def get_state(
+        self, compact: bool = False,
+    ) -> SMSStateResponse | SMSCompactStateResponse:
         """Get the current SMS state.
         
-        Returns a complete snapshot of the SMS system including all messages
-        and conversations.
+        Returns a snapshot of the SMS system. When ``compact=True``, returns
+        a lightweight response with conversation metadata only (no full
+        message content), optimized for LLM context windows.
+        
+        Args:
+            compact: If True, return compact state with conversation metadata
+                only. Default is False (full state).
         
         Returns:
-            Complete SMS state with all messages and conversations.
+            Full SMS state, or compact state if ``compact=True``.
         
         Raises:
             APIError: If the request fails.
         """
-        data = self._get(f"{self._BASE_PATH}/state")
+        params = {"compact": True} if compact else None
+        data = self._get(f"{self._BASE_PATH}/state", params=params)
+        if compact:
+            return SMSCompactStateResponse(**data)
         return SMSStateResponse(**data)
 
     def query(
@@ -557,19 +596,29 @@ class AsyncSMSClient(AsyncBaseClient):
 
     _BASE_PATH = "/sms"
 
-    async def get_state(self) -> SMSStateResponse:
+    async def get_state(
+        self, compact: bool = False,
+    ) -> SMSStateResponse | SMSCompactStateResponse:
         """Get the current SMS state.
         
-        Returns a complete snapshot of the SMS system including all messages
-        and conversations.
+        Returns a snapshot of the SMS system. When ``compact=True``, returns
+        a lightweight response with conversation metadata only (no full
+        message content), optimized for LLM context windows.
+        
+        Args:
+            compact: If True, return compact state with conversation metadata
+                only. Default is False (full state).
         
         Returns:
-            Complete SMS state with all messages and conversations.
+            Full SMS state, or compact state if ``compact=True``.
         
         Raises:
             APIError: If the request fails.
         """
-        data = await self._get(f"{self._BASE_PATH}/state")
+        params = {"compact": True} if compact else None
+        data = await self._get(f"{self._BASE_PATH}/state", params=params)
+        if compact:
+            return SMSCompactStateResponse(**data)
         return SMSStateResponse(**data)
 
     async def query(

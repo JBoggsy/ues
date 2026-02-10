@@ -8,9 +8,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Client/server drift prevention test infrastructure (Phase 5)** - Added 91 new automated tests to catch future client/server model divergence:
+  - **Schema sync tests** (`tests/client/test_model_schema_sync.py`, 35 tests): Automated field-by-field comparison of client vs server Pydantic models. Compares field names, types (with normalization for `Union` ↔ `|`, `set` ↔ `list`, bare generics), optionality, and defaults. Covers Email (4), SMS (5), Calendar (6), Chat (2), Weather (9) modalities plus 9 meta-tests for the comparison utility itself.
+  - **Round-trip deserialization tests** (`tests/client/test_roundtrip.py`, 33 tests): Constructs server model instances with realistic data, serializes via `model_dump(mode="json")`, deserializes into client models, and asserts every field value is preserved. Covers all model pairs including nested sub-models (attachments, attendees, recurrence rules, reactions, weather forecast layers). Includes edge case tests for empty collections, None optional fields, and minimal instances.
+  - **Integration sub-model tests** (`tests/client/test_integration.py`, 23 tests): End-to-end tests exercising sub-model fields through the full API stack. Covers email attachments, SMS attachments/reactions, calendar attendees/recurrence/reminders/attachments/all fields, chat metadata/multimodal content, weather nested forecast/alert fields, and location field values.
+- **Compact state support for SMS, Chat, Weather, Location clients (Phase 4)** - All four modalities now support `get_state(compact=True)` on both sync and async clients, matching the server's existing `?compact=true` query parameter. Compact responses are optimized for LLM context windows — they return metadata summaries without full content:
+  - **SMS**: `SMSCompactStateResponse` — conversation metadata without full message content. Fields: `last_updated`, `update_count`, `user_phone_number`, `conversations` (metadata), `total_conversations`, `total_messages`, `unread_total`.
+  - **Chat**: `ChatCompactStateResponse` — conversation metadata without message history. Fields: `last_updated`, `update_count`, `conversations` (metadata), `total_message_count`, `conversation_count`.
+  - **Weather**: `WeatherCompactStateResponse` — current weather per location without report history. Fields: `last_updated`, `update_count`, `location_count`, `locations` (current only).
+  - **Location**: `LocationCompactStateResponse` — current location with history count instead of full history. Fields: `last_updated`, `update_count`, `current`, `history_count`.
+  - All four compact models exported from `ues.client` and added to `__all__`.
+  - Tests added for both sync and async compact state calls across all four modalities.
 - **Calendar respond tests** - Added comprehensive tests in `tests/api/modalities/calendar/test_calendar_respond.py` covering all response statuses, comments, multi-attendee targeting, and sequential response changes.
 
 ### Fixed
+- **Client/server Email, Weather, Location model remediation (Phase 3)** - Fixed 10 mismatches between client and server models for Email, Weather, and Location modalities. All changes are in `src/ues/client/_email.py`, `src/ues/client/_weather.py`, `src/ues/client/_location.py`, and corresponding test files:
+  - **Email `EmailAttachment.attachment_id`**: Added `attachment_id: str = Field(default_factory=lambda: str(uuid4()))` to match server's auto-UUID generation. Previously missing, causing silent data loss on deserialization.
+  - **Email `EmailThread.participant_addresses`**: Documented decision to keep `list[str]` (vs server's `set[str]`) since JSON arrays always deserialize as lists. Added docstring note.
+  - **Weather typed models**: Added 9 typed Pydantic models (`WeatherCondition`, `CurrentWeather`, `MinutelyForecast`, `HourlyForecast`, `DailyTemperature`, `DailyFeelsLike`, `DailyForecast`, `WeatherAlert`, `WeatherReport`) mirroring server's weather data models. Previously all weather data was untyped `dict[str, Any]`.
+  - **Weather `WeatherQueryResponse.reports`**: Changed from `list[dict[str, Any]]` to `list[WeatherReport]` for full type safety.
+  - **Weather `update()` method**: Now accepts `WeatherReport | dict[str, Any]` with automatic `model_dump()` for typed instances.
+  - **Weather `query()` method**: Removed redundant dict-conversion hack; data now flows directly through typed Pydantic models.
+  - **Weather & Location `modality_type`**: Removed spurious default values from `WeatherStateResponse` and `LocationStateResponse` to match server behavior (server always provides this field explicitly).
+  - **Location & Weather `query()` docstrings**: Updated to document `limit >= 1` and `offset >= 0` validation constraints.
+  - **Client `__init__.py` exports**: Added all 9 new weather typed models to public exports.
+- **Client/server Chat & SMS model remediation (Phase 2)** - Fixed 6 mismatches between client and server Chat and SMS models identified in the client/server model audit. All changes are in `src/ues/client/_chat.py`, `src/ues/client/_sms.py`, and corresponding test files:
+  - **Chat `ConversationMetadata`**: Removed phantom fields `user_message_count` and `assistant_message_count` that never existed on the server (always returned 0). Added `participant_roles: set[str]` to match server model.
+  - **SMS `MessageReaction.message_id`**: Changed from `str | None = None` to required `str` to match server model. The server always requires this field.
+  - **SMS `MessageAttachment.attachment_id`**: Changed from `str | None = None` to `str = Field(default_factory=lambda: str(uuid4()))` to match server's auto-UUID generation.
+  - **SMS `MessageReaction.reaction_id`**: Changed from `str | None = None` to `str = Field(default_factory=lambda: str(uuid4()))` to match server's auto-UUID generation.
+  - **SMS `SMSConversation.conversation_type`**: Removed default value `"one_on_one"` to match server's required-field semantics.
+  - **SMS `SMSConversation.participants`**: Removed default empty list to match server's required-field semantics.
+- **Client/server calendar model remediation (Phase 1)** - Fixed 15 mismatches between client and server calendar models identified in the client/server model audit. All changes are in `src/ues/client/_calendar.py` and `tests/client/test_calendar.py`:
+  - **`RecurrenceScope`**: Replaced invalid `"future"` enum value with `"this_and_future"` to match server. Client calls using the old value would have been rejected by the server.
+  - **`Attachment` model**: Complete rewrite. Removed `file_url`, `title`, `icon_link`, `file_id` (from an external spec). Added `filename`, `size` (required), `mime_type` (required), `url`, `data`, `attachment_id` (auto-UUID) to match server schema.
+  - **`RecurrenceRule` model**: Complete rewrite. Changed `frequency` from uppercase (`"DAILY"`) to lowercase (`"daily"`). Replaced `until: str` with `end_type`/`end_date` pattern. Renamed `by_day` → `days_of_week` (full day names). Changed `by_month_day: list[int]` → `day_of_month: Optional[int]`, `by_month: list[int]` → `month_of_year: Optional[int]`. Removed `by_set_pos`. Added validation constraints.
+  - **`CalendarEvent.recurring_event_id`**: Renamed to `parent_event_id` to match server field name. The old name caused silent data loss during deserialization.
+  - **`EventVisibility`**: Removed `"confidential"` value (server does not support it).
+  - **`Attendee`**: Removed phantom `organizer` and `self_` fields (server never populates these).
+  - **`CalendarEvent`**: Added `recurrence_exceptions: set[str]`, `deleted_at: datetime | None`. Changed `created_at`/`updated_at` from `Optional[datetime]` to required `datetime`. Changed `visibility`/`transparency` from `Literal` to `str` to match server.
+  - **`CalendarContainer.event_ids`**: Changed from `list[str]` to `set[str]` to match server.
+  - **`Reminder.minutes_before`**: Added `ge=0` constraint to match server validation.
 - **Calendar respond now updates attendee status** - `POST /calendar/respond` now correctly persists the attendee's `response_status` in `CalendarState`. Previously, the endpoint returned `status='executed'` but the state was never updated because `CalendarState.create_undo_data()` did not handle the `respond` operation, causing `SimulatorEvent.execute()` to silently fail before reaching `apply_input()`. Added `respond` handling to both `create_undo_data()` and `apply_undo()`.
 - **Client `Attendee` model field name and enum alignment** - The client-side `Attendee` model in `src/ues/client/_calendar.py` used field name `response_status` with camelCase enum value `"needsAction"`, while the server uses field name `response` with kebab-case value `"needs-action"`. This caused pydantic to silently drop the server's response value during deserialization and always show the default. Fixed field name to `response` and `AttendeeResponse` type to use `"needs-action"` to match the server model.
 - **SMS client model fields aligned with server models** - Fixed 11 field mismatches between `src/ues/client/_sms.py` and `src/ues/models/modalities/sms_state.py` that caused silent data loss during deserialization of server responses. **Breaking changes for client consumers:**
