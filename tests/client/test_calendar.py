@@ -36,20 +36,20 @@ class TestAttendee:
         attendee = Attendee(
             email="attendee@example.com",
             display_name="John Doe",
-            response_status="accepted",
+            response="accepted",
             optional=False,
             organizer=False,
             comment="Looking forward to it!",
         )
         assert attendee.email == "attendee@example.com"
         assert attendee.display_name == "John Doe"
-        assert attendee.response_status == "accepted"
+        assert attendee.response == "accepted"
 
     def test_instantiation_with_defaults(self):
         """Test creating an Attendee with only required fields."""
         attendee = Attendee(email="attendee@example.com")
         assert attendee.display_name is None
-        assert attendee.response_status == "needsAction"
+        assert attendee.response == "needs-action"
         assert attendee.optional is False
         assert attendee.organizer is False
 
@@ -114,7 +114,7 @@ class TestCalendarEvent:
             status="confirmed",
             organizer="organizer@example.com",
             attendees=[
-                Attendee(email="attendee@example.com", response_status="accepted"),
+                Attendee(email="attendee@example.com", response="accepted"),
             ],
             recurrence=None,
             reminders=[Reminder(minutes_before=10, type="notification")],
@@ -383,7 +383,7 @@ class TestCalendarClientCreate:
             status="confirmed",
             organizer="org@example.com",
             attendees=[
-                {"email": "attendee@example.com", "response_status": "needsAction"},
+                {"email": "attendee@example.com", "response": "needs-action"},
             ],
             recurrence={"frequency": "WEEKLY", "interval": 1},
             reminders=[{"minutes_before": 15, "type": "notification"}],

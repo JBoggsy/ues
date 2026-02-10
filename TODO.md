@@ -2,7 +2,7 @@
 
 ## Test Suite Summary
 
-**Total Tests: 3,590 passing** | Run: `uv run pytest`
+**Total Tests: 3,595 passing** | Run: `uv run pytest`
 
 | Category | Tests | Location |
 |----------|-------|----------|
@@ -12,6 +12,18 @@
 | Agent Testing | 108 | `tests/agent_testing/` |
 
 Note: 3 websocket concurrency tests have known flakiness issues with httpx-ws/anyio library.
+
+---
+
+## 🐛 Bugs
+
+### Confirmed
+- [ ] **Hardcoded `status="executed"` in all modality route handlers** — Calendar routes were fixed (commit TBD), but the same pattern exists in email (11 instances), SMS (7), chat (3), weather (1), and location (1) route files. All use `status="executed"` in `ModalityActionResponse` instead of `event.status.value`, silently swallowing execution failures. See `src/ues/api/routes/{email,sms,chat,weather,location}.py`.
+
+### Needs Investigation
+- [ ] **SMS client/server model field mismatches** — The sub-agent analysis found 9 discrepancies between `src/ues/client/_sms.py` and `src/ues/models/modalities/sms_state.py`. High-severity: `SMSMessage.received_at` (client) vs `delivered_at` (server) causes delivery timestamps to always be `None`; `SMSConversation.is_group` is a field in client but a method in server, so group conversations always appear as one-on-one. Other mismatches: `deleted_at` client-only, `edited_at` server-only, `MessageAttachment.attachment_id` missing from client, `MessageReaction.reaction_id`/`message_id` missing from client, `GroupParticipant.left_at` missing from client, `GroupParticipant.display_name` client-only, `SMSConversation.message_ids` client-only.
+- [ ] **Email client `participant_addresses` type mismatch** — Server uses `set[str]`, client uses `list[str]`. Low severity (JSON arrays round-trip fine) but could cause duplicate-handling differences.
+- [ ] **Audit all client models against server models** — The calendar `Attendee` and SMS model mismatches suggest a systematic pattern of client models drifting from server models. All modalities should be audited: compare field names, types, enum values, and defaults between `src/ues/client/_<modality>.py` and `src/ues/models/modalities/<modality>_state.py` / `<modality>_input.py`.
 
 ---
 

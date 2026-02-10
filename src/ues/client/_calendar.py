@@ -23,7 +23,7 @@ EventStatus = Literal["confirmed", "tentative", "cancelled"]
 EventVisibility = Literal["default", "public", "private", "confidential"]
 EventTransparency = Literal["opaque", "transparent"]
 RecurrenceScope = Literal["this", "future", "all"]
-AttendeeResponse = Literal["accepted", "declined", "tentative", "needsAction"]
+AttendeeResponse = Literal["accepted", "declined", "tentative", "needs-action"]
 
 
 # Response models for calendar endpoints
@@ -35,7 +35,7 @@ class Attendee(BaseModel):
     Attributes:
         email: Attendee's email address.
         display_name: Optional display name.
-        response_status: Response status (accepted, declined, tentative, needsAction).
+        response: Response status (accepted, declined, tentative, needs-action).
         optional: Whether attendance is optional.
         organizer: Whether this attendee is the organizer.
         self_: Whether this is the current user.
@@ -44,7 +44,7 @@ class Attendee(BaseModel):
 
     email: str
     display_name: str | None = None
-    response_status: AttendeeResponse = "needsAction"
+    response: AttendeeResponse = "needs-action"
     optional: bool = False
     organizer: bool = False
     self_: bool = Field(default=False, alias="self")
@@ -652,7 +652,7 @@ class CalendarClient(BaseClient):
         Args:
             event_id: Event ID to respond to.
             attendee_email: Email of the attendee responding.
-            response: Response status ("accepted", "declined", "tentative", "needsAction").
+            response: Response status ("accepted", "declined", "tentative", "needs-action").
             comment: Optional comment with the response.
         
         Returns:
@@ -1215,7 +1215,7 @@ class AsyncCalendarClient(AsyncBaseClient):
         Args:
             event_id: Event ID to respond to.
             attendee_email: Email of the attendee responding.
-            response: Response status ("accepted", "declined", "tentative", "needsAction").
+            response: Response status ("accepted", "declined", "tentative", "needs-action").
             comment: Optional comment with the response.
         
         Returns:

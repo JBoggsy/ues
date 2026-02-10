@@ -616,8 +616,12 @@ async def create_calendar_event(
         return ModalityActionResponse(
             event_id=event.event_id,
             scheduled_time=event.scheduled_time,
-            status="executed",
-            message=f"Created calendar event: {request.title} (calendar_event_id: {calendar_input.event_id})",
+            status=event.status.value,
+            message=(
+                f"Created calendar event: {request.title} (calendar_event_id: {calendar_input.event_id})"
+                if not event.error_message
+                else f"Failed to create calendar event: {event.error_message}"
+            ),
             modality="calendar",
         )
     except ValidationError as e:
@@ -705,8 +709,12 @@ async def update_calendar_event(
         return ModalityActionResponse(
             event_id=event.event_id,
             scheduled_time=event.scheduled_time,
-            status="executed",
-            message=f"Updated calendar event: {request.event_id}",
+            status=event.status.value,
+            message=(
+                f"Updated calendar event: {request.event_id}"
+                if not event.error_message
+                else f"Failed to update calendar event: {event.error_message}"
+            ),
             modality="calendar",
         )
     except ValidationError as e:
@@ -778,8 +786,12 @@ async def delete_calendar_event(
         return ModalityActionResponse(
             event_id=event.event_id,
             scheduled_time=event.scheduled_time,
-            status="executed",
-            message=f"Deleted calendar event: {request.event_id}",
+            status=event.status.value,
+            message=(
+                f"Deleted calendar event: {request.event_id}"
+                if not event.error_message
+                else f"Failed to delete calendar event: {event.error_message}"
+            ),
             modality="calendar",
         )
     except ValidationError as e:
@@ -851,8 +863,12 @@ async def respond_to_event(
         return ModalityActionResponse(
             event_id=event.event_id,
             scheduled_time=event.scheduled_time,
-            status="executed",
-            message=f"Responded to event {request.event_id}: {request.attendee_email} -> {request.response}",
+            status=event.status.value,
+            message=(
+                f"Responded to event {request.event_id}: {request.attendee_email} -> {request.response}"
+                if not event.error_message
+                else f"Failed to respond to event: {event.error_message}"
+            ),
             modality="calendar",
         )
     except ValidationError as e:
