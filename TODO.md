@@ -18,7 +18,7 @@ Note: 3 websocket concurrency tests have known flakiness issues with httpx-ws/an
 ## 🐛 Bugs
 
 ### Confirmed
-- [ ] **Hardcoded `status="executed"` in all modality route handlers** — Calendar routes were fixed (commit TBD), but the same pattern exists in email (11 instances), SMS (7), chat (3), weather (1), and location (1) route files. All use `status="executed"` in `ModalityActionResponse` instead of `event.status.value`, silently swallowing execution failures. See `src/ues/api/routes/{email,sms,chat,weather,location}.py`.
+- [x] **Hardcoded `status="executed"` in all modality route handlers** — Fixed across all modalities. All `ModalityActionResponse` returns now use `event.status.value` and include conditional error messages via `event.error_message`. Fixed in: email (11 instances), SMS (7), chat (3), weather (1), location (1). Calendar was fixed previously.
 
 ### Needs Investigation
 - [ ] **SMS client/server model field mismatches** — The sub-agent analysis found 9 discrepancies between `src/ues/client/_sms.py` and `src/ues/models/modalities/sms_state.py`. High-severity: `SMSMessage.received_at` (client) vs `delivered_at` (server) causes delivery timestamps to always be `None`; `SMSConversation.is_group` is a field in client but a method in server, so group conversations always appear as one-on-one. Other mismatches: `deleted_at` client-only, `edited_at` server-only, `MessageAttachment.attachment_id` missing from client, `MessageReaction.reaction_id`/`message_id` missing from client, `GroupParticipant.left_at` missing from client, `GroupParticipant.display_name` client-only, `SMSConversation.message_ids` client-only.

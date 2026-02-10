@@ -310,8 +310,12 @@ async def update_location(
         return ModalityActionResponse(
             event_id=event.event_id,
             scheduled_time=event.scheduled_time,
-            status="executed",
-            message=f"Location updated to ({request.latitude}, {request.longitude})",
+            status=event.status.value,
+            message=(
+                f"Location updated to ({request.latitude}, {request.longitude})"
+                if not event.error_message
+                else f"Failed to update location: {event.error_message}"
+            ),
             modality="location",
         )
     except ValidationError as e:

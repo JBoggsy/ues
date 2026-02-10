@@ -486,8 +486,12 @@ async def send_sms(
         return ModalityActionResponse(
             event_id=event.event_id,
             scheduled_time=event.scheduled_time,
-            status="executed",
-            message="SMS message sent successfully",
+            status=event.status.value,
+            message=(
+                "SMS message sent successfully"
+                if not event.error_message
+                else f"Failed to send SMS: {event.error_message}"
+            ),
             modality="sms",
         )
     except Exception as e:
@@ -562,8 +566,12 @@ async def receive_sms(
         return ModalityActionResponse(
             event_id=event.event_id,
             scheduled_time=event.scheduled_time,
-            status="executed",
-            message="SMS message received successfully",
+            status=event.status.value,
+            message=(
+                "SMS message received successfully"
+                if not event.error_message
+                else f"Failed to receive SMS: {event.error_message}"
+            ),
             modality="sms",
         )
     except Exception as e:
@@ -630,8 +638,12 @@ async def mark_sms_read(
         return ModalityActionResponse(
             event_id=event.event_id,
             scheduled_time=event.scheduled_time,
-            status="executed",
-            message=f"Marked {marked_count} message(s) as read",
+            status=event.status.value,
+            message=(
+                f"Marked {marked_count} message(s) as read"
+                if not event.error_message
+                else f"Failed to mark messages as read: {event.error_message}"
+            ),
             modality="sms",
         )
     except HTTPException:
@@ -699,8 +711,12 @@ async def mark_sms_unread(
         return ModalityActionResponse(
             event_id=event.event_id,
             scheduled_time=event.scheduled_time,
-            status="executed",
-            message=f"Marked {marked_count} message(s) as unread",
+            status=event.status.value,
+            message=(
+                f"Marked {marked_count} message(s) as unread"
+                if not event.error_message
+                else f"Failed to mark messages as unread: {event.error_message}"
+            ),
             modality="sms",
         )
     except HTTPException:
@@ -776,8 +792,12 @@ async def delete_sms(
         return ModalityActionResponse(
             event_id=event.event_id,
             scheduled_time=event.scheduled_time,
-            status="executed",
-            message=f"Deleted {deleted_count} message(s)",
+            status=event.status.value,
+            message=(
+                f"Deleted {deleted_count} message(s)"
+                if not event.error_message
+                else f"Failed to delete messages: {event.error_message}"
+            ),
             modality="sms",
         )
     except HTTPException:
@@ -831,8 +851,12 @@ async def react_to_sms(
         return ModalityActionResponse(
             event_id=event.event_id,
             scheduled_time=event.scheduled_time,
-            status="executed",
-            message=f"Added reaction '{request.emoji}' to message",
+            status=event.status.value,
+            message=(
+                f"Added reaction '{request.emoji}' to message"
+                if not event.error_message
+                else f"Failed to add reaction: {event.error_message}"
+            ),
             modality="sms",
         )
     except Exception as e:
@@ -915,8 +939,12 @@ async def update_conversation(
         return ModalityActionResponse(
             event_id=event.event_id,
             scheduled_time=event.scheduled_time,
-            status="executed",
-            message=f"Conversation {', '.join(updates)}",
+            status=event.status.value,
+            message=(
+                f"Conversation {', '.join(updates)}"
+                if not event.error_message
+                else f"Failed to update conversation: {event.error_message}"
+            ),
             modality="sms",
         )
     except HTTPException:

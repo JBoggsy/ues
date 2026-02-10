@@ -371,8 +371,12 @@ async def send_chat_message(
         return ModalityActionResponse(
             event_id=event.event_id,
             scheduled_time=event.scheduled_time,
-            status="executed",
-            message=f"Chat message sent from {request.role}",
+            status=event.status.value,
+            message=(
+                f"Chat message sent from {request.role}"
+                if not event.error_message
+                else f"Failed to send chat message: {event.error_message}"
+            ),
             modality="chat",
         )
     except Exception as e:
@@ -421,8 +425,12 @@ async def delete_chat_message(
         return ModalityActionResponse(
             event_id=event.event_id,
             scheduled_time=event.scheduled_time,
-            status="executed",
-            message=f"Deleted message {request.message_id}",
+            status=event.status.value,
+            message=(
+                f"Deleted message {request.message_id}"
+                if not event.error_message
+                else f"Failed to delete message: {event.error_message}"
+            ),
             modality="chat",
         )
     except Exception as e:
@@ -471,8 +479,12 @@ async def clear_conversation(
         return ModalityActionResponse(
             event_id=event.event_id,
             scheduled_time=event.scheduled_time,
-            status="executed",
-            message=f"Cleared conversation {request.conversation_id}",
+            status=event.status.value,
+            message=(
+                f"Cleared conversation {request.conversation_id}"
+                if not event.error_message
+                else f"Failed to clear conversation: {event.error_message}"
+            ),
             modality="chat",
         )
     except Exception as e:

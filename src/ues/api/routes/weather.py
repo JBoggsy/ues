@@ -297,8 +297,12 @@ async def update_weather(
         return ModalityActionResponse(
             event_id=event.event_id,
             scheduled_time=event.scheduled_time,
-            status="executed",
-            message=f"Weather updated for location ({request.latitude}, {request.longitude})",
+            status=event.status.value,
+            message=(
+                f"Weather updated for location ({request.latitude}, {request.longitude})"
+                if not event.error_message
+                else f"Failed to update weather: {event.error_message}"
+            ),
             modality="weather",
         )
     except ValidationError as e:

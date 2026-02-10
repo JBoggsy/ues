@@ -509,8 +509,12 @@ async def send_email(
         return ModalityActionResponse(
             event_id=event.event_id,
             scheduled_time=event.scheduled_time,
-            status="executed",
-            message="Email sent successfully",
+            status=event.status.value,
+            message=(
+                "Email sent successfully"
+                if not event.error_message
+                else f"Failed to send email: {event.error_message}"
+            ),
             modality="email",
         )
     except Exception as e:
@@ -580,8 +584,12 @@ async def receive_email(
         return ModalityActionResponse(
             event_id=event.event_id,
             scheduled_time=event.scheduled_time,
-            status="executed",
-            message="Email received successfully",
+            status=event.status.value,
+            message=(
+                "Email received successfully"
+                if not event.error_message
+                else f"Failed to receive email: {event.error_message}"
+            ),
             modality="email",
         )
     except Exception as e:
@@ -629,8 +637,12 @@ async def mark_emails_read(
         return ModalityActionResponse(
             event_id=event.event_id,
             scheduled_time=event.scheduled_time,
-            status="executed",
-            message=f"Marked {len(request.message_ids)} email(s) as read",
+            status=event.status.value,
+            message=(
+                f"Marked {len(request.message_ids)} email(s) as read"
+                if not event.error_message
+                else f"Failed to mark emails as read: {event.error_message}"
+            ),
             modality="email",
         )
     except Exception as e:
@@ -678,8 +690,12 @@ async def mark_emails_unread(
         return ModalityActionResponse(
             event_id=event.event_id,
             scheduled_time=event.scheduled_time,
-            status="executed",
-            message=f"Marked {len(request.message_ids)} email(s) as unread",
+            status=event.status.value,
+            message=(
+                f"Marked {len(request.message_ids)} email(s) as unread"
+                if not event.error_message
+                else f"Failed to mark emails as unread: {event.error_message}"
+            ),
             modality="email",
         )
     except Exception as e:
@@ -727,8 +743,12 @@ async def star_emails(
         return ModalityActionResponse(
             event_id=event.event_id,
             scheduled_time=event.scheduled_time,
-            status="executed",
-            message=f"Starred {len(request.message_ids)} email(s)",
+            status=event.status.value,
+            message=(
+                f"Starred {len(request.message_ids)} email(s)"
+                if not event.error_message
+                else f"Failed to star emails: {event.error_message}"
+            ),
             modality="email",
         )
     except Exception as e:
@@ -776,8 +796,12 @@ async def unstar_emails(
         return ModalityActionResponse(
             event_id=event.event_id,
             scheduled_time=event.scheduled_time,
-            status="executed",
-            message=f"Unstarred {len(request.message_ids)} email(s)",
+            status=event.status.value,
+            message=(
+                f"Unstarred {len(request.message_ids)} email(s)"
+                if not event.error_message
+                else f"Failed to unstar emails: {event.error_message}"
+            ),
             modality="email",
         )
     except Exception as e:
@@ -825,8 +849,12 @@ async def archive_emails(
         return ModalityActionResponse(
             event_id=event.event_id,
             scheduled_time=event.scheduled_time,
-            status="executed",
-            message=f"Archived {len(request.message_ids)} email(s)",
+            status=event.status.value,
+            message=(
+                f"Archived {len(request.message_ids)} email(s)"
+                if not event.error_message
+                else f"Failed to archive emails: {event.error_message}"
+            ),
             modality="email",
         )
     except Exception as e:
@@ -874,8 +902,12 @@ async def delete_emails(
         return ModalityActionResponse(
             event_id=event.event_id,
             scheduled_time=event.scheduled_time,
-            status="executed",
-            message=f"Deleted {len(request.message_ids)} email(s)",
+            status=event.status.value,
+            message=(
+                f"Deleted {len(request.message_ids)} email(s)"
+                if not event.error_message
+                else f"Failed to delete emails: {event.error_message}"
+            ),
             modality="email",
         )
     except Exception as e:
@@ -924,8 +956,12 @@ async def add_labels_to_emails(
         return ModalityActionResponse(
             event_id=event.event_id,
             scheduled_time=event.scheduled_time,
-            status="executed",
-            message=f"Added {len(request.labels)} label(s) to {len(request.message_ids)} email(s)",
+            status=event.status.value,
+            message=(
+                f"Added {len(request.labels)} label(s) to {len(request.message_ids)} email(s)"
+                if not event.error_message
+                else f"Failed to add labels: {event.error_message}"
+            ),
             modality="email",
         )
     except Exception as e:
@@ -974,8 +1010,12 @@ async def remove_labels_from_emails(
         return ModalityActionResponse(
             event_id=event.event_id,
             scheduled_time=event.scheduled_time,
-            status="executed",
-            message=f"Removed {len(request.labels)} label(s) from {len(request.message_ids)} email(s)",
+            status=event.status.value,
+            message=(
+                f"Removed {len(request.labels)} label(s) from {len(request.message_ids)} email(s)"
+                if not event.error_message
+                else f"Failed to remove labels: {event.error_message}"
+            ),
             modality="email",
         )
     except Exception as e:
@@ -1024,8 +1064,12 @@ async def move_emails(
         return ModalityActionResponse(
             event_id=event.event_id,
             scheduled_time=event.scheduled_time,
-            status="executed",
-            message=f"Moved {len(request.message_ids)} email(s) to {request.folder}",
+            status=event.status.value,
+            message=(
+                f"Moved {len(request.message_ids)} email(s) to {request.folder}"
+                if not event.error_message
+                else f"Failed to move emails: {event.error_message}"
+            ),
             modality="email",
         )
     except Exception as e:
