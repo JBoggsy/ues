@@ -140,8 +140,9 @@ event = client.events.create(
     modality="email",
     data={"action": "receive", "from_address": "...", ...},
     priority=50,
+    agent_id="optional-agent-id",  # Optional: defaults to API key's key_id
 )
-# Returns: EventResponse(event_id, scheduled_time, modality, status, priority, created_at, ...)
+# Returns: EventResponse(event_id, scheduled_time, modality, status, priority, created_at, agent_id, ...)
 
 # Create immediate event
 event = client.events.create_immediate(modality="email", data={...})
