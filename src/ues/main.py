@@ -261,7 +261,7 @@ async def root():
     """
     return {
         "message": "Welcome to the User Environment Simulator API",
-        "version": "0.2.1",
+        "version": "0.3.0",
         "docs_url": "/docs",
     }
 

@@ -2,13 +2,13 @@
 
 ## Test Suite Summary
 
-**Total Tests: 3,595 passing** | Run: `uv run pytest`
+**Total Tests: 3,720 passing** | Run: `uv run pytest`
 
 | Category | Tests | Location |
 |----------|-------|----------|
 | Model Tests | 1,499 | `tests/models/` |
-| API Tests | 1,437 | `tests/api/` |
-| Client Tests | 546 | `tests/client/` |
+| API Tests | 1,442 | `tests/api/` |
+| Client Tests | 671 | `tests/client/` |
 | Agent Testing | 108 | `tests/agent_testing/` |
 
 Note: 3 websocket concurrency tests have known flakiness issues with httpx-ws/anyio library.
@@ -17,13 +17,8 @@ Note: 3 websocket concurrency tests have known flakiness issues with httpx-ws/an
 
 ## 🐛 Bugs
 
-### Confirmed
-- [x] **Hardcoded `status="executed"` in all modality route handlers** — Fixed across all modalities. All `ModalityActionResponse` returns now use `event.status.value` and include conditional error messages via `event.error_message`. Fixed in: email (11 instances), SMS (7), chat (3), weather (1), location (1). Calendar was fixed previously.
-
 ### Needs Investigation
-- [x] **SMS client/server model field mismatches** — Fixed 11 discrepancies between `src/ues/client/_sms.py` and `src/ues/models/modalities/sms_state.py`. Critical: renamed `SMSMessage.received_at` → `delivered_at` to match server. High: added `MessageAttachment.attachment_id`, `MessageReaction.reaction_id`/`message_id`; removed `SMSConversation.is_group` field (server has it as method), removed `SMSConversation.message_ids`. Medium: added `SMSMessage.edited_at`, `GroupParticipant.left_at`. Low: removed `SMSMessage.deleted_at` (server-only tracks via `is_deleted` bool), removed `GroupParticipant.display_name` (server resolves via Contacts), removed `SMSMessage.direction` default (server requires explicit value).
 - [ ] **Email client `participant_addresses` type mismatch** — Server uses `set[str]`, client uses `list[str]`. Low severity (JSON arrays round-trip fine) but could cause duplicate-handling differences.
-- [x] **Audit all client models against server models** — Completed 2026-02-10. Found 41 mismatches across 6 modalities (6 Critical, 4 High, 16 Medium, 15 Low). Calendar modality is worst: `Attachment`, `RecurrenceRule`, and `RecurrenceScope` are fundamentally incompatible with server schemas. See `docs/client/CLIENT_SERVER_AUDIT.md` for full findings and `docs/client/CLIENT_SERVER_REMEDIATION_PLAN.md` for fix plan.
 
 ---
 

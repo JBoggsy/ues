@@ -7,7 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-02-10
+
 ### Added
+- **Programmatic admin key retrieval** - Admin API key can now be pre-set or exported at startup via environment variables and CLI flags. `UES_ADMIN_KEY` sets a deterministic admin key (minimum 32 chars). `UES_ADMIN_KEY_FILE` writes the admin key credentials as JSON to a specified file path. CLI flags `--admin-key` and `--admin-key-file` provide the same functionality. Enables automated deployments and CI pipelines without parsing console output.
 - **Client/server drift prevention test infrastructure (Phase 5)** - Added 91 new automated tests to catch future client/server model divergence:
   - **Schema sync tests** (`tests/client/test_model_schema_sync.py`, 35 tests): Automated field-by-field comparison of client vs server Pydantic models. Compares field names, types (with normalization for `Union` ↔ `|`, `set` ↔ `list`, bare generics), optionality, and defaults. Covers Email (4), SMS (5), Calendar (6), Chat (2), Weather (9) modalities plus 9 meta-tests for the comparison utility itself.
   - **Round-trip deserialization tests** (`tests/client/test_roundtrip.py`, 33 tests): Constructs server model instances with realistic data, serializes via `model_dump(mode="json")`, deserializes into client models, and asserts every field value is preserved. Covers all model pairs including nested sub-models (attachments, attendees, recurrence rules, reactions, weather forecast layers). Includes edge case tests for empty collections, None optional fields, and minimal instances.
@@ -20,6 +23,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - All four compact models exported from `ues.client` and added to `__all__`.
   - Tests added for both sync and async compact state calls across all four modalities.
 - **Calendar respond tests** - Added comprehensive tests in `tests/api/modalities/calendar/test_calendar_respond.py` covering all response statuses, comments, multi-attendee targeting, and sequential response changes.
+
+### Removed
+- **Real weather / OpenWeather API integration** - Removed the `httpx` dependency and all OpenWeather API client code from `WeatherState`. Weather data is now exclusively managed through simulation inputs. This simplifies the weather modality and removes external service dependencies. The `use_real_data` and `api_key` fields were removed from weather state and route configuration.
 
 ### Fixed
 - **Client/server Email, Weather, Location model remediation (Phase 3)** - Fixed 10 mismatches between client and server models for Email, Weather, and Location modalities. All changes are in `src/ues/client/_email.py`, `src/ues/client/_weather.py`, `src/ues/client/_location.py`, and corresponding test files:
@@ -63,7 +69,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `MessageAttachment.attachment_id` added (`str | None`, server-generated UUID for each attachment)
   - `MessageReaction.reaction_id` added (`str | None`, needed for `remove_reaction` operations)
   - `MessageReaction.message_id` added (`str | None`, identifies which message the reaction belongs to)
-- **Calendar route handlers now use actual event status** - All four calendar action endpoints (`/create`, `/update`, `/delete`, `/respond`) previously returned hardcoded `status="executed"` in `ModalityActionResponse` regardless of whether the underlying `SimulatorEvent.execute()` succeeded. Now uses `event.status.value` so failures are properly reported to callers.
+- **All modality route handlers now use actual event status** - All modality action endpoints across calendar (`/create`, `/update`, `/delete`, `/respond`), email (`/send`, `/receive`, `/read`, `/star`, `/archive`, `/delete`, `/move`, `/label`, `/mark-spam`, `/reply`, `/forward`), SMS (`/send`, `/receive`, `/read`, `/delete`, `/react`, `/remove-reaction`), chat (`/send`, `/start`, `/add-participant`), location (`/update`), and weather (`/update`) previously returned hardcoded `status="executed"` in `ModalityActionResponse` regardless of whether the underlying `SimulatorEvent.execute()` succeeded. Now uses `event.status.value` so failures are properly reported to callers.
 - **EventResponse now includes agent_id field** - The `agent_id` field is now returned in API responses for event endpoints (`GET /events`, `POST /events`, `GET /events/{event_id}`, `GET /events/next`, `POST /events/immediate`). Previously, `agent_id` was accepted on event creation but not included in responses, making it impossible to filter or attribute events by agent.
 
 ## [0.2.1] - 2026-01-29
@@ -190,7 +196,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - React 18 + TypeScript + Vite for modern web UI
 - 1,242+ tests with comprehensive coverage
 
-[Unreleased]: https://github.com/JBoggsy/ues/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/JBoggsy/ues/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/JBoggsy/ues/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/JBoggsy/ues/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/JBoggsy/ues/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/JBoggsy/ues/releases/tag/v0.1.0
