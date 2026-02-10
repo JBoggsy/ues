@@ -8,9 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **Calendar respond test** - Added `tests/api/modalities/calendar/test_calendar_respond.py` to verify `POST /calendar/respond` correctly updates attendee status in state.
+- **Calendar respond tests** - Added comprehensive tests in `tests/api/modalities/calendar/test_calendar_respond.py` covering all response statuses, comments, multi-attendee targeting, and sequential response changes.
 
 ### Fixed
+- **Calendar respond now updates attendee status** - `POST /calendar/respond` now correctly persists the attendee's `response_status` in `CalendarState`. Previously, the endpoint returned `status='executed'` but the state was never updated because `CalendarState.create_undo_data()` did not handle the `respond` operation, causing `SimulatorEvent.execute()` to silently fail before reaching `apply_input()`. Added `respond` handling to both `create_undo_data()` and `apply_undo()`.
 - **EventResponse now includes agent_id field** - The `agent_id` field is now returned in API responses for event endpoints (`GET /events`, `POST /events`, `GET /events/{event_id}`, `GET /events/next`, `POST /events/immediate`). Previously, `agent_id` was accepted on event creation but not included in responses, making it impossible to filter or attribute events by agent.
 
 ## [0.2.1] - 2026-01-29

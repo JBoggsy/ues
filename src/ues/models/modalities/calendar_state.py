@@ -1299,6 +1299,44 @@ class CalendarState(ModalityState):
                     "previous_calendar_updated_at": previous_calendar_updated_at,
                 }
 
+        elif input_data.operation == "respond":
+            event_id = input_data.event_id
+            if event_id not in self.events:
+                return {
+                    **base_undo,
+                    "action": "noop",
+                }
+
+            event = self.events[event_id]
+
+            # Find the attendee and store their previous response state
+            previous_response = None
+            previous_comment = None
+            for attendee in event.attendees:
+                if (
+                    attendee.email.lower()
+                    == input_data.attendee_email.lower()
+                ):
+                    previous_response = attendee.response
+                    previous_comment = attendee.comment
+                    break
+
+            if previous_response is None:
+                # Attendee not found - respond will fail, undo is noop
+                return {
+                    **base_undo,
+                    "action": "noop",
+                }
+
+            return {
+                **base_undo,
+                "action": "restore_attendee_response",
+                "event_id": event_id,
+                "attendee_email": input_data.attendee_email,
+                "previous_response": previous_response,
+                "previous_comment": previous_comment,
+            }
+
         elif input_data.operation == "delete":
             event_id = input_data.event_id
             if event_id not in self.events:
@@ -1553,6 +1591,29 @@ class CalendarState(ModalityState):
                     self.calendars[calendar_id].updated_at = datetime.fromisoformat(
                         prev_updated.replace("Z", "+00:00")
                     )
+
+        elif action == "restore_attendee_response":
+            event_id = undo_data.get("event_id")
+            if not event_id:
+                raise ValueError("Undo data missing 'event_id' field")
+
+            attendee_email = undo_data.get("attendee_email")
+            if not attendee_email:
+                raise ValueError("Undo data missing 'attendee_email' field")
+
+            if event_id not in self.events:
+                raise RuntimeError(
+                    f"Cannot undo: event '{event_id}' not found"
+                )
+
+            event = self.events[event_id]
+            for attendee in event.attendees:
+                if attendee.email.lower() == attendee_email.lower():
+                    attendee.response = undo_data.get(
+                        "previous_response", "needs-action"
+                    )
+                    attendee.comment = undo_data.get("previous_comment")
+                    break
 
         else:
             raise ValueError(f"Unknown undo action: {action}")

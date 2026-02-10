@@ -365,7 +365,7 @@ assert restored_snapshot["total_message_count"] == original_snapshot["total_mess
 | **Weather** | Add/update location | Add: store location_key. Update: store full previous report + metadata |
 | **Chat** | send/delete/clear | send: store message_id + was_new_conversation flag + capacity overflow. delete: store full message. clear: store ALL messages + metadata |
 | **Email** | Add/move/delete email | Add: store email_id. Delete/move: store full email + original folder |
-| **Calendar** | Create/update/delete event | Create: store event_id + was_new_calendar. Update: store full previous event + handle recurring splits. Delete: store full event + handle recurring exceptions |
+| **Calendar** | Create/update/delete/respond event | Create: store event_id + was_new_calendar. Update: store full previous event + handle recurring splits. Delete: store full event + handle recurring exceptions. Respond: store previous attendee response + comment |
 | **SMS** | Send/receive/delete | Send/receive: store message_id. Delete: store full message |
 
 **Rule of thumb**: The more destructive the operation, the more data needs to be captured.
@@ -411,7 +411,7 @@ For each modality:
 |----------|-----------------|------------|-------|-------|
 | Weather  | ✅ | ✅ | ✅ 20 tests | First implementation, established patterns |
 | Chat     | ✅ | ✅ | ✅ 29 tests | Multiple operations, no-op handling, bulk clear |
-| Calendar | ✅ | ✅ | ✅ 29 tests | Recurring events with scope variations (this/this_and_future/all) |
+| Calendar | ✅ | ✅ | ✅ 29 tests | Recurring events with scope variations (this/this_and_future/all), respond operation stores previous attendee response+comment |
 | Location | ✅ | ✅ | ✅ 19 tests | Single operation type, history capacity handling |
 | Time     | ✅ | ✅ | ✅ 17 tests | Single operation type, always has defaults so always creates history |
 | Email    | ✅ | ✅ | ✅ 40 tests | 19 operation types, bulk operations, thread restoration, label cleanup |
