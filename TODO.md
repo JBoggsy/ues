@@ -2,13 +2,13 @@
 
 ## Test Suite Summary
 
-**Total Tests: 3,560 passing** | Run: `uv run pytest`
+**Total Tests: 3,590 passing** | Run: `uv run pytest`
 
 | Category | Tests | Location |
 |----------|-------|----------|
-| Model Tests | 1,502 | `tests/models/` |
-| API Tests | 1,408 | `tests/api/` |
-| Client Tests | 542 | `tests/client/` |
+| Model Tests | 1,499 | `tests/models/` |
+| API Tests | 1,437 | `tests/api/` |
+| Client Tests | 546 | `tests/client/` |
 | Agent Testing | 108 | `tests/agent_testing/` |
 
 Note: 3 websocket concurrency tests have known flakiness issues with httpx-ws/anyio library.

@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Calendar respond test** - Added `tests/api/modalities/calendar/test_calendar_respond.py` to verify `POST /calendar/respond` correctly updates attendee status in state.
+
 ### Fixed
 - **EventResponse now includes agent_id field** - The `agent_id` field is now returned in API responses for event endpoints (`GET /events`, `POST /events`, `GET /events/{event_id}`, `GET /events/next`, `POST /events/immediate`). Previously, `agent_id` was accepted on event creation but not included in responses, making it impossible to filter or attribute events by agent.
 

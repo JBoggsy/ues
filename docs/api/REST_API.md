@@ -692,7 +692,8 @@ All action endpoints return a standard structure:
   "scheduled_time": "2024-03-15T14:30:00Z",
   "status": "completed",
   "message": "Email sent successfully",
-  "modality": "email"
+  "modality": "email",
+  "agent_id": "my-agent-id"
 }
 ```
 
