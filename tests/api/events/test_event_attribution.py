@@ -756,3 +756,183 @@ class TestAttributionEdgeCases:
         assert event.metadata["created_by_key"] == admin_key_id
         # Other user metadata should still be there
         assert event.metadata["other_field"] == "value"
+
+
+class TestEventResponseAgentId:
+    """Tests verifying agent_id is returned in EventResponse.
+    
+    These tests verify the fix for the bug where agent_id was accepted
+    on event creation but not returned in the EventResponse model.
+    """
+    
+    def test_create_event_response_includes_agent_id(self, client_with_engine):
+        """POST /events response should include agent_id field."""
+        client, _ = client_with_engine
+        
+        time_response = client.get("/simulator/time")
+        current_time = datetime.fromisoformat(time_response.json()["current_time"])
+        
+        custom_agent_id = "purple-agent-123"
+        
+        event_time = current_time + timedelta(hours=1)
+        response = client.post(
+            "/events",
+            json=make_event_request(
+                event_time,
+                "chat",
+                chat_event_data(content="Test response includes agent_id"),
+                agent_id=custom_agent_id,
+            ),
+        )
+        
+        assert response.status_code == 200
+        data = response.json()
+        
+        # agent_id should be in the response
+        assert "agent_id" in data
+        assert data["agent_id"] == custom_agent_id
+    
+    def test_create_event_response_includes_default_agent_id(self, client_with_engine):
+        """POST /events response should include agent_id when defaulted."""
+        client, _ = client_with_engine
+        
+        time_response = client.get("/simulator/time")
+        current_time = datetime.fromisoformat(time_response.json()["current_time"])
+        
+        keys_response = client.get("/keys")
+        admin_key_id = keys_response.json()["keys"][0]["key_id"]
+        
+        event_time = current_time + timedelta(hours=1)
+        response = client.post(
+            "/events",
+            json=make_event_request(
+                event_time,
+                "chat",
+                chat_event_data(content="Test default agent_id in response"),
+            ),
+        )
+        
+        assert response.status_code == 200
+        data = response.json()
+        
+        # agent_id should be in the response (defaulted to API key's key_id)
+        assert "agent_id" in data
+        assert data["agent_id"] == admin_key_id
+    
+    def test_immediate_event_response_includes_agent_id(self, client_with_engine):
+        """POST /events/immediate response should include agent_id field."""
+        client, _ = client_with_engine
+        
+        keys_response = client.get("/keys")
+        admin_key_id = keys_response.json()["keys"][0]["key_id"]
+        
+        response = client.post(
+            "/events/immediate",
+            json={
+                "modality": "chat",
+                "data": chat_event_data(content="Test immediate response"),
+            },
+        )
+        
+        assert response.status_code == 200
+        data = response.json()
+        
+        # agent_id should be in the response
+        assert "agent_id" in data
+        assert data["agent_id"] == admin_key_id
+    
+    def test_get_event_response_includes_agent_id(self, client_with_engine):
+        """GET /events/{event_id} response should include agent_id field."""
+        client, _ = client_with_engine
+        
+        time_response = client.get("/simulator/time")
+        current_time = datetime.fromisoformat(time_response.json()["current_time"])
+        
+        custom_agent_id = "test-agent-for-get"
+        
+        event_time = current_time + timedelta(hours=1)
+        create_response = client.post(
+            "/events",
+            json=make_event_request(
+                event_time,
+                "chat",
+                chat_event_data(content="Test GET includes agent_id"),
+                agent_id=custom_agent_id,
+            ),
+        )
+        
+        event_id = create_response.json()["event_id"]
+        
+        # GET the event
+        get_response = client.get(f"/events/{event_id}")
+        assert get_response.status_code == 200
+        data = get_response.json()
+        
+        # agent_id should be in the response
+        assert "agent_id" in data
+        assert data["agent_id"] == custom_agent_id
+    
+    def test_list_events_response_includes_agent_id(self, client_with_engine):
+        """GET /events response should include agent_id in each event."""
+        client, _ = client_with_engine
+        
+        time_response = client.get("/simulator/time")
+        current_time = datetime.fromisoformat(time_response.json()["current_time"])
+        
+        custom_agent_id = "test-agent-for-list"
+        
+        event_time = current_time + timedelta(hours=1)
+        client.post(
+            "/events",
+            json=make_event_request(
+                event_time,
+                "chat",
+                chat_event_data(content="Test LIST includes agent_id"),
+                agent_id=custom_agent_id,
+            ),
+        )
+        
+        # List events
+        list_response = client.get("/events")
+        assert list_response.status_code == 200
+        data = list_response.json()
+        
+        # Find our event and check agent_id
+        assert len(data["events"]) >= 1
+        found = False
+        for event in data["events"]:
+            if event.get("agent_id") == custom_agent_id:
+                found = True
+                break
+        
+        assert found, "Event with agent_id not found in list response"
+    
+    def test_next_event_response_includes_agent_id(self, client_with_engine):
+        """GET /events/next response should include agent_id field."""
+        client, _ = client_with_engine
+        
+        time_response = client.get("/simulator/time")
+        current_time = datetime.fromisoformat(time_response.json()["current_time"])
+        
+        custom_agent_id = "test-agent-for-next"
+        
+        # Create an event that will be next
+        event_time = current_time + timedelta(hours=1)
+        client.post(
+            "/events",
+            json=make_event_request(
+                event_time,
+                "chat",
+                chat_event_data(content="Test NEXT includes agent_id"),
+                agent_id=custom_agent_id,
+            ),
+        )
+        
+        # Get next event
+        next_response = client.get("/events/next")
+        assert next_response.status_code == 200
+        data = next_response.json()
+        
+        # agent_id should be in the response
+        assert "agent_id" in data
+        assert data["agent_id"] == custom_agent_id

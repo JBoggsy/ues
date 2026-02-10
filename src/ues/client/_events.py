@@ -33,6 +33,7 @@ class EventResponse(BaseModel):
         executed_at: When the event was executed (if applicable).
         error_message: Error details if execution failed.
         data: The event payload (ModalityInput data).
+        agent_id: ID of agent that created this event (if applicable).
     """
 
     event_id: str
@@ -44,6 +45,7 @@ class EventResponse(BaseModel):
     executed_at: datetime | None = None
     error_message: str | None = None
     data: dict[str, Any] | None = None
+    agent_id: str | None = None
 
 
 class EventListResponse(BaseModel):

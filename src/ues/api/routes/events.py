@@ -141,6 +141,7 @@ class EventResponse(BaseModel):
         executed_at: When the event was executed (if applicable).
         error_message: Error details if execution failed.
         data: The event payload (ModalityInput data).
+        agent_id: ID of agent that created this event (if applicable).
     """
 
     event_id: str
@@ -152,6 +153,7 @@ class EventResponse(BaseModel):
     data: dict[str, Any] = None
     executed_at: Optional[datetime] = None
     error_message: Optional[str] = None
+    agent_id: Optional[str] = None
 
 
 class EventListResponse(BaseModel):
@@ -370,6 +372,7 @@ async def list_events(
             executed_at=e.executed_at,
             error_message=e.error_message,
             data=e.data.model_dump(),
+            agent_id=e.agent_id,
         )
         for e in events
     ]
@@ -477,6 +480,7 @@ async def create_event(
             created_at=event.created_at,
             executed_at=event.executed_at,
             error_message=event.error_message,
+            agent_id=event.agent_id,
         )
     except HTTPException:
         raise
@@ -562,6 +566,7 @@ async def create_immediate_event(
             created_at=event.created_at,
             executed_at=event.executed_at,
             error_message=event.error_message,
+            agent_id=event.agent_id,
         )
     except HTTPException:
         raise
@@ -794,6 +799,7 @@ async def peek_next_event(
         created_at=next_event.created_at,
         executed_at=next_event.executed_at,
         error_message=next_event.error_message,
+        agent_id=next_event.agent_id,
     )
 
 
@@ -896,6 +902,7 @@ async def get_event(
         executed_at=event.executed_at,
         error_message=event.error_message,
         data=event_data,
+        agent_id=event.agent_id,
     )
 
 
