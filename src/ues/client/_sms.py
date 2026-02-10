@@ -28,6 +28,7 @@ class MessageAttachment(BaseModel):
         filename: Original filename.
         size: File size in bytes.
         mime_type: MIME type of the attachment.
+        attachment_id: Unique identifier (auto-generated UUID on server).
         thumbnail_url: Optional thumbnail URL for images/videos.
         duration: Optional duration in seconds for audio/video.
     """
@@ -35,6 +36,7 @@ class MessageAttachment(BaseModel):
     filename: str
     size: int
     mime_type: str
+    attachment_id: str | None = None
     thumbnail_url: str | None = None
     duration: int | None = None
 
@@ -43,11 +45,15 @@ class MessageReaction(BaseModel):
     """Represents a reaction to a message.
     
     Attributes:
+        reaction_id: Unique reaction identifier (UUID).
+        message_id: ID of message being reacted to.
         emoji: The emoji character(s) used for the reaction.
         phone_number: Phone number of the person who reacted.
         timestamp: When the reaction was added.
     """
 
+    reaction_id: str | None = None
+    message_id: str | None = None
     emoji: str
     phone_number: str
     timestamp: datetime
@@ -65,15 +71,15 @@ class SMSMessage(BaseModel):
         message_type: "sms" or "rcs".
         direction: "incoming" or "outgoing".
         sent_at: When the message was sent.
-        received_at: When the message was received (for incoming).
+        delivered_at: When the message was delivered (outgoing messages).
         is_read: Whether the message has been read.
         read_at: When the message was read.
         delivery_status: Delivery status (sending, sent, delivered, failed, read).
+        edited_at: When message was edited (RCS only).
         attachments: Media/file attachments.
         reactions: Reactions to the message (RCS only).
         replied_to_message_id: ID of message being replied to.
         is_deleted: Whether the message is deleted.
-        deleted_at: When the message was deleted.
         is_spam: Whether the message is marked as spam.
     """
 
@@ -83,17 +89,17 @@ class SMSMessage(BaseModel):
     to_numbers: list[str]
     body: str
     message_type: str = "sms"
-    direction: str = "outgoing"
+    direction: str
     sent_at: datetime
-    received_at: datetime | None = None
+    delivered_at: datetime | None = None
     is_read: bool = False
     read_at: datetime | None = None
     delivery_status: str = "sent"
+    edited_at: datetime | None = None
     attachments: list[MessageAttachment] = Field(default_factory=list)
     reactions: list[MessageReaction] = Field(default_factory=list)
     replied_to_message_id: str | None = None
     is_deleted: bool = False
-    deleted_at: datetime | None = None
     is_spam: bool = False
 
 
@@ -102,15 +108,15 @@ class GroupParticipant(BaseModel):
     
     Attributes:
         phone_number: Participant's phone number.
-        display_name: Optional display name.
-        joined_at: When the participant joined.
         is_admin: Whether the participant is a group admin.
+        joined_at: When the participant joined.
+        left_at: When the participant left group, if applicable.
     """
 
     phone_number: str
-    display_name: str | None = None
-    joined_at: datetime
     is_admin: bool = False
+    joined_at: datetime
+    left_at: datetime | None = None
 
 
 class SMSConversation(BaseModel):
@@ -120,10 +126,8 @@ class SMSConversation(BaseModel):
         thread_id: Unique thread identifier.
         conversation_type: Type of conversation ("one_on_one" or "group").
         participants: All participants in conversation (as GroupParticipant objects).
-        is_group: Whether this is a group conversation.
         group_name: Name of the group (if group conversation).
         group_photo_url: URL to group icon/photo.
-        message_ids: List of message IDs in this conversation.
         created_at: When the conversation started.
         created_by: Phone number of conversation creator (for groups).
         last_message_at: When the last message was sent/received.
@@ -138,10 +142,8 @@ class SMSConversation(BaseModel):
     thread_id: str
     conversation_type: str = "one_on_one"
     participants: list[GroupParticipant] = Field(default_factory=list)
-    is_group: bool = False
     group_name: str | None = None
     group_photo_url: str | None = None
-    message_ids: list[str] = Field(default_factory=list)
     created_at: datetime
     created_by: str | None = None
     last_message_at: datetime

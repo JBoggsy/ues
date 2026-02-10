@@ -37,13 +37,26 @@ class TestMessageAttachment:
             filename="photo.jpg",
             size=2048,
             mime_type="image/jpeg",
+            attachment_id="att-123",
             thumbnail_url="https://example.com/thumb.jpg",
             duration=None,
         )
         assert attachment.filename == "photo.jpg"
         assert attachment.size == 2048
         assert attachment.mime_type == "image/jpeg"
+        assert attachment.attachment_id == "att-123"
         assert attachment.thumbnail_url == "https://example.com/thumb.jpg"
+
+    def test_instantiation_with_defaults(self):
+        """Test creating a MessageAttachment with only required fields."""
+        attachment = MessageAttachment(
+            filename="doc.pdf",
+            size=1024,
+            mime_type="application/pdf",
+        )
+        assert attachment.attachment_id is None
+        assert attachment.thumbnail_url is None
+        assert attachment.duration is None
 
     def test_instantiation_video(self):
         """Test creating a video attachment with duration."""
@@ -61,14 +74,28 @@ class TestMessageReaction:
     """Tests for the MessageReaction model."""
 
     def test_instantiation(self):
-        """Test creating a MessageReaction."""
+        """Test creating a MessageReaction with all fields."""
         reaction = MessageReaction(
+            reaction_id="react-123",
+            message_id="sms-456",
             emoji="👍",
             phone_number="+1234567890",
             timestamp=datetime(2025, 1, 15, 10, 0, tzinfo=timezone.utc),
         )
+        assert reaction.reaction_id == "react-123"
+        assert reaction.message_id == "sms-456"
         assert reaction.emoji == "👍"
         assert reaction.phone_number == "+1234567890"
+
+    def test_instantiation_with_defaults(self):
+        """Test creating a MessageReaction with only required fields."""
+        reaction = MessageReaction(
+            emoji="❤️",
+            phone_number="+1234567890",
+            timestamp=datetime(2025, 1, 15, 10, 0, tzinfo=timezone.utc),
+        )
+        assert reaction.reaction_id is None
+        assert reaction.message_id is None
 
 
 class TestSMSMessage:
@@ -85,21 +112,23 @@ class TestSMSMessage:
             message_type="rcs",
             direction="outgoing",
             sent_at=datetime(2025, 1, 15, 10, 0, tzinfo=timezone.utc),
-            received_at=datetime(2025, 1, 15, 10, 1, tzinfo=timezone.utc),
+            delivered_at=datetime(2025, 1, 15, 10, 1, tzinfo=timezone.utc),
             is_read=True,
             read_at=datetime(2025, 1, 15, 10, 2, tzinfo=timezone.utc),
             delivery_status="delivered",
+            edited_at=None,
             attachments=[],
             reactions=[],
             replied_to_message_id="sms-100",
             is_deleted=False,
-            deleted_at=None,
             is_spam=False,
         )
         assert message.message_id == "sms-123"
         assert message.message_type == "rcs"
         assert message.direction == "outgoing"
         assert message.delivery_status == "delivered"
+        assert message.delivered_at is not None
+        assert message.edited_at is None
 
     def test_instantiation_with_defaults(self):
         """Test creating an SMSMessage with only required fields."""
@@ -109,13 +138,15 @@ class TestSMSMessage:
             from_number="+1234567890",
             to_numbers=["+0987654321"],
             body="Hello!",
+            direction="outgoing",
             sent_at=datetime(2025, 1, 15, 10, 0, tzinfo=timezone.utc),
         )
         assert message.message_type == "sms"
-        assert message.direction == "outgoing"
         assert message.is_read is False
         assert message.delivery_status == "sent"
         assert message.is_deleted is False
+        assert message.delivered_at is None
+        assert message.edited_at is None
 
 
 class TestSMSConversation:
@@ -137,9 +168,7 @@ class TestSMSConversation:
                     joined_at=now,
                 ),
             ],
-            is_group=False,
             group_name=None,
-            message_ids=["sms-1", "sms-2"],
             created_at=now,
             last_message_at=datetime(2025, 1, 15, 12, 0, tzinfo=timezone.utc),
             message_count=2,
@@ -150,39 +179,38 @@ class TestSMSConversation:
         assert conversation.thread_id == "thread-123"
         assert len(conversation.participants) == 2
         assert conversation.message_count == 2
+        assert conversation.conversation_type == "one_on_one"
 
     def test_instantiation_group(self):
         """Test creating a group conversation."""
         now = datetime(2025, 1, 15, 10, 0, tzinfo=timezone.utc)
+        left_time = datetime(2025, 1, 16, 10, 0, tzinfo=timezone.utc)
         conversation = SMSConversation(
             thread_id="group-123",
             conversation_type="group",
             participants=[
                 GroupParticipant(
                     phone_number="+111",
-                    display_name="Alice",
                     joined_at=now,
                     is_admin=True,
                 ),
                 GroupParticipant(
                     phone_number="+222",
-                    display_name="Bob",
                     joined_at=now,
                 ),
                 GroupParticipant(
                     phone_number="+333",
-                    display_name="Carol",
                     joined_at=now,
+                    left_at=left_time,
                 ),
             ],
-            is_group=True,
             group_name="Friends Group",
-            message_ids=[],
             created_at=now,
             last_message_at=now,
         )
-        assert conversation.is_group is True
+        assert conversation.conversation_type == "group"
         assert conversation.group_name == "Friends Group"
+        assert conversation.participants[2].left_at == left_time
 
 
 class TestSMSStateResponse:
