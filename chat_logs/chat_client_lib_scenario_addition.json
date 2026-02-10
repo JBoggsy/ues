@@ -1,0 +1,388 @@
+{
+  "responderUsername": "GitHub Copilot",
+  "responderAvatarIconUri": {
+    "id": "copilot"
+  },
+  "initialLocation": "panel",
+  "requests": [
+    {
+      "requestId": "request_c9d1e330-0781-4107-9c0d-2698b75132de",
+      "message": {
+        "parts": [
+          {
+            "range": {
+              "start": 0,
+              "endExclusive": 85
+            },
+            "editorRange": {
+              "startLineNumber": 1,
+              "startColumn": 1,
+              "endLineNumber": 1,
+              "endColumn": 86
+            },
+            "text": "Commit the current codebase changes, which should add a `client.scenario` sub-client.",
+            "kind": "text"
+          }
+        ],
+        "text": "Commit the current codebase changes, which should add a `client.scenario` sub-client."
+      },
+      "variableData": {
+        "variables": [
+          {
+            "id": "vscode.prompt.instructions.root__vscode-remote://ssh-remote%2B104.139.64.56/home/boggsj/Coding/personal/ues/.github/copilot-instructions.md",
+            "name": "prompt:copilot-instructions.md",
+            "value": {
+              "$mid": 1,
+              "external": "vscode-remote://ssh-remote%2B104.139.64.56/home/boggsj/Coding/personal/ues/.github/copilot-instructions.md",
+              "path": "/home/boggsj/Coding/personal/ues/.github/copilot-instructions.md",
+              "scheme": "vscode-remote",
+              "authority": "ssh-remote+104.139.64.56"
+            },
+            "kind": "promptFile",
+            "modelDescription": "Prompt instructions file",
+            "isRoot": true,
+            "originLabel": "Automatically attached as setting github.copilot.chat.codeGeneration.useInstructionFiles is enabled",
+            "automaticallyAdded": true
+          }
+        ]
+      },
+      "response": [
+        {
+          "kind": "mcpServersStarting",
+          "didStartServerIds": []
+        },
+        {
+          "kind": "thinking",
+          "value": "The user wants me to commit the current codebase changes related to adding a `client.scenario` sub-client. I need to:\n1. Run `git diff` to see the changes\n2. Analyze the changes\n3. Generate a commit message\n4. Perform the git commit\n\nLet me start by getting the git diff.",
+          "id": "1769618952467",
+          "generatedTitle": "Ran git diff and analyzed changes"
+        },
+        {
+          "kind": "thinking",
+          "value": "",
+          "id": "",
+          "metadata": {
+            "vscodeReasoningDone": true,
+            "stopReason": "other"
+          }
+        },
+        {
+          "kind": "prepareToolInvocation",
+          "toolName": "run_in_terminal"
+        },
+        {
+          "kind": "toolInvocationSerialized",
+          "invocationMessage": "Using \"Run in Terminal\"",
+          "isConfirmed": {
+            "type": 1
+          },
+          "isComplete": true,
+          "source": {
+            "type": "internal",
+            "label": "Built-In"
+          },
+          "toolSpecificData": {
+            "kind": "terminal",
+            "terminalToolSessionId": "dd20dd1d-4516-48dc-8256-5bcc2efae2ee",
+            "terminalCommandId": "tool-fa18daa5-6ba9-49f6-907b-bada6e352c19",
+            "commandLine": {
+              "original": "cd /home/boggsj/Coding/personal/ues && git diff --stat && git diff",
+              "toolEdited": " cd /home/boggsj/Coding/personal/ues && git diff --stat && git diff"
+            },
+            "language": "sh",
+            "autoApproveInfo": {
+              "value": "Auto approved by rules [`cd (default)`](command:workbench.action.terminal.chat.openTerminalSettingsLink?%255B7%255D \"View rule in settings\"), [`/^git(\\s+(-C\\s+\\S+|--no-pager))*\\s+diff\\b/ (default)`](command:workbench.action.terminal.chat.openTerminalSettingsLink?%255B7%255D \"View rule in settings\")",
+              "isTrusted": {
+                "enabledCommands": [
+                  "workbench.action.terminal.chat.openTerminalSettingsLink"
+                ]
+              },
+              "supportThemeIcons": false,
+              "supportHtml": false,
+              "supportAlertSyntax": false
+            },
+            "terminalCommandState": {
+              "exitCode": 0,
+              "timestamp": 1769618956079,
+              "duration": 0
+            },
+            "terminalCommandUri": {
+              "$mid": 1,
+              "path": "/0cd45ef2607fe48f5d916aea105172a3/8",
+              "scheme": "vscode-terminal",
+              "query": "command=tool-fa18daa5-6ba9-49f6-907b-bada6e352c19"
+            },
+            "terminalCommandOutput": {
+              "text": " TODO.md                    |  2 \u001b[32m+\u001b[31m-\r\n\u001b[0m src/ues/client/__init__.py | 31 \u001b[32m+++++++++++++++++++++++++++++++\r\n\u001b[0m src/ues/client/client.py   | 41 \u001b[32m+++++++++++++++++++++++++++++++++++++++++\r\n\u001b[0m 3 files changed, 73 insertions(+), 1 deletion(-)\r\n\u001b[1mdiff --git a/TODO.md b/TODO.md\r\nindex 7191622..c887cee 100644\r\n--- a/TODO.md\r\n+++ b/TODO.md\r\n\u001b[36;22m@@ -172,7 +172,7 @@\u001b[0m async def main():\r\n ## 🚧 TODO: REST API\r\n \r\n ### Python Client Library\r\n\u001b[31m-- [ ] **Add `client.scenario` sub-client** - Wrap `/scenario/import/*` and `/scenario/export/*` endpoints\r\n\u001b[32m+- [x] ~~**Add `client.scenario` sub-client**~~ - Wraps `/scenario/import/*` and `/scenario/export/*` endpoints\r\n\u001b[0m   - [ ] Update `examples/agents/simple_email_summary/agent.py` to use `client.scenario` once implemented\r\n \r\n ### API Enhancements\r\n\u001b[1mdiff --git a/src/ues/client/__init__.py b/src/ues/client/__init__.py\r\nindex 8a7f6b3..eb762bc 100644\r\n--- a/src/ues/client/__init__.py\r\n+++ b/src/ues/client/__init__.py\r\n\u001b[36;22m@@ -66,6 +66,22 @@\u001b[0m from ues.client._email import (\r\n     EmailSummaryStateResponse,\r\n     EmailThread,\r\n )\r\n\u001b[32m+from ues.client._scenario import (\r\n+    AsyncScenarioClient,\r\n+    ExportedEnvironmentData,\r\n+    ExportedEventQueueData,\r\n+    ExportedScenarioData,\r\n+    ExportedTimeState,\r\n+    ExportEnvironmentResponse,\r\n+    ExportEventsResponse,\r\n+    ExportScenarioResponse,\r\n+    LoadedScenarioMetadata,\r\n+    LoadEnvironmentResponse,\r\n+    LoadEventsResponse,\r\n+    LoadScenarioResponse,\r\n+    ScenarioClient,\r\n+    ScenarioMetadata,\r\n+)\r\n\u001b[0m from ues.client._sms import (\r\n     AsyncSMSClient,\r\n     GroupParticipant,\r\n\u001b[36m@@ -167,6 +183,8 @@\u001b[0m __all__ = [\r\n     \"AsyncWeatherClient\",\r\n     \"WebhooksClient\",\r\n     \"AsyncWebhooksClient\",\r\n\u001b[32m+    \"ScenarioClient\",\r\n+    \"AsyncScenarioClient\",\r\n\u001b[0m     # Exceptions\r\n     \"UESClientError\",\r\n     \"ConnectionError\",\r\n\u001b[36m@@ -236,4 +254,17 @@\u001b[0m __all__ = [\r\n     \"CompactSnapshotResponse\",\r\n     \"ModalityListResponse\",\r\n     \"ModalitySummary\",\r\n\u001b[32m+    # Response models - Scenario\r\n+    \"ExportedTimeState\",\r\n+    \"ExportedEnvironmentData\",\r\n+    \"ExportedEventQueueData\",\r\n+    \"ScenarioMetadata\",\r\n+    \"ExportedScenarioData\",\r\n+    \"ExportEnvironmentResponse\",\r\n+    \"ExportEventsResponse\",\r\n+    \"ExportScenarioResponse\",\r\n+    \"LoadEnvironmentResponse\",\r\n+    \"LoadEventsResponse\",\r\n+    \"LoadedScenarioMetadata\",\r\n+    \"LoadScenarioResponse\",\r\n\u001b[0m ]\r\n\u001b[1mdiff --git a/src/ues/client/client.py b/src/ues/client/client.py\r\nindex e544f1e..8906ca1 100644\r\n--- a/src/ues/client/client.py\r\n+++ b/src/ues/client/client.py\r\n\u001b[36;22m@@ -40,6 +40,7 @@\u001b[0m from ues.client._environment import AsyncEnvironmentClient, EnvironmentClient\r\n from ues.client._events import AsyncEventsClient, EventsClient\r\n from ues.client._http import AsyncHTTPClient, HTTPClient\r\n from ues.client._location import AsyncLocationClient, LocationClient\r\n\u001b[32m+from ues.client._scenario import AsyncScenarioClient, ScenarioClient\r\n\u001b[0m from ues.client._simulation import AsyncSimulationClient, SimulationClient\r\n from ues.client._sms import AsyncSMSClient, SMSClient\r\n from ues.client._time import AsyncTimeClient, TimeClient\r\n\u001b[36m@@ -132,6 +133,7 @@\u001b[0m class UESClient:\r\n         self._simulation: SimulationClient | None = None\r\n         self._events: EventsClient | None = None\r\n         self._environment: EnvironmentClient | None = None\r\n\u001b[32m+        self._scenario: ScenarioClient | None = None\r\n\u001b[0m         self._email: EmailClient | None = None\r\n         self._sms: SMSClient | None = None\r\n         self._chat: ChatClient | None = None\r\n\u001b[36m@@ -236,6 +238,25 @@\u001b[0m class UESClient:\r\n             self._environment = EnvironmentClient(self._http)\r\n         return self._environment\r\n     \r\n\u001b[32m+    @property\r\n+    def scenario(self) -> ScenarioClient:\r\n+        \"\"\"Access scenario save/load endpoints (/scenario/*).\r\n+\u001b[39;41m        \u001b[0m\r\n\u001b[32m+        Provides methods for:\r\n+        - Exporting environment state\r\n+        - Exporting event queue\r\n+        - Exporting complete scenarios with metadata\r\n+        - Importing environment state\r\n+        - Importing event queue\r\n+        - Importing complete scenarios\r\n+\u001b[39;41m        \u001b[0m\r\n\u001b[32m+        Returns:\r\n+            ScenarioClient instance for scenario operations.\r\n+        \"\"\"\r\n+        if self._scenario is None:\r\n+            self._scenario = ScenarioClient(self._http)\r\n+        return self._scenario\r\n+\u001b[39;41m    \u001b[0m\r\n     @property\r\n     def email(self) -> EmailClient:\r\n         \"\"\"Access email modality endpoints (/email/*).\r\n\u001b[36m@@ -451,6 +472,7 @@\u001b[0m class AsyncUESClient:\r\n         self._simulation: AsyncSimulationClient | None = None\r\n         self._events: AsyncEventsClient | None = None\r\n         self._environment: AsyncEnvironmentClient | None = None\r\n\u001b[32m+        self._scenario: AsyncScenarioClient | None = None\r\n\u001b[0m         self._email: AsyncEmailClient | None = None\r\n         self._sms: AsyncSMSClient | None = None\r\n         self._chat: AsyncChatClient | None = None\r\n\u001b[36m@@ -555,6 +577,25 @@\u001b[0m class AsyncUESClient:\r\n             self._environment = AsyncEnvironmentClient(self._http)\r\n         return self._environment\r\n     \r\n\u001b[32m+    @property\r\n+    def scenario(self) -> AsyncScenarioClient:\r\n+        \"\"\"Access scenario save/load endpoints (/scenario/*).\r\n+\u001b[39;41m        \u001b[0m\r\n\u001b[32m+        Provides async methods for:\r\n+        - Exporting environment state\r\n+        - Exporting event queue\r\n+        - Exporting complete scenarios with metadata\r\n+        - Importing environment state\r\n+        - Importing event queue\r\n+        - Importing complete scenarios\r\n+\u001b[39;41m        \u001b[0m\r\n\u001b[32m+        Returns:\r\n+            AsyncScenarioClient instance for scenario operations.\r\n+        \"\"\"\r\n+        if self._scenario is None:\r\n+            self._scenario = AsyncScenarioClient(self._http)\r\n+        return self._scenario\r\n+\u001b[39;41m    \u001b[0m\r\n     @property\r\n     def email(self) -> AsyncEmailClient:\r\n         \"\"\"Access email modality endpoints (/email/*).",
+              "lineCount": 151
+            },
+            "terminalTheme": {
+              "background": "#181818",
+              "foreground": "#cccccc"
+            }
+          },
+          "toolCallId": "691726b8-b57d-4da3-9b9a-af6db5bc5ce9",
+          "toolId": "run_in_terminal"
+        },
+        {
+          "value": "Now I can analyze the changes and create a commit message. The changes include:\n\n1. Added `ScenarioClient` and `AsyncScenarioClient` sub-clients to the UES client\n2. Updated `__init__.py` to export the new scenario-related classes and response models\n3. Updated `client.py` to add the `scenario` property to both `UESClient` and `AsyncUESClient`\n4. Updated ",
+          "supportThemeIcons": false,
+          "supportHtml": false,
+          "baseUri": {
+            "$mid": 1,
+            "path": "/home/boggsj/Coding/personal/ues/",
+            "scheme": "vscode-remote",
+            "authority": "ssh-remote+104.139.64.56"
+          }
+        },
+        {
+          "kind": "inlineReference",
+          "inlineReference": {
+            "$mid": 1,
+            "external": "vscode-remote://ssh-remote%2B104.139.64.56/home/boggsj/Coding/personal/ues/TODO.md",
+            "path": "/home/boggsj/Coding/personal/ues/TODO.md",
+            "scheme": "vscode-remote",
+            "authority": "ssh-remote+104.139.64.56"
+          }
+        },
+        {
+          "value": " to mark this task as complete\n\nLet me create the commit: ",
+          "supportThemeIcons": false,
+          "supportHtml": false,
+          "baseUri": {
+            "$mid": 1,
+            "path": "/home/boggsj/Coding/personal/ues/",
+            "scheme": "vscode-remote",
+            "authority": "ssh-remote+104.139.64.56"
+          }
+        },
+        {
+          "kind": "prepareToolInvocation",
+          "toolName": "run_in_terminal"
+        },
+        {
+          "kind": "toolInvocationSerialized",
+          "invocationMessage": "Using \"Run in Terminal\"",
+          "isConfirmed": {
+            "type": 4
+          },
+          "isComplete": true,
+          "source": {
+            "type": "internal",
+            "label": "Built-In"
+          },
+          "toolSpecificData": {
+            "kind": "terminal",
+            "terminalToolSessionId": "81ceb4ee-f66b-4ffa-9025-e6ec4672b5f0",
+            "terminalCommandId": "tool-de9824fd-93da-4e96-b6a4-247c5f51fb15",
+            "commandLine": {
+              "original": "cd /home/boggsj/Coding/personal/ues && git commit -am \"Add client.scenario sub-client for scenario import/export\n\n- Add ScenarioClient and AsyncScenarioClient to UESClient classes\n- Export scenario-related response models from client __init__.py\n- Support for exporting/importing environment, events, and full scenarios\n- Mark TODO item as complete\n\nAI generated commit message\"",
+              "toolEdited": " cd /home/boggsj/Coding/personal/ues && git commit -am \"Add client.scenario sub-client for scenario import/export\n\n- Add ScenarioClient and AsyncScenarioClient to UESClient classes\n- Export scenario-related response models from client __init__.py\n- Support for exporting/importing environment, events, and full scenarios\n- Mark TODO item as complete\n\nAI generated commit message\""
+            },
+            "language": "sh",
+            "terminalCommandState": {
+              "exitCode": 0,
+              "timestamp": 1769619078952,
+              "duration": 7
+            },
+            "terminalCommandUri": {
+              "$mid": 1,
+              "path": "/0cd45ef2607fe48f5d916aea105172a3/8",
+              "scheme": "vscode-terminal",
+              "query": "command=tool-de9824fd-93da-4e96-b6a4-247c5f51fb15"
+            },
+            "terminalCommandOutput": {
+              "text": "[main 11759f9] Add client.scenario sub-client for scenario import/export\r\n 5 files changed, 1389 insertions(+), 1 deletion(-)\r\n create mode 100644 src/ues/client/_scenario.py\r\n create mode 100644 tests/client/test_scenario.py",
+              "lineCount": 4
+            },
+            "terminalTheme": {
+              "background": "#181818",
+              "foreground": "#cccccc"
+            }
+          },
+          "toolCallId": "a054c415-9d2f-480f-af97-d8cf91351a7b",
+          "toolId": "run_in_terminal"
+        },
+        {
+          "value": "The commit was successful. The changes have been committed with the message:\n\n**Commit:** `11759f9`  \n**Subject:** Add client.scenario sub-client for scenario import/export\n\n**Summary of changes:**\n- Added `ScenarioClient` and `AsyncScenarioClient` to wrap `/scenario/import/*` and `/scenario/export/*` endpoints\n- Exported all scenario-related response models from the client `__init__.py`\n- Added `scenario` property to both `UESClient` and `AsyncUESClient` \n- Updated ",
+          "supportThemeIcons": false,
+          "supportHtml": false,
+          "baseUri": {
+            "$mid": 1,
+            "path": "/home/boggsj/Coding/personal/ues/",
+            "scheme": "vscode-remote",
+            "authority": "ssh-remote+104.139.64.56"
+          }
+        },
+        {
+          "kind": "inlineReference",
+          "name": "TODO.md",
+          "inlineReference": {
+            "$mid": 1,
+            "external": "vscode-remote://ssh-remote%2B104.139.64.56/home/boggsj/Coding/personal/ues/TODO.md",
+            "path": "/home/boggsj/Coding/personal/ues/TODO.md",
+            "scheme": "vscode-remote",
+            "authority": "ssh-remote+104.139.64.56"
+          }
+        },
+        {
+          "value": " to mark the task as complete\n- Included new test file for the scenario client",
+          "supportThemeIcons": false,
+          "supportHtml": false,
+          "baseUri": {
+            "$mid": 1,
+            "path": "/home/boggsj/Coding/personal/ues/",
+            "scheme": "vscode-remote",
+            "authority": "ssh-remote+104.139.64.56"
+          }
+        }
+      ],
+      "agent": {
+        "extensionId": {
+          "value": "GitHub.copilot-chat",
+          "_lower": "github.copilot-chat"
+        },
+        "extensionVersion": "0.36.2",
+        "publisherDisplayName": "GitHub",
+        "extensionPublisherId": "GitHub",
+        "extensionDisplayName": "GitHub Copilot Chat",
+        "id": "github.copilot.editsAgent",
+        "description": "Edit files in your workspace in agent mode",
+        "when": "config.chat.agent.enabled",
+        "metadata": {
+          "themeIcon": {
+            "id": "tools"
+          },
+          "hasFollowups": false,
+          "supportIssueReporting": false
+        },
+        "name": "agent",
+        "fullName": "GitHub Copilot",
+        "isDefault": true,
+        "locations": [
+          "panel"
+        ],
+        "modes": [
+          "agent"
+        ],
+        "slashCommands": [],
+        "disambiguation": []
+      },
+      "timestamp": 1769618948201,
+      "modelId": "copilot/claude-opus-4.5",
+      "responseId": "response_26a1f1cf-dbba-4faf-8344-fc7327be33c0",
+      "result": {
+        "timings": {
+          "firstProgress": 5365,
+          "totalElapsed": 135545
+        },
+        "metadata": {
+          "codeBlocks": [],
+          "renderedUserMessage": [
+            {
+              "type": 1,
+              "text": "<context>\nThe current date is January 28, 2026.\nTerminals:\nTerminal: zsh\nTerminal: install\nTerminal: zsh\n\n</context>\n<editorContext>\nThe user's current file is /home/boggsj/Coding/personal/ues/TODO.md. \n</editorContext>\n<reminderInstructions>\nDo NOT create a new markdown file to document each change or summarize your work unless specifically requested by the user.\n\n</reminderInstructions>\n<userRequest>\nCommit the current codebase changes, which should add a `client.scenario` sub-client.\n</userRequest>\n"
+            },
+            {
+              "type": 3,
+              "cacheType": "ephemeral"
+            }
+          ],
+          "renderedGlobalContext": [
+            {
+              "type": 1,
+              "text": "<environment_info>\nThe user's current OS is: Linux\n</environment_info>\n<workspace_info>\nI am working in a workspace with the following folders:\n- /home/boggsj/Coding/personal/ues \nI am working in a workspace that has the following structure:\n```\nagent_output.txt\nCHANGELOG.md\nCONTRIBUTING.md\nLICENSE\npyproject.toml\nREADME.md\nTODO.md\n__pycache__/\nchat_logs/\n\tchat_agent_documentation_revision.json\n\tchat_agent_testing_implementation.json\n\tchat_agentbeats_a2a_message_schemas.json\n\tchat_agentbeats_agent_executor_implementation.json\n\tchat_agentbeats_api_access_control.json\n\tchat_agentbeats_chat_instruct_changes.json\n\tchat_agentbeats_green_agent_initial.json\n\tchat_agentbeats_initial_design.json\n\tchat_agentbeats_purple_agent.json\n\tchat_agentbeats_response_agents.json\n\tchat_agentbeats_task_update.json\n\tchat_api_client_lib_phase_1-2.json\n\tchat_api_client_lib_phase_3-4.json\n\tchat_api_client_lib_phase_5-6.json\n\tchat_api_client_lib_plan_2check.json\n\tchat_api_client_library_plan.json\n\tchat_api_models_p1.json\n\tchat_api_tests_calendar.json\n\tchat_api_tests_chat_query.json\n\tchat_api_tests_cleanup_and_quickstart.json\n\tchat_api_tests_cross-cut.json\n\tchat_api_tests_email_sms.json\n\tchat_api_tests_environment.json\n\tchat_api_tests_events.json\n\tchat_api_tests_loc_weather.json\n\tchat_api_tests_simulation.json\n\tchat_api_tests_units.json\n\tchat_api_tests_workflows_s1.json\n\tchat_api_tests_workflows_s2.json\n\tchat_api_tests_workflows_s3.json\n\tchat_api_tutorial_1.json\n\tchat_batch_events_implementation.json\n\tchat_bug_fixes_1.json\n\tchat_bug_fixes_2.json\n\tchat_calendar_conflict_example.json\n\tchat_calendar.json\n\tchat_clear_undo_reset.json\n\tchat_copilot_instruction_rework.json\n\tchat_copilot_instructions.json\n\tchat_core_infra_1.json\n\tchat_core_infra_2.json\n\tchat_directory_cleanup.json\n\tchat_email_modality.json\n\tchat_email_reply_agent_example.json\n\tchat_email_summary_example_1.json\n\tchat_email_summary_example_2.json\n\tchat_fast_api_routes.json\n\tchat_fast_api_tutorial.json\n\tchat_git_commit_post_webui_3.5.json\n\tchat_gui_initial.json\n\tchat_instructions_update.json\n\tchat_location_time.json\n\tchat_mcp_consideration.json\n\tchat_modality_api_rework.json\n\tchat_more_agent_examples_brainstorm.json\n\t...\ndocs/\n\tREADME.md\n\t...\nexamples/\nscripts/\nsrc/\ntests/\nwebapp/\n```\nThis is the state of the context at this point in the conversation. The view of the workspace structure may be truncated. You can use tools to collect more context if needed.\n</workspace_info>\n"
+            },
+            {
+              "type": 3,
+              "cacheType": "ephemeral"
+            }
+          ],
+          "cacheKey": "file:///home/boggsj/Coding/personal/ues",
+          "toolCallRounds": [
+            {
+              "response": "",
+              "toolCalls": [
+                {
+                  "name": "run_in_terminal",
+                  "arguments": "{\"command\": \"cd /home/boggsj/Coding/personal/ues && git diff --stat && git diff\", \"explanation\": \"Getting the git diff to analyze the changes made to the codebase\", \"isBackground\": false}",
+                  "id": "toolu_016obKFVYzXrewg9JknccH72__vscode-1769617421800"
+                }
+              ],
+              "toolInputRetry": 0,
+              "id": "fedacd13-d18b-452f-a005-bbc7f148c0b2",
+              "thinking": {
+                "id": "Un0xorm8Q8loC4WED9jNOKVx9/yFfWU3UqlpNqPhPJUznwmSx3u6Tn8l9lS8zDZHH8KTkJBBo1z+ObtFD/fS+UVZPTpn0KZSrxnoiJOwxR0v8F9ZM7ZvrFRrGefJyfewRjuTODtfx/420F/89lt02pjg55Y/4NOAPej6JxrGLiTeLiiycKyQ/ruS6NZAF6sjJ3pdzIYOmhmPs4C5qJ10M/7HTYRzaZUslgyM7l+Gnuu2gNdDKCgetCvyAgOe/kOpaX+JSgd2v452DSTPsG5d/DNvxEmqEn5z7XMu3JlQFpwMyCZFELz70bfSVPCJuM/+wwW9JaI+n2N9epGeyBDeExbQnq3Mzg7HxzoVSLLHBZ1ufQios5eoEKDwjVCf6Q0p11ZtqFWhkog271mNyH54uLkQpV68xik56dgwGpZBE2PAlAnb5qeL46sl/neyQjl0aXZspoZnIIwUNRURaDiJ1QB0wP1mjXeGu7VkzXK/bK4niYFHrEJouXFTK3tsjg101qLARskx6yBMPEy8+SjjJfLygM7vHdsNoApU8vI56Z8asw+ED6w+MsuJNIWnJiFxmqt92MM5CsSL77/wHLRLXiuTGiUmx/Y5/unZ7sj1plXXOPJyiEXEs2Wgk2+0drNziNS+FUdgeIEOXh4bypc5RNpai1nv8F1HJ8pBvrU4z6ulEFlCjhJXF8hel7Etkdv6Yipg1husgKfs0bb9ygy/F+jvpg5NxHNXj0lfrcHwpVOYFIYD3/AKdWbx2+dk7YNIXNf5pUByaB42NEdJkj/GSUNBI52Fw/9XNrdL7i58U6oR1hwveKeRXsfxmkJLHq51HIf6e6BJH7LFKKH1SamxX9v3N6ymzd228dCfOKTGp1xwFyyfKDPMRTVnhcbJ0z/yts3wVFYVF6FJbsIHn0qSTq1uZnNsAd8Kj0VgIdBY7mm7Xg5o4fuzT2IyosZw2pK3xkjZ3oYVQCIB0xTnTn2GaAesTZgXkKhn7dzio4gUCvp17U84y2NirJpKtXpvGu3A7flPN8N488MLw6m3iOje4u1V6Ep1cqQ/6OYEbjbDvQJ0CIXRDVDJuEIwx68hQCBr1pmj+7i9iydUBmKYhoZFrdKHM4WEXYttNvUarANYWoH+v9B6UQzQkSi0Uw+7htXEr69rZQ==",
+                "text": "The user wants me to commit the current codebase changes related to adding a `client.scenario` sub-client. I need to:\n1. Run `git diff` to see the changes\n2. Analyze the changes\n3. Generate a commit message\n4. Perform the git commit\n\nLet me start by getting the git diff.",
+                "encrypted": "Un0xorm8Q8loC4WED9jNOKVx9/yFfWU3UqlpNqPhPJUznwmSx3u6Tn8l9lS8zDZHH8KTkJBBo1z+ObtFD/fS+UVZPTpn0KZSrxnoiJOwxR0v8F9ZM7ZvrFRrGefJyfewRjuTODtfx/420F/89lt02pjg55Y/4NOAPej6JxrGLiTeLiiycKyQ/ruS6NZAF6sjJ3pdzIYOmhmPs4C5qJ10M/7HTYRzaZUslgyM7l+Gnuu2gNdDKCgetCvyAgOe/kOpaX+JSgd2v452DSTPsG5d/DNvxEmqEn5z7XMu3JlQFpwMyCZFELz70bfSVPCJuM/+wwW9JaI+n2N9epGeyBDeExbQnq3Mzg7HxzoVSLLHBZ1ufQios5eoEKDwjVCf6Q0p11ZtqFWhkog271mNyH54uLkQpV68xik56dgwGpZBE2PAlAnb5qeL46sl/neyQjl0aXZspoZnIIwUNRURaDiJ1QB0wP1mjXeGu7VkzXK/bK4niYFHrEJouXFTK3tsjg101qLARskx6yBMPEy8+SjjJfLygM7vHdsNoApU8vI56Z8asw+ED6w+MsuJNIWnJiFxmqt92MM5CsSL77/wHLRLXiuTGiUmx/Y5/unZ7sj1plXXOPJyiEXEs2Wgk2+0drNziNS+FUdgeIEOXh4bypc5RNpai1nv8F1HJ8pBvrU4z6ulEFlCjhJXF8hel7Etkdv6Yipg1husgKfs0bb9ygy/F+jvpg5NxHNXj0lfrcHwpVOYFIYD3/AKdWbx2+dk7YNIXNf5pUByaB42NEdJkj/GSUNBI52Fw/9XNrdL7i58U6oR1hwveKeRXsfxmkJLHq51HIf6e6BJH7LFKKH1SamxX9v3N6ymzd228dCfOKTGp1xwFyyfKDPMRTVnhcbJ0z/yts3wVFYVF6FJbsIHn0qSTq1uZnNsAd8Kj0VgIdBY7mm7Xg5o4fuzT2IyosZw2pK3xkjZ3oYVQCIB0xTnTn2GaAesTZgXkKhn7dzio4gUCvp17U84y2NirJpKtXpvGu3A7flPN8N488MLw6m3iOje4u1V6Ep1cqQ/6OYEbjbDvQJ0CIXRDVDJuEIwx68hQCBr1pmj+7i9iydUBmKYhoZFrdKHM4WEXYttNvUarANYWoH+v9B6UQzQkSi0Uw+7htXEr69rZQ=="
+              }
+            },
+            {
+              "response": "Now I can analyze the changes and create a commit message. The changes include:\n\n1. Added `ScenarioClient` and `AsyncScenarioClient` sub-clients to the UES client\n2. Updated `__init__.py` to export the new scenario-related classes and response models\n3. Updated `client.py` to add the `scenario` property to both `UESClient` and `AsyncUESClient`\n4. Updated `TODO.md` to mark this task as complete\n\nLet me create the commit: ",
+              "toolCalls": [
+                {
+                  "name": "run_in_terminal",
+                  "arguments": "{\"command\": \"cd /home/boggsj/Coding/personal/ues && git commit -am \\\"Add client.scenario sub-client for scenario import/export\\n\\n- Add ScenarioClient and AsyncScenarioClient to UESClient classes\\n- Export scenario-related response models from client __init__.py\\n- Support for exporting/importing environment, events, and full scenarios\\n- Mark TODO item as complete\\n\\nAI generated commit message\\\"\", \"explanation\": \"Committing the changes with the generated commit message\", \"isBackground\": false}",
+                  "id": "toolu_01Fyddg7no2JncndFzYYh32s__vscode-1769617421801"
+                }
+              ],
+              "toolInputRetry": 0,
+              "id": "46de9798-c9a2-499f-9d9f-a95a66c39d64"
+            },
+            {
+              "response": "The commit was successful. The changes have been committed with the message:\n\n**Commit:** `11759f9`  \n**Subject:** Add client.scenario sub-client for scenario import/export\n\n**Summary of changes:**\n- Added `ScenarioClient` and `AsyncScenarioClient` to wrap `/scenario/import/*` and `/scenario/export/*` endpoints\n- Exported all scenario-related response models from the client `__init__.py`\n- Added `scenario` property to both `UESClient` and `AsyncUESClient` \n- Updated [TODO.md](TODO.md) to mark the task as complete\n- Included new test file for the scenario client",
+              "toolCalls": [],
+              "toolInputRetry": 0,
+              "id": "f9dcef8f-83d9-490b-bf42-9fd25edae51c"
+            }
+          ],
+          "toolCallResults": {
+            "toolu_016obKFVYzXrewg9JknccH72__vscode-1769617421800": {
+              "$mid": 20,
+              "content": [
+                {
+                  "$mid": 21,
+                  "value": "Note: The tool simplified the command to ` cd /home/boggsj/Coding/personal/ues && git diff --stat && git diff`, and this is the output of running that command instead:\n TODO.md                    |  2 +-\n src/ues/client/__init__.py | 31 +++++++++++++++++++++++++++++++\n src/ues/client/client.py   | 41 +++++++++++++++++++++++++++++++++++++++++\n 3 files changed, 73 insertions(+), 1 deletion(-)\ndiff --git a/TODO.md b/TODO.md\nindex 7191622..c887cee 100644\n--- a/TODO.md\n+++ b/TODO.md\n@@ -172,7 +172,7 @@ async def main():\n ## 🚧 TODO: REST API\n \n ### Python Client Library\n-- [ ] **Add `client.scenario` sub-client** - Wrap `/scenario/import/*` and `/scenario/export/*` endpoints\n+- [x] ~~**Add `client.scenario` sub-client**~~ - Wraps `/scenario/import/*` and `/scenario/export/*` endpoints\n   - [ ] Update `examples/agents/simple_email_summary/agent.py` to use `client.scenario` once implemented\n \n ### API Enhancements\ndiff --git a/src/ues/client/__init__.py b/src/ues/client/__init__.py\nindex 8a7f6b3..eb762bc 100644\n--- a/src/ues/client/__init__.py\n+++ b/src/ues/client/__init__.py\n@@ -66,6 +66,22 @@ from ues.client._email import (\n     EmailSummaryStateResponse,\n     EmailThread,\n )\n+from ues.client._scenario import (\n+    AsyncScenarioClient,\n+    ExportedEnvironmentData,\n+    ExportedEventQueueData,\n+    ExportedScenarioData,\n+    ExportedTimeState,\n+    ExportEnvironmentResponse,\n+    ExportEventsResponse,\n+    ExportScenarioResponse,\n+    LoadedScenarioMetadata,\n+    LoadEnvironmentResponse,\n+    LoadEventsResponse,\n+    LoadScenarioResponse,\n+    ScenarioClient,\n+    ScenarioMetadata,\n+)\n from ues.client._sms import (\n     AsyncSMSClient,\n     GroupParticipant,\n@@ -167,6 +183,8 @@ __all__ = [\n     \"AsyncWeatherClient\",\n     \"WebhooksClient\",\n     \"AsyncWebhooksClient\",\n+    \"ScenarioClient\",\n+    \"AsyncScenarioClient\",\n     # Exceptions\n     \"UESClientError\",\n     \"ConnectionError\",\n@@ -236,4 +254,17 @@ __all__ = [\n     \"CompactSnapshotResponse\",\n     \"ModalityListResponse\",\n     \"ModalitySummary\",\n+    # Response models - Scenario\n+    \"ExportedTimeState\",\n+    \"ExportedEnvironmentData\",\n+    \"ExportedEventQueueData\",\n+    \"ScenarioMetadata\",\n+    \"ExportedScenarioData\",\n+    \"ExportEnvironmentResponse\",\n+    \"ExportEventsResponse\",\n+    \"ExportScenarioResponse\",\n+    \"LoadEnvironmentResponse\",\n+    \"LoadEventsResponse\",\n+    \"LoadedScenarioMetadata\",\n+    \"LoadScenarioResponse\",\n ]\ndiff --git a/src/ues/client/client.py b/src/ues/client/client.py\nindex e544f1e..8906ca1 100644\n--- a/src/ues/client/client.py\n+++ b/src/ues/client/client.py\n@@ -40,6 +40,7 @@ from ues.client._environment import AsyncEnvironmentClient, EnvironmentClient\n from ues.client._events import AsyncEventsClient, EventsClient\n from ues.client._http import AsyncHTTPClient, HTTPClient\n from ues.client._location import AsyncLocationClient, LocationClient\n+from ues.client._scenario import AsyncScenarioClient, ScenarioClient\n from ues.client._simulation import AsyncSimulationClient, SimulationClient\n from ues.client._sms import AsyncSMSClient, SMSClient\n from ues.client._time import AsyncTimeClient, TimeClient\n@@ -132,6 +133,7 @@ class UESClient:\n         self._simulation: SimulationClient | None = None\n         self._events: EventsClient | None = None\n         self._environment: EnvironmentClient | None = None\n+        self._scenario: ScenarioClient | None = None\n         self._email: EmailClient | None = None\n         self._sms: SMSClient | None = None\n         self._chat: ChatClient | None = None\n@@ -236,6 +238,25 @@ class UESClient:\n             self._environment = EnvironmentClient(self._http)\n         return self._environment\n     \n+    @property\n+    def scenario(self) -> ScenarioClient:\n+        \"\"\"Access scenario save/load endpoints (/scenario/*).\n+        \n+        Provides methods for:\n+        - Exporting environment state\n+        - Exporting event queue\n+        - Exporting complete scenarios with metadata\n+        - Importing environment state\n+        - Importing event queue\n+        - Importing complete scenarios\n+        \n+        Returns:\n+            ScenarioClient instance for scenario operations.\n+        \"\"\"\n+        if self._scenario is None:\n+            self._scenario = ScenarioClient(self._http)\n+        return self._scenario\n+    \n     @property\n     def email(self) -> EmailClient:\n         \"\"\"Access email modality endpoints (/email/*).\n@@ -451,6 +472,7 @@ class AsyncUESClient:\n         self._simulation: AsyncSimulationClient | None = None\n         self._events: AsyncEventsClient | None = None\n         self._environment: AsyncEnvironmentClient | None = None\n+        self._scenario: AsyncScenarioClient | None = None\n         self._email: AsyncEmailClient | None = None\n         self._sms: AsyncSMSClient | None = None\n         self._chat: AsyncChatClient | None = None\n@@ -555,6 +577,25 @@ class AsyncUESClient:\n             self._environment = AsyncEnvironmentClient(self._http)\n         return self._environment\n     \n+    @property\n+    def scenario(self) -> AsyncScenarioClient:\n+        \"\"\"Access scenario save/load endpoints (/scenario/*).\n+        \n+        Provides async methods for:\n+        - Exporting environment state\n+        - Exporting event queue\n+        - Exporting complete scenarios with metadata\n+        - Importing environment state\n+        - Importing event queue\n+        - Importing complete scenarios\n+        \n+        Returns:\n+            AsyncScenarioClient instance for scenario operations.\n+        \"\"\"\n+        if self._scenario is None:\n+            self._scenario = AsyncScenarioClient(self._http)\n+        return self._scenario\n+    \n     @property\n     def email(self) -> AsyncEmailClient:\n         \"\"\"Access email modality endpoints (/email/*).\n"
+                }
+              ]
+            },
+            "toolu_01Fyddg7no2JncndFzYYh32s__vscode-1769617421801": {
+              "$mid": 20,
+              "content": [
+                {
+                  "$mid": 21,
+                  "value": "Note: The tool simplified the command to ` cd /home/boggsj/Coding/personal/ues && git commit -am \"Add client.scenario sub-client for scenario import/export\n\n- Add ScenarioClient and AsyncScenarioClient to UESClient classes\n- Export scenario-related response models from client __init__.py\n- Support for exporting/importing environment, events, and full scenarios\n- Mark TODO item as complete\n\nAI generated commit message\"`, and this is the output of running that command instead:\n[main 11759f9] Add client.scenario sub-client for scenario import/export\n 5 files changed, 1389 insertions(+), 1 deletion(-)\n create mode 100644 src/ues/client/_scenario.py\n create mode 100644 tests/client/test_scenario.py\n"
+                }
+              ]
+            }
+          },
+          "modelMessageId": "70873d6d-361c-442e-a5c6-726110416b2b",
+          "responseId": "00205492-2823-4073-b2fa-31044f9952ae",
+          "sessionId": "d4c8d119-46dd-4062-acaa-c967973de021",
+          "agentId": "github.copilot.editsAgent"
+        },
+        "details": "Claude Opus 4.5 • 3x"
+      },
+      "responseMarkdownInfo": [],
+      "followups": [],
+      "modelState": {
+        "value": 1,
+        "completedAt": 1769619083808
+      },
+      "contentReferences": [
+        {
+          "kind": "reference",
+          "reference": {
+            "$mid": 1,
+            "external": "vscode-remote://ssh-remote%2B104.139.64.56/home/boggsj/Coding/personal/ues/.github/copilot-instructions.md",
+            "path": "/home/boggsj/Coding/personal/ues/.github/copilot-instructions.md",
+            "scheme": "vscode-remote",
+            "authority": "ssh-remote+104.139.64.56"
+          }
+        }
+      ],
+      "codeCitations": [],
+      "timeSpentWaiting": 115763
+    }
+  ]
+}

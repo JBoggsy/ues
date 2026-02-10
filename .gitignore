@@ -23,7 +23,6 @@ htmlcov/
 .tox/
 
 # Development artifacts
-chat_logs/
 *.log
 
 # OS files
