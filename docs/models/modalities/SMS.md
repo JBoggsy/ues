@@ -300,7 +300,7 @@ The event payload for SMS/RCS operations (send message, update conversation, etc
 - `modality_type: str` - Always "sms"
 - `timestamp: datetime` - When this input event occurs (simulator time)
 - `input_id: str` - Unique identifier for this input (auto-generated UUID)
-- `action: str` - Type of action:
+- `operation: str` - Type of operation:
   - `send_message`
   - `receive_message`
   - `update_delivery_status`
@@ -355,13 +355,13 @@ The event payload for SMS/RCS operations (send message, update conversation, etc
   - `draft_message: Optional[str]` - Save draft text (None to clear)
 
 **Methods:**
-- `validate_input()` - Validates that required data for the specified action is present and well-formed
+- `validate_input()` - Validates that required data for the specified operation is present and well-formed
 - `get_affected_entities() -> list[str]` - Returns thread_id(s) or message_id(s) affected by this input
 - `get_summary() -> str` - Human-readable summary (e.g., "Send SMS from +1234567890 to +9876543210: 'Hello!'")
 - `should_merge_with(other: SMSInput) -> bool` - Returns False (SMS events are discrete)
 
 **Design Decisions:**
-- **Action-based**: Single input type handles all SMS operations via action discriminator
+- **Operation-based**: Single input type handles all SMS operations via operation discriminator
 - **Flexible phone numbers**: Supports any phone number format, but E.164 recommended
 - **Thread auto-creation**: If thread_id not provided for message, creates/finds appropriate conversation
 - **RCS feature detection**: Validates RCS-only features (edit, reactions) only apply to RCS messages
@@ -383,8 +383,8 @@ Tracks all SMS/RCS conversations, messages, and related state.
 **Note**: Blocked numbers and contact-level spam flagging are managed by the Contacts modality. The SMS modality queries Contacts to check if a number is blocked before processing incoming messages. Individual messages can be flagged as spam via the `is_spam` field on `SMSMessage`.
 
 **Methods:**
-- `apply_input(input_data: SMSInput)` - Processes SMS action and updates state accordingly
-  - Handles all action types: send_message, receive_message, update_delivery_status, etc.
+- `apply_input(input_data: SMSInput)` - Processes SMS operation and updates state accordingly
+  - Handles all operation types: send_message, receive_message, update_delivery_status, etc.
   - Creates conversations automatically when needed
   - Enforces message history limits
   - Updates conversation metadata (last_message_at, unread_count)
@@ -468,7 +468,7 @@ for message in sms_state.messages.values():
 ### Blocked Number Checking
 When processing incoming messages, SMS checks if sender is blocked:
 ```python
-# In SMSState.apply_input() for receive_message action
+# In SMSState.apply_input() for receive_message operation
 if contacts_state.is_blocked(from_number):
     # Reject message, don't create SMSMessage
     return
@@ -495,7 +495,7 @@ POST /events
   "scheduled_time": "2024-03-15T10:30:00Z",
   "modality": "sms",
   "data": {
-    "action": "receive_message",
+    "operation": "receive_message",
     "message_data": {
       "from_number": "+11234567890",
       "to_numbers": ["+19876543210"],
@@ -512,7 +512,7 @@ POST /events/immediate
 {
   "modality": "sms",
   "data": {
-    "action": "send_message",
+    "operation": "send_message",
     "message_data": {
       "from_number": "+19876543210",
       "to_numbers": ["+11234567890"],
@@ -532,7 +532,7 @@ POST /events
   "scheduled_time": "2024-03-15T14:00:00Z",
   "modality": "sms",
   "data": {
-    "action": "receive_message",
+    "operation": "receive_message",
     "message_data": {
       "from_number": "+15551234567",
       "to_numbers": ["+19876543210", "+15559876543", "+15551112222"],
@@ -550,7 +550,7 @@ POST /events/immediate
 {
   "modality": "sms",
   "data": {
-    "action": "create_group",
+    "operation": "create_group",
     "group_data": {
       "group_name": "Weekend Plans",
       "creator_number": "+19876543210",
@@ -566,7 +566,7 @@ POST /events/immediate
 {
   "modality": "sms",
   "data": {
-    "action": "add_reaction",
+    "operation": "add_reaction",
     "reaction_data": {
       "message_id": "message-to-react-to",
       "phone_number": "+19876543210",
@@ -582,7 +582,7 @@ POST /events/immediate
 {
   "modality": "sms",
   "data": {
-    "action": "update_delivery_status",
+    "operation": "update_delivery_status",
     "delivery_update_data": {
       "message_id": "message-id",
       "new_status": "read",

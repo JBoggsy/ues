@@ -131,7 +131,7 @@ def email_event_data(
 # SMS Event Helpers
 
 def sms_event_data(
-    action: str = "receive_message",
+    operation: str = "receive_message",
     from_number: str = "+1234567890",
     to_numbers: Optional[list[str]] = None,
     body: str = "Test message",
@@ -140,31 +140,31 @@ def sms_event_data(
     """Create SMS event data for API requests.
     
     Args:
-        action: SMS action type (e.g., "send_message", "receive_message", "delete_message").
+        operation: SMS operation type (e.g., "send_message", "receive_message", "delete_message").
         from_number: Sender phone number in E.164 format.
         to_numbers: List of recipient phone numbers (defaults to ["+0987654321"]).
         body: Message text content.
-        **kwargs: Additional SMS fields for specific actions (e.g., message_id, conversation_id).
+        **kwargs: Additional SMS fields for specific operations (e.g., message_id, conversation_id).
     
     Returns:
         SMS event data dictionary ready for event creation.
     
     Note:
-        SMS uses a nested structure with message_data for send/receive actions.
+        SMS uses a nested structure with message_data for send/receive operations.
     
     Example:
         >>> data = sms_event_data(
-        ...     action="receive_message",
+        ...     operation="receive_message",
         ...     from_number="+15551234567",
         ...     body="Meeting at 3pm",
         ... )
     """
     data: dict[str, Any] = {
-        "action": action,
+        "operation": operation,
     }
     
     # For send_message and receive_message, wrap in message_data
-    if action in ["send_message", "receive_message"]:
+    if operation in ["send_message", "receive_message"]:
         data["message_data"] = {
             "from_number": from_number,
             "to_numbers": to_numbers or ["+0987654321"],
@@ -174,7 +174,7 @@ def sms_event_data(
         if kwargs:
             data["message_data"].update(kwargs)
     else:
-        # For other actions, add fields directly
+        # For other operations, add fields directly
         data.update(kwargs)
     
     return data

@@ -375,7 +375,7 @@ class TestEnvironmentStateConsistency:
         client.post(
             "/events/immediate",
             json={"modality": "sms", "data": sms_event_data(
-                action="receive_message",
+                operation="receive_message",
                 from_number="+1234567890",
                 body="Test SMS",
             )},

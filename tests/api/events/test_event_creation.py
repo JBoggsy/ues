@@ -103,7 +103,7 @@ class TestPostEvents:
                 event_time,
                 "sms",
                 sms_event_data(
-                    action="receive_message",
+                    operation="receive_message",
                     from_number="+1234567890",
                     to_numbers=["+0987654321"],
                     body="Test SMS",
@@ -387,7 +387,7 @@ class TestPostEvents:
                 "scheduled_time": event_time.isoformat(),
                 "modality": "sms",
                 "data": {
-                    "action": "receive_message",
+                    "operation": "receive_message",
                     "from_number": "+1234567890",  # Should be nested in message_data
                     "body": "Test",
                 },
@@ -617,7 +617,7 @@ class TestPostEventsImmediate:
             json={
                 "modality": "sms",
                 "data": sms_event_data(
-                    action="receive_message",
+                    operation="receive_message",
                     from_number="+1234567890",
                     to_numbers=["+0987654321"],
                     body="Urgent SMS",

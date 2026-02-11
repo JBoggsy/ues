@@ -645,7 +645,7 @@ class SMSState(ModalityState):
     )
 
     def apply_input(self, input_data: SMSInput) -> None:
-        """Process SMS action and update state accordingly.
+        """Process SMS operation and update state accordingly.
 
         Args:
             input_data: The SMS input to apply.
@@ -658,34 +658,34 @@ class SMSState(ModalityState):
 
         input_data.validate_input()
 
-        if input_data.action in ["send_message", "receive_message"]:
+        if input_data.operation in ["send_message", "receive_message"]:
             self._handle_message(input_data)
-        elif input_data.action == "update_delivery_status":
+        elif input_data.operation == "update_delivery_status":
             self._handle_delivery_update(input_data)
-        elif input_data.action == "add_reaction":
+        elif input_data.operation == "add_reaction":
             self._handle_add_reaction(input_data)
-        elif input_data.action == "remove_reaction":
+        elif input_data.operation == "remove_reaction":
             self._handle_remove_reaction(input_data)
-        elif input_data.action == "edit_message":
+        elif input_data.operation == "edit_message":
             self._handle_edit_message(input_data)
-        elif input_data.action == "delete_message":
+        elif input_data.operation == "delete_message":
             self._handle_delete_message(input_data)
-        elif input_data.action == "create_group":
+        elif input_data.operation == "create_group":
             self._handle_create_group(input_data)
-        elif input_data.action == "update_group":
+        elif input_data.operation == "update_group":
             self._handle_update_group(input_data)
-        elif input_data.action == "add_participant":
+        elif input_data.operation == "add_participant":
             self._handle_add_participant(input_data)
-        elif input_data.action in ["remove_participant", "leave_group"]:
+        elif input_data.operation in ["remove_participant", "leave_group"]:
             self._handle_remove_participant(input_data)
-        elif input_data.action == "update_conversation":
+        elif input_data.operation == "update_conversation":
             self._handle_update_conversation(input_data)
 
         self.last_updated = input_data.timestamp
         self.update_count += 1
 
     def _handle_message(self, input_data: SMSInput) -> None:
-        """Handle send_message and receive_message actions.
+        """Handle send_message and receive_message operations.
 
         Args:
             input_data: The SMS input with message_data.
@@ -741,7 +741,7 @@ class SMSState(ModalityState):
         self._enforce_message_limit(thread_id)
 
     def _handle_delivery_update(self, input_data: SMSInput) -> None:
-        """Handle update_delivery_status action.
+        """Handle update_delivery_status operation.
 
         Args:
             input_data: The SMS input with delivery_update_data.
@@ -766,7 +766,7 @@ class SMSState(ModalityState):
             message.mark_failed()
 
     def _handle_add_reaction(self, input_data: SMSInput) -> None:
-        """Handle add_reaction action.
+        """Handle add_reaction operation.
 
         Args:
             input_data: The SMS input with reaction_data.
@@ -786,7 +786,7 @@ class SMSState(ModalityState):
         message.add_reaction(phone_number, emoji, input_data.timestamp)
 
     def _handle_remove_reaction(self, input_data: SMSInput) -> None:
-        """Handle remove_reaction action.
+        """Handle remove_reaction operation.
 
         Args:
             input_data: The SMS input with reaction_data.
@@ -805,7 +805,7 @@ class SMSState(ModalityState):
         message.remove_reaction(reaction_id)
 
     def _handle_edit_message(self, input_data: SMSInput) -> None:
-        """Handle edit_message action.
+        """Handle edit_message operation.
 
         Args:
             input_data: The SMS input with edit_data.
@@ -824,7 +824,7 @@ class SMSState(ModalityState):
         message.edit_body(new_body, input_data.timestamp)
 
     def _handle_delete_message(self, input_data: SMSInput) -> None:
-        """Handle delete_message action.
+        """Handle delete_message operation.
 
         Args:
             input_data: The SMS input with delete_data.
@@ -842,7 +842,7 @@ class SMSState(ModalityState):
         message.soft_delete()
 
     def _handle_create_group(self, input_data: SMSInput) -> None:
-        """Handle create_group action.
+        """Handle create_group operation.
 
         Args:
             input_data: The SMS input with group_data.
@@ -877,7 +877,7 @@ class SMSState(ModalityState):
         self.conversations[conversation.thread_id] = conversation
 
     def _handle_update_group(self, input_data: SMSInput) -> None:
-        """Handle update_group action.
+        """Handle update_group operation.
 
         Args:
             input_data: The SMS input with group_data.
@@ -899,7 +899,7 @@ class SMSState(ModalityState):
             conversation.group_photo_url = group_data["group_photo_url"]
 
     def _handle_add_participant(self, input_data: SMSInput) -> None:
-        """Handle add_participant action.
+        """Handle add_participant operation.
 
         Args:
             input_data: The SMS input with participant_data.
@@ -938,7 +938,7 @@ class SMSState(ModalityState):
         conversation.remove_participant(phone_number, input_data.timestamp)
 
     def _handle_update_conversation(self, input_data: SMSInput) -> None:
-        """Handle update_conversation action.
+        """Handle update_conversation operation.
 
         Args:
             input_data: The SMS input with conversation_update_data.
@@ -1488,10 +1488,10 @@ class SMSState(ModalityState):
             "state_previous_last_updated": self.last_updated.isoformat(),
         }
 
-        action = input_data.action
+        operation = input_data.operation
 
         # Message operations - send/receive creates new message
-        if action in ("send_message", "receive_message"):
+        if operation in ("send_message", "receive_message"):
             msg_data = input_data.message_data
             if not msg_data:
                 return {**base_undo, "action": "noop"}
@@ -1561,7 +1561,7 @@ class SMSState(ModalityState):
             }
 
         # Delivery status update
-        elif action == "update_delivery_status":
+        elif operation == "update_delivery_status":
             update_data = input_data.delivery_update_data
             if not update_data:
                 return {**base_undo, "action": "noop"}
@@ -1586,7 +1586,7 @@ class SMSState(ModalityState):
             }
 
         # Add reaction
-        elif action == "add_reaction":
+        elif operation == "add_reaction":
             reaction_data = input_data.reaction_data
             if not reaction_data:
                 return {**base_undo, "action": "noop"}
@@ -1604,7 +1604,7 @@ class SMSState(ModalityState):
             }
 
         # Remove reaction
-        elif action == "remove_reaction":
+        elif operation == "remove_reaction":
             reaction_data = input_data.reaction_data
             if not reaction_data:
                 return {**base_undo, "action": "noop"}
@@ -1633,7 +1633,7 @@ class SMSState(ModalityState):
             }
 
         # Edit message
-        elif action == "edit_message":
+        elif operation == "edit_message":
             edit_data = input_data.edit_data
             if not edit_data:
                 return {**base_undo, "action": "noop"}
@@ -1654,7 +1654,7 @@ class SMSState(ModalityState):
             }
 
         # Delete message (soft delete)
-        elif action == "delete_message":
+        elif operation == "delete_message":
             delete_data = input_data.delete_data
             if not delete_data:
                 return {**base_undo, "action": "noop"}
@@ -1672,7 +1672,7 @@ class SMSState(ModalityState):
             }
 
         # Create group
-        elif action == "create_group":
+        elif operation == "create_group":
             group_data = input_data.group_data
             if not group_data:
                 return {**base_undo, "action": "noop"}
@@ -1685,7 +1685,7 @@ class SMSState(ModalityState):
             }
 
         # Update group
-        elif action == "update_group":
+        elif operation == "update_group":
             group_data = input_data.group_data
             if not group_data:
                 return {**base_undo, "action": "noop"}
@@ -1704,7 +1704,7 @@ class SMSState(ModalityState):
             }
 
         # Add participant
-        elif action == "add_participant":
+        elif operation == "add_participant":
             participant_data = input_data.participant_data
             if not participant_data:
                 return {**base_undo, "action": "noop"}
@@ -1726,7 +1726,7 @@ class SMSState(ModalityState):
             }
 
         # Remove participant / leave group
-        elif action in ("remove_participant", "leave_group"):
+        elif operation in ("remove_participant", "leave_group"):
             participant_data = input_data.participant_data
             if not participant_data:
                 return {**base_undo, "action": "noop"}
@@ -1760,7 +1760,7 @@ class SMSState(ModalityState):
             }
 
         # Update conversation
-        elif action == "update_conversation":
+        elif operation == "update_conversation":
             update_data = input_data.conversation_update_data
             if not update_data:
                 return {**base_undo, "action": "noop"}
@@ -1801,7 +1801,7 @@ class SMSState(ModalityState):
                 **previous_settings,
             }
 
-        # Unknown action
+        # Unknown operation
         return {**base_undo, "action": "noop"}
 
     def apply_undo(self, undo_data: dict[str, Any]) -> None:

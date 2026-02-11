@@ -798,7 +798,7 @@ The `current_report` field contains a `WeatherReport` object with OpenWeather AP
   "modality_type": "sms",
   "timestamp": "2024-03-15T14:30:00+00:00",
   "input_id": "550e8400-e29b-41d4-a716-446655440001",
-  "action": "receive_message",
+  "operation": "receive_message",
   "message_data": {
     "from_number": "+15551234567",
     "to_numbers": ["+15559876543"],
@@ -809,8 +809,8 @@ The `current_report` field contains a `WeatherReport` object with OpenWeather AP
 }
 ```
 
-| Action | Description | Data Field |
-|--------|-------------|------------|
+| Operation | Description | Data Field |
+|-----------|-------------|------------|
 | `send_message` | Send SMS/RCS | `message_data` |
 | `receive_message` | Receive SMS/RCS | `message_data` |
 | `update_delivery_status` | Update delivery status | `delivery_update_data` |

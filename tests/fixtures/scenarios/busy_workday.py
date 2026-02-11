@@ -94,7 +94,7 @@ def create_busy_workday_scenario() -> dict:
             scheduled_time=start_time + timedelta(hours=1, minutes=30),
             modality="sms",
             data=sms.create_sms_input(
-                action="receive_message",
+                operation="receive_message",
                 message_data={
                     "from_number": "+15551234567",
                     "to_number": "+15559876543",
@@ -192,7 +192,7 @@ def create_busy_workday_scenario() -> dict:
             scheduled_time=start_time + timedelta(hours=7),
             modality="sms",
             data=sms.create_sms_input(
-                action="receive_message",
+                operation="receive_message",
                 message_data={
                     "from_number": "+15551234567",
                     "to_number": "+15559876543",

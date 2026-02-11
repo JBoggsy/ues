@@ -464,7 +464,7 @@ async def send_sms(
         # Convert request to SMSInput
         sms_input = SMSInput(
             timestamp=engine.environment.time_state.current_time,
-            action="send_message",
+            operation="send_message",
             message_data=message_data,
         )
 
@@ -544,7 +544,7 @@ async def receive_sms(
         # Convert request to SMSInput
         sms_input = SMSInput(
             timestamp=engine.environment.time_state.current_time,
-            action="receive_message",
+            operation="receive_message",
             message_data=message_data,
         )
 
@@ -621,7 +621,7 @@ async def mark_sms_read(
         # Create an event record for auditing
         sms_input = SMSInput(
             timestamp=current_time,
-            action="update_delivery_status",
+            operation="update_delivery_status",
             delivery_update_data={
                 "message_id": request.message_ids[0] if request.message_ids else "",
                 "new_status": "read",
@@ -694,7 +694,7 @@ async def mark_sms_unread(
         # Create an event record for auditing
         sms_input = SMSInput(
             timestamp=engine.environment.time_state.current_time,
-            action="update_delivery_status",
+            operation="update_delivery_status",
             delivery_update_data={
                 "message_id": request.message_ids[0] if request.message_ids else "",
                 "new_status": "delivered",  # unread doesn't have a delivery status
@@ -765,7 +765,7 @@ async def delete_sms(
                 # Use the input to properly process the deletion
                 sms_input = SMSInput(
                     timestamp=current_time,
-                    action="delete_message",
+                    operation="delete_message",
                     delete_data={
                         "message_id": message_id,
                     },
@@ -776,7 +776,7 @@ async def delete_sms(
         # Create an event record for auditing (use last message_id processed)
         event_input = SMSInput(
             timestamp=current_time,
-            action="delete_message",
+            operation="delete_message",
             delete_data={
                 "message_id": request.message_ids[0] if request.message_ids else "",
             },
@@ -833,7 +833,7 @@ async def react_to_sms(
         # Convert request to SMSInput
         sms_input = SMSInput(
             timestamp=engine.environment.time_state.current_time,
-            action="add_reaction",
+            operation="add_reaction",
             reaction_data={
                 "message_id": request.message_id,
                 "phone_number": request.phone_number,
@@ -912,7 +912,7 @@ async def update_conversation(
         # Create SMSInput
         sms_input = SMSInput(
             timestamp=engine.environment.time_state.current_time,
-            action="update_conversation",
+            operation="update_conversation",
             conversation_update_data=update_data,
         )
 

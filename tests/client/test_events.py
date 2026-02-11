@@ -1130,7 +1130,7 @@ class TestEventsClientCreateBatch:
             {
                 "scheduled_time": datetime(2025, 1, 15, 11, 0, tzinfo=timezone.utc),
                 "modality": "sms",
-                "data": {"action": "receive_message"},
+                "data": {"operation": "receive_message"},
             },
         ])
 
@@ -1201,7 +1201,7 @@ class TestEventsClientCreateBatch:
                 {
                     "scheduled_time": datetime(2025, 1, 15, 11, 0, tzinfo=timezone.utc),
                     "modality": "sms",
-                    "data": {"action": "receive_message"},
+                    "data": {"operation": "receive_message"},
                 },
             ],
             validate_only=True,
@@ -1309,7 +1309,7 @@ class TestAsyncEventsClientCreateBatch:
             {
                 "scheduled_time": datetime(2025, 1, 15, 11, 0, tzinfo=timezone.utc),
                 "modality": "sms",
-                "data": {"action": "receive_message"},
+                "data": {"operation": "receive_message"},
             },
         ])
 

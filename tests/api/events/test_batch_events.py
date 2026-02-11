@@ -104,7 +104,7 @@ class TestBatchEventsBasicSuccess:
                     "scheduled_time": (future_time + timedelta(hours=1)).isoformat(),
                     "modality": "sms",
                     "data": sms_event_data(
-                        action="receive_message",
+                        operation="receive_message",
                         from_number="+1234567890",
                         to_numbers=["+0987654321"],
                         body="Test SMS",

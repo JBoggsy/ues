@@ -354,7 +354,7 @@ class TestGetEvents:
                     current_time + timedelta(hours=i),
                     "sms",
                     sms_event_data(
-                        action="receive_message",
+                        operation="receive_message",
                         from_number=f"+123456789{i}",
                         to_numbers=["+0987654321"],
                         body=f"SMS {i}",

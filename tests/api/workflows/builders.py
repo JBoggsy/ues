@@ -183,7 +183,7 @@ class SMSEventBuilder(EventBuilder):
     def __init__(self):
         super().__init__("sms")
         self._data = {
-            "action": "receive_message",
+            "operation": "receive_message",
             "message_data": {
                 "to_numbers": [],
                 "message_type": "sms",
@@ -191,13 +191,13 @@ class SMSEventBuilder(EventBuilder):
         }
 
     def receive(self) -> Self:
-        """Set action to receive (incoming SMS)."""
-        self._data["action"] = "receive_message"
+        """Set operation to receive (incoming SMS)."""
+        self._data["operation"] = "receive_message"
         return self
 
     def send(self) -> Self:
-        """Set action to send (outgoing SMS)."""
-        self._data["action"] = "send_message"
+        """Set operation to send (outgoing SMS)."""
+        self._data["operation"] = "send_message"
         return self
 
     def from_number(self, number: str) -> Self:

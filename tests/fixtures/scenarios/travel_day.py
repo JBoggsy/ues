@@ -101,7 +101,7 @@ def create_travel_day_scenario() -> dict:
             scheduled_time=start_time + timedelta(hours=1, minutes=45),
             modality="sms",
             data=sms.create_sms_input(
-                action="send_message",
+                operation="send_message",
                 message_data={
                     "from_number": "+15559876543",
                     "to_number": "+15551234567",
@@ -168,7 +168,7 @@ def create_travel_day_scenario() -> dict:
             scheduled_time=start_time + timedelta(hours=9, minutes=30),
             modality="sms",
             data=sms.create_sms_input(
-                action="send_message",
+                operation="send_message",
                 message_data={
                     "from_number": "+15559876543",
                     "to_number": "+15551234567",

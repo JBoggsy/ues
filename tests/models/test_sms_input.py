@@ -21,7 +21,7 @@ class TestSMSInputInstantiation:
         """GENERAL PATTERN: Verify SMSInput instantiates with minimal required fields."""
         sms = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
-            action="send_message",
+            operation="send_message",
             message_data={
                 "from_number": "+15559876543",
                 "to_numbers": ["+15551234567"],
@@ -31,7 +31,7 @@ class TestSMSInputInstantiation:
 
         assert sms.timestamp == datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc)
         assert sms.modality_type == "sms"
-        assert sms.action == "send_message"
+        assert sms.operation == "send_message"
         assert sms.message_data["from_number"] == "+15559876543"
         assert sms.message_data["to_numbers"] == ["+15551234567"]
         assert sms.message_data["body"] == "Hello!"
@@ -40,7 +40,7 @@ class TestSMSInputInstantiation:
         """MODALITY-SPECIFIC: Verify receive_message action."""
         sms = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
-            action="receive_message",
+            operation="receive_message",
             message_data={
                 "from_number": "+15551234567",
                 "to_numbers": ["+15559876543"],
@@ -48,21 +48,21 @@ class TestSMSInputInstantiation:
             },
         )
 
-        assert sms.action == "receive_message"
+        assert sms.operation == "receive_message"
         assert sms.message_data["from_number"] == "+15551234567"
 
     def test_delivery_status_update_instantiation(self):
         """MODALITY-SPECIFIC: Verify delivery status update action."""
         sms = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
-            action="update_delivery_status",
+            operation="update_delivery_status",
             delivery_update_data={
                 "message_id": "msg-123",
                 "new_status": "delivered",
             },
         )
 
-        assert sms.action == "update_delivery_status"
+        assert sms.operation == "update_delivery_status"
         assert sms.delivery_update_data["message_id"] == "msg-123"
         assert sms.delivery_update_data["new_status"] == "delivered"
 
@@ -70,7 +70,7 @@ class TestSMSInputInstantiation:
         """MODALITY-SPECIFIC: Verify add reaction action."""
         sms = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
-            action="add_reaction",
+            operation="add_reaction",
             reaction_data={
                 "message_id": "msg-123",
                 "phone_number": "+15559876543",
@@ -78,14 +78,14 @@ class TestSMSInputInstantiation:
             },
         )
 
-        assert sms.action == "add_reaction"
+        assert sms.operation == "add_reaction"
         assert sms.reaction_data["emoji"] == "👍"
 
     def test_create_group_instantiation(self):
         """MODALITY-SPECIFIC: Verify group creation action."""
         sms = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
-            action="create_group",
+            operation="create_group",
             group_data={
                 "creator_number": "+15559876543",
                 "participant_numbers": ["+15551234567", "+15555555555"],
@@ -93,7 +93,7 @@ class TestSMSInputInstantiation:
             },
         )
 
-        assert sms.action == "create_group"
+        assert sms.operation == "create_group"
         assert sms.group_data["group_name"] == "Family Chat"
         assert len(sms.group_data["participant_numbers"]) == 2
 
@@ -101,7 +101,7 @@ class TestSMSInputInstantiation:
         """GENERAL PATTERN: Verify SMSInput applies correct defaults."""
         sms = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
-            action="send_message",
+            operation="send_message",
             message_data={
                 "from_number": "+15559876543",
                 "to_numbers": ["+15551234567"],
@@ -171,7 +171,7 @@ class TestSMSInputValidation:
         """MODALITY-SPECIFIC: Send message requires message_data."""
         sms = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
-            action="send_message",
+            operation="send_message",
         )
 
         with pytest.raises(ValueError, match="message_data is required"):
@@ -181,7 +181,7 @@ class TestSMSInputValidation:
         """MODALITY-SPECIFIC: Message requires from_number."""
         sms = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
-            action="send_message",
+            operation="send_message",
             message_data={
                 "to_numbers": ["+15551234567"],
                 "body": "Hello!",
@@ -195,7 +195,7 @@ class TestSMSInputValidation:
         """MODALITY-SPECIFIC: Message requires to_numbers."""
         sms = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
-            action="send_message",
+            operation="send_message",
             message_data={
                 "from_number": "+15559876543",
                 "body": "Hello!",
@@ -209,7 +209,7 @@ class TestSMSInputValidation:
         """MODALITY-SPECIFIC: Message requires body text."""
         sms = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
-            action="send_message",
+            operation="send_message",
             message_data={
                 "from_number": "+15559876543",
                 "to_numbers": ["+15551234567"],
@@ -223,7 +223,7 @@ class TestSMSInputValidation:
         """MODALITY-SPECIFIC: to_numbers must be a list."""
         sms = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
-            action="send_message",
+            operation="send_message",
             message_data={
                 "from_number": "+15559876543",
                 "to_numbers": "+15551234567",  # String instead of list
@@ -238,7 +238,7 @@ class TestSMSInputValidation:
         """MODALITY-SPECIFIC: to_numbers cannot be empty list."""
         sms = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
-            action="send_message",
+            operation="send_message",
             message_data={
                 "from_number": "+15559876543",
                 "to_numbers": [],  # Empty list
@@ -253,7 +253,7 @@ class TestSMSInputValidation:
         """MODALITY-SPECIFIC: message_type must be 'sms' or 'rcs'."""
         sms = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
-            action="send_message",
+            operation="send_message",
             message_data={
                 "from_number": "+15559876543",
                 "to_numbers": ["+15551234567"],
@@ -269,7 +269,7 @@ class TestSMSInputValidation:
         """MODALITY-SPECIFIC: Delivery update requires delivery_update_data."""
         sms = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
-            action="update_delivery_status",
+            operation="update_delivery_status",
         )
 
         with pytest.raises(ValueError, match="delivery_update_data is required"):
@@ -279,7 +279,7 @@ class TestSMSInputValidation:
         """MODALITY-SPECIFIC: Delivery update requires message_id."""
         sms = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
-            action="update_delivery_status",
+            operation="update_delivery_status",
             delivery_update_data={
                 "new_status": "delivered",
             },
@@ -292,7 +292,7 @@ class TestSMSInputValidation:
         """MODALITY-SPECIFIC: new_status must be valid value."""
         sms = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
-            action="update_delivery_status",
+            operation="update_delivery_status",
             delivery_update_data={
                 "message_id": "msg-123",
                 "new_status": "invalid",
@@ -306,7 +306,7 @@ class TestSMSInputValidation:
         """MODALITY-SPECIFIC: add_reaction requires emoji field."""
         sms = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
-            action="add_reaction",
+            operation="add_reaction",
             reaction_data={
                 "message_id": "msg-123",
                 "phone_number": "+15559876543",
@@ -320,7 +320,7 @@ class TestSMSInputValidation:
         """MODALITY-SPECIFIC: remove_reaction requires reaction_id field."""
         sms = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
-            action="remove_reaction",
+            operation="remove_reaction",
             reaction_data={
                 "message_id": "msg-123",
                 "phone_number": "+15559876543",
@@ -334,7 +334,7 @@ class TestSMSInputValidation:
         """MODALITY-SPECIFIC: edit_message requires new_body."""
         sms = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
-            action="edit_message",
+            operation="edit_message",
             edit_data={
                 "message_id": "msg-123",
             },
@@ -347,7 +347,7 @@ class TestSMSInputValidation:
         """MODALITY-SPECIFIC: delete_message requires message_id."""
         sms = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
-            action="delete_message",
+            operation="delete_message",
             delete_data={
                 "message_id": "msg-123",
             },
@@ -360,7 +360,7 @@ class TestSMSInputValidation:
         """MODALITY-SPECIFIC: create_group requires participant_numbers."""
         sms = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
-            action="create_group",
+            operation="create_group",
             group_data={
                 "creator_number": "+15559876543",
             },
@@ -373,7 +373,7 @@ class TestSMSInputValidation:
         """MODALITY-SPECIFIC: Groups need at least 2 participants."""
         sms = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
-            action="create_group",
+            operation="create_group",
             group_data={
                 "creator_number": "+15559876543",
                 "participant_numbers": ["+15559876543"],  # Only 1
@@ -387,7 +387,7 @@ class TestSMSInputValidation:
         """MODALITY-SPECIFIC: update_group requires thread_id."""
         sms = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
-            action="update_group",
+            operation="update_group",
             group_data={
                 "group_name": "New Name",
             },
@@ -400,7 +400,7 @@ class TestSMSInputValidation:
         """MODALITY-SPECIFIC: Conversation update needs at least one change."""
         sms = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
-            action="update_conversation",
+            operation="update_conversation",
             conversation_update_data={
                 "thread_id": "thread-123",
             },
@@ -420,7 +420,7 @@ class TestSMSInputMethods:
         """GENERAL PATTERN: Verify affected entities for message send."""
         sms = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
-            action="send_message",
+            operation="send_message",
             message_data={
                 "from_number": "+15559876543",
                 "to_numbers": ["+15551234567"],
@@ -436,7 +436,7 @@ class TestSMSInputMethods:
         """MODALITY-SPECIFIC: New conversation has special entity marker."""
         sms = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
-            action="send_message",
+            operation="send_message",
             message_data={
                 "from_number": "+15559876543",
                 "to_numbers": ["+15551234567"],
@@ -451,7 +451,7 @@ class TestSMSInputMethods:
         """GENERAL PATTERN: Verify summary for send_message."""
         sms = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
-            action="send_message",
+            operation="send_message",
             message_data={
                 "from_number": "+15559876543",
                 "to_numbers": ["+15551234567"],
@@ -468,7 +468,7 @@ class TestSMSInputMethods:
         """GENERAL PATTERN: Verify summary for receive_message."""
         sms = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
-            action="receive_message",
+            operation="receive_message",
             message_data={
                 "from_number": "+15551234567",
                 "to_numbers": ["+15559876543"],
@@ -485,7 +485,7 @@ class TestSMSInputMethods:
         long_body = "A" * 100  # 100 character message
         sms = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
-            action="send_message",
+            operation="send_message",
             message_data={
                 "from_number": "+15559876543",
                 "to_numbers": ["+15551234567"],
@@ -500,7 +500,7 @@ class TestSMSInputMethods:
         """MODALITY-SPECIFIC: Summary shows recipient count for group."""
         sms = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
-            action="send_message",
+            operation="send_message",
             message_data={
                 "from_number": "+15559876543",
                 "to_numbers": ["+15551234567", "+15555555555", "+15556666666"],
@@ -515,7 +515,7 @@ class TestSMSInputMethods:
         """MODALITY-SPECIFIC: Summary shows group name and participant count."""
         sms = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
-            action="create_group",
+            operation="create_group",
             group_data={
                 "creator_number": "+15559876543",
                 "participant_numbers": ["+15551234567", "+15555555555"],
@@ -532,7 +532,7 @@ class TestSMSInputMethods:
         """GENERAL PATTERN: SMS inputs don't merge."""
         sms1 = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
-            action="send_message",
+            operation="send_message",
             message_data={
                 "from_number": "+15559876543",
                 "to_numbers": ["+15551234567"],
@@ -541,7 +541,7 @@ class TestSMSInputMethods:
         )
         sms2 = SMSInput(
             timestamp=datetime(2025, 1, 1, 13, 0, tzinfo=timezone.utc),
-            action="send_message",
+            operation="send_message",
             message_data={
                 "from_number": "+15559876543",
                 "to_numbers": ["+15551234567"],
@@ -562,7 +562,7 @@ class TestSMSInputSerialization:
         """GENERAL PATTERN: Verify input serializes and deserializes."""
         original = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
-            action="send_message",
+            operation="send_message",
             message_data={
                 "from_number": "+15559876543",
                 "to_numbers": ["+15551234567"],
@@ -574,14 +574,14 @@ class TestSMSInputSerialization:
         restored = SMSInput.model_validate(dumped)
 
         assert restored.timestamp == original.timestamp
-        assert restored.action == original.action
+        assert restored.operation == original.operation
         assert restored.message_data == original.message_data
 
     def test_complex_serialization(self):
         """Verify complex input with attachments serializes."""
         original = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
-            action="send_message",
+            operation="send_message",
             message_data={
                 "from_number": "+15559876543",
                 "to_numbers": ["+15551234567"],
@@ -614,7 +614,7 @@ class TestSMSInputEdgeCases:
         """MODALITY-SPECIFIC: Message can have many recipients."""
         sms = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
-            action="send_message",
+            operation="send_message",
             message_data={
                 "from_number": "+15559876543",
                 "to_numbers": [f"+1555{i:07d}" for i in range(20)],
@@ -628,7 +628,7 @@ class TestSMSInputEdgeCases:
         """MODALITY-SPECIFIC: Messages can have empty body if they have attachments."""
         sms = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
-            action="send_message",
+            operation="send_message",
             message_data={
                 "from_number": "+15559876543",
                 "to_numbers": ["+15551234567"],
@@ -645,9 +645,9 @@ class TestSMSInputEdgeCases:
 
         assert sms.message_data["body"] == ""
 
-    def test_all_sms_actions(self):
-        """MODALITY-SPECIFIC: Test all valid action types."""
-        actions = [
+    def test_all_sms_operations(self):
+        """MODALITY-SPECIFIC: Test all valid operation types."""
+        operations = [
             "send_message",
             "receive_message",
             "update_delivery_status",
@@ -663,12 +663,12 @@ class TestSMSInputEdgeCases:
             "update_conversation",
         ]
 
-        for action in actions:
+        for op in operations:
             sms = SMSInput(
                 timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
-                action=action,
+                operation=op,
             )
-            assert sms.action == action
+            assert sms.operation == op
 
 
 class TestSMSInputFromFixtures:
@@ -682,7 +682,7 @@ class TestSMSInputFromFixtures:
         from tests.fixtures.modalities.sms import create_sms_input
 
         sms = create_sms_input(
-            action="send_message",
+            operation="send_message",
             message_data={
                 "from_number": "+15559876543",
                 "to_numbers": ["+15551234567"],
@@ -691,20 +691,20 @@ class TestSMSInputFromFixtures:
         )
 
         assert sms.modality_type == "sms"
-        assert sms.action == "send_message"
+        assert sms.operation == "send_message"
 
     def test_simple_receive_fixture(self):
         """Verify SIMPLE_RECEIVE fixture."""
         from tests.fixtures.modalities.sms import SIMPLE_RECEIVE
 
-        assert SIMPLE_RECEIVE.action == "receive_message"
+        assert SIMPLE_RECEIVE.operation == "receive_message"
         assert SIMPLE_RECEIVE.message_data is not None
 
     def test_group_message_fixture(self):
         """Verify GROUP_MESSAGE_RECEIVE fixture."""
         from tests.fixtures.modalities.sms import GROUP_MESSAGE_RECEIVE
 
-        assert GROUP_MESSAGE_RECEIVE.action == "receive_message"
+        assert GROUP_MESSAGE_RECEIVE.operation == "receive_message"
         assert "is_group" in GROUP_MESSAGE_RECEIVE.message_data
 
     def test_mms_with_image_fixture(self):

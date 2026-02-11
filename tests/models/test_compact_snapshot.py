@@ -299,7 +299,7 @@ class TestSMSCompactSnapshot:
 
         # Receive a message via apply_input
         msg = SMSInput(
-            action="receive_message",
+            operation="receive_message",
             timestamp=NOW - timedelta(minutes=30),
             message_data={
                 "from_number": "+15551234567",

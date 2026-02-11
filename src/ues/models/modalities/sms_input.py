@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field, field_validator
 from ues.models.base_input import ModalityInput
 
 
-SMSAction = Literal[
+SMSOperation = Literal[
     "send_message",
     "receive_message",
     "update_delivery_status",
@@ -56,33 +56,33 @@ class MessageAttachmentData(BaseModel):
 class SMSInput(ModalityInput):
     """Event payload for SMS/RCS operations.
 
-    This input type handles all SMS-related actions through an action discriminator.
-    Different actions require different data payloads specified in optional fields.
+    This input type handles all SMS-related operations through an operation discriminator.
+    Different operations require different data payloads specified in optional fields.
 
     Args:
         modality_type: Always "sms".
         timestamp: When this input event occurs (simulator time).
         input_id: Unique identifier for this input (auto-generated UUID).
-        action: Type of SMS action being performed.
-        message_data: Data for send_message, receive_message actions.
-        delivery_update_data: Data for update_delivery_status action.
-        reaction_data: Data for add_reaction, remove_reaction actions.
-        edit_data: Data for edit_message action.
-        delete_data: Data for delete_message action.
-        group_data: Data for create_group, update_group actions.
-        participant_data: Data for add_participant, remove_participant actions.
-        conversation_update_data: Data for update_conversation action.
+        operation: Type of SMS operation being performed.
+        message_data: Data for send_message, receive_message operations.
+        delivery_update_data: Data for update_delivery_status operation.
+        reaction_data: Data for add_reaction, remove_reaction operations.
+        edit_data: Data for edit_message operation.
+        delete_data: Data for delete_message operation.
+        group_data: Data for create_group, update_group operations.
+        participant_data: Data for add_participant, remove_participant operations.
+        conversation_update_data: Data for update_conversation operation.
     """
 
     modality_type: Literal["sms"] = Field(
         default="sms",
         description="Always 'sms'",
     )
-    action: SMSAction = Field(description="Type of SMS action being performed")
+    operation: SMSOperation = Field(description="Type of SMS operation being performed")
 
     message_data: Optional[dict[str, Any]] = Field(
         default=None,
-        description="Data for message send/receive actions",
+        description="Data for message send/receive operations",
     )
     delivery_update_data: Optional[dict[str, Any]] = Field(
         default=None,
@@ -114,40 +114,40 @@ class SMSInput(ModalityInput):
     )
 
     def validate_input(self) -> None:
-        """Validate that required data for the action is present and well-formed.
+        """Validate that required data for the operation is present and well-formed.
 
         Raises:
-            ValueError: If required data is missing or malformed for the action.
+            ValueError: If required data is missing or malformed for the operation.
         """
-        if self.action in ["send_message", "receive_message"]:
+        if self.operation in ["send_message", "receive_message"]:
             self._validate_message_data()
-        elif self.action == "update_delivery_status":
+        elif self.operation == "update_delivery_status":
             self._validate_delivery_update_data()
-        elif self.action in ["add_reaction", "remove_reaction"]:
+        elif self.operation in ["add_reaction", "remove_reaction"]:
             self._validate_reaction_data()
-        elif self.action == "edit_message":
+        elif self.operation == "edit_message":
             self._validate_edit_data()
-        elif self.action == "delete_message":
+        elif self.operation == "delete_message":
             self._validate_delete_data()
-        elif self.action in ["create_group", "update_group"]:
+        elif self.operation in ["create_group", "update_group"]:
             self._validate_group_data()
-        elif self.action in ["add_participant", "remove_participant", "leave_group"]:
+        elif self.operation in ["add_participant", "remove_participant", "leave_group"]:
             self._validate_participant_data()
-        elif self.action == "update_conversation":
+        elif self.operation == "update_conversation":
             self._validate_conversation_update_data()
 
     def _validate_message_data(self) -> None:
-        """Validate message_data for send/receive actions."""
+        """Validate message_data for send/receive operations."""
         if not self.message_data:
             raise ValueError(
-                f"message_data is required for action '{self.action}'"
+                f"message_data is required for operation '{self.operation}'"
             )
 
         required_fields = ["from_number", "to_numbers", "body"]
         for field in required_fields:
             if field not in self.message_data:
                 raise ValueError(
-                    f"message_data.{field} is required for action '{self.action}'"
+                    f"message_data.{field} is required for operation '{self.operation}'"
                 )
 
         if not isinstance(self.message_data["to_numbers"], list):
@@ -166,7 +166,7 @@ class SMSInput(ModalityInput):
         """Validate delivery_update_data for status updates."""
         if not self.delivery_update_data:
             raise ValueError(
-                "delivery_update_data is required for action 'update_delivery_status'"
+                "delivery_update_data is required for operation 'update_delivery_status'"
             )
 
         required_fields = ["message_id", "new_status"]
@@ -184,10 +184,10 @@ class SMSInput(ModalityInput):
             )
 
     def _validate_reaction_data(self) -> None:
-        """Validate reaction_data for add/remove reaction actions."""
+        """Validate reaction_data for add/remove reaction operations."""
         if not self.reaction_data:
             raise ValueError(
-                f"reaction_data is required for action '{self.action}'"
+                f"reaction_data is required for operation '{self.operation}'"
             )
 
         required_fields = ["message_id", "phone_number"]
@@ -197,21 +197,21 @@ class SMSInput(ModalityInput):
                     f"reaction_data.{field} is required"
                 )
 
-        if self.action == "add_reaction" and "emoji" not in self.reaction_data:
+        if self.operation == "add_reaction" and "emoji" not in self.reaction_data:
             raise ValueError(
-                "reaction_data.emoji is required for action 'add_reaction'"
+                "reaction_data.emoji is required for operation 'add_reaction'"
             )
 
-        if self.action == "remove_reaction" and "reaction_id" not in self.reaction_data:
+        if self.operation == "remove_reaction" and "reaction_id" not in self.reaction_data:
             raise ValueError(
-                "reaction_data.reaction_id is required for action 'remove_reaction'"
+                "reaction_data.reaction_id is required for operation 'remove_reaction'"
             )
 
     def _validate_edit_data(self) -> None:
         """Validate edit_data for message editing."""
         if not self.edit_data:
             raise ValueError(
-                "edit_data is required for action 'edit_message'"
+                "edit_data is required for operation 'edit_message'"
             )
 
         required_fields = ["message_id", "new_body"]
@@ -223,7 +223,7 @@ class SMSInput(ModalityInput):
         """Validate delete_data for message deletion."""
         if not self.delete_data:
             raise ValueError(
-                "delete_data is required for action 'delete_message'"
+                "delete_data is required for operation 'delete_message'"
             )
 
         if "message_id" not in self.delete_data:
@@ -233,10 +233,10 @@ class SMSInput(ModalityInput):
         """Validate group_data for group creation/update."""
         if not self.group_data:
             raise ValueError(
-                f"group_data is required for action '{self.action}'"
+                f"group_data is required for operation '{self.operation}'"
             )
 
-        if self.action == "create_group":
+        if self.operation == "create_group":
             required_fields = ["creator_number", "participant_numbers"]
             for field in required_fields:
                 if field not in self.group_data:
@@ -250,7 +250,7 @@ class SMSInput(ModalityInput):
                     "group_data.participant_numbers must have at least 2 participants"
                 )
 
-        elif self.action == "update_group":
+        elif self.operation == "update_group":
             if "thread_id" not in self.group_data:
                 raise ValueError("group_data.thread_id is required for update_group")
 
@@ -258,24 +258,24 @@ class SMSInput(ModalityInput):
         """Validate participant_data for participant operations."""
         if not self.participant_data:
             raise ValueError(
-                f"participant_data is required for action '{self.action}'"
+                f"participant_data is required for operation '{self.operation}'"
             )
 
         required_fields = ["thread_id"]
-        if self.action in ["add_participant", "remove_participant"]:
+        if self.operation in ["add_participant", "remove_participant"]:
             required_fields.append("phone_number")
 
         for field in required_fields:
             if field not in self.participant_data:
                 raise ValueError(
-                    f"participant_data.{field} is required for action '{self.action}'"
+                    f"participant_data.{field} is required for operation '{self.operation}'"
                 )
 
     def _validate_conversation_update_data(self) -> None:
         """Validate conversation_update_data for conversation updates."""
         if not self.conversation_update_data:
             raise ValueError(
-                "conversation_update_data is required for action 'update_conversation'"
+                "conversation_update_data is required for operation 'update_conversation'"
             )
 
         if "thread_id" not in self.conversation_update_data:
@@ -297,31 +297,31 @@ class SMSInput(ModalityInput):
         Returns:
             List of entity identifiers affected by this input.
         """
-        if self.action in ["send_message", "receive_message"]:
+        if self.operation in ["send_message", "receive_message"]:
             if self.message_data and "thread_id" in self.message_data:
                 return [self.message_data["thread_id"]]
             return ["new_conversation"]
 
-        elif self.action == "update_delivery_status":
+        elif self.operation == "update_delivery_status":
             if self.delivery_update_data:
                 return [self.delivery_update_data["message_id"]]
 
-        elif self.action in ["add_reaction", "remove_reaction"]:
+        elif self.operation in ["add_reaction", "remove_reaction"]:
             if self.reaction_data:
                 return [self.reaction_data["message_id"]]
 
-        elif self.action in ["edit_message", "delete_message"]:
-            data = self.edit_data if self.action == "edit_message" else self.delete_data
+        elif self.operation in ["edit_message", "delete_message"]:
+            data = self.edit_data if self.operation == "edit_message" else self.delete_data
             if data:
                 return [data["message_id"]]
 
-        elif self.action in ["create_group", "update_group"]:
+        elif self.operation in ["create_group", "update_group"]:
             if self.group_data and "thread_id" in self.group_data:
                 return [self.group_data["thread_id"]]
             return ["new_group"]
 
-        elif self.action in ["add_participant", "remove_participant", "leave_group", "update_conversation"]:
-            data = self.participant_data if self.action in ["add_participant", "remove_participant", "leave_group"] else self.conversation_update_data
+        elif self.operation in ["add_participant", "remove_participant", "leave_group", "update_conversation"]:
+            data = self.participant_data if self.operation in ["add_participant", "remove_participant", "leave_group"] else self.conversation_update_data
             if data and "thread_id" in data:
                 return [data["thread_id"]]
 
@@ -333,7 +333,7 @@ class SMSInput(ModalityInput):
         Returns:
             Brief, human-readable description for logging/UI display.
         """
-        if self.action == "send_message" and self.message_data:
+        if self.operation == "send_message" and self.message_data:
             from_num = self.message_data.get("from_number", "unknown")
             to_nums = self.message_data.get("to_numbers", [])
             body = self.message_data.get("body", "")
@@ -341,52 +341,52 @@ class SMSInput(ModalityInput):
             to_display = to_nums[0] if len(to_nums) == 1 else f"{len(to_nums)} recipients"
             return f"Send SMS from {from_num} to {to_display}: '{body_preview}'"
 
-        elif self.action == "receive_message" and self.message_data:
+        elif self.operation == "receive_message" and self.message_data:
             from_num = self.message_data.get("from_number", "unknown")
             body = self.message_data.get("body", "")
             body_preview = body[:50] + "..." if len(body) > 50 else body
             return f"Receive SMS from {from_num}: '{body_preview}'"
 
-        elif self.action == "update_delivery_status" and self.delivery_update_data:
+        elif self.operation == "update_delivery_status" and self.delivery_update_data:
             status = self.delivery_update_data.get("new_status", "unknown")
             return f"Update message delivery status to '{status}'"
 
-        elif self.action == "add_reaction" and self.reaction_data:
+        elif self.operation == "add_reaction" and self.reaction_data:
             emoji = self.reaction_data.get("emoji", "?")
             return f"Add reaction '{emoji}' to message"
 
-        elif self.action == "remove_reaction":
+        elif self.operation == "remove_reaction":
             return "Remove reaction from message"
 
-        elif self.action == "edit_message" and self.edit_data:
+        elif self.operation == "edit_message" and self.edit_data:
             new_body = self.edit_data.get("new_body", "")
             preview = new_body[:50] + "..." if len(new_body) > 50 else new_body
             return f"Edit message to: '{preview}'"
 
-        elif self.action == "delete_message":
+        elif self.operation == "delete_message":
             return "Delete message"
 
-        elif self.action == "create_group" and self.group_data:
+        elif self.operation == "create_group" and self.group_data:
             group_name = self.group_data.get("group_name", "Unnamed Group")
             participants = self.group_data.get("participant_numbers", [])
             return f"Create group '{group_name}' with {len(participants)} participants"
 
-        elif self.action == "update_group":
+        elif self.operation == "update_group":
             return "Update group settings"
 
-        elif self.action == "add_participant":
+        elif self.operation == "add_participant":
             return "Add participant to group"
 
-        elif self.action == "remove_participant":
+        elif self.operation == "remove_participant":
             return "Remove participant from group"
 
-        elif self.action == "leave_group":
+        elif self.operation == "leave_group":
             return "Leave group conversation"
 
-        elif self.action == "update_conversation":
+        elif self.operation == "update_conversation":
             return "Update conversation settings"
 
-        return f"SMS action: {self.action}"
+        return f"SMS operation: {self.operation}"
 
     def should_merge_with(self, other: "ModalityInput") -> bool:
         """Determine if this input should be merged with another.

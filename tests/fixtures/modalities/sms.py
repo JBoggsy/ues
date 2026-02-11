@@ -7,22 +7,22 @@ from ues.models.modalities.sms_state import SMSState
 
 
 def create_sms_input(
-    action: str = "receive_message",
+    operation: str = "receive_message",
     timestamp: datetime | None = None,
     **kwargs,
 ) -> SMSInput:
     """Create an SMSInput with sensible defaults.
 
     Args:
-        action: SMS action type (default: "receive_message").
-        timestamp: When action occurred (defaults to now).
-        **kwargs: Additional fields including action-specific data.
+        operation: SMS operation type (default: "receive_message").
+        timestamp: When operation occurred (defaults to now).
+        **kwargs: Additional fields including operation-specific data.
 
     Returns:
         SMSInput instance ready for testing.
     """
     return SMSInput(
-        action=action,
+        operation=operation,
         timestamp=timestamp or datetime.now(timezone.utc),
         **kwargs,
     )
@@ -52,7 +52,7 @@ def create_sms_state(
 
 # Pre-built SMS examples
 SIMPLE_RECEIVE = create_sms_input(
-    action="receive_message",
+    operation="receive_message",
     message_data={
         "from_number": "+15551234567",
         "to_number": "+15559876543",
@@ -62,7 +62,7 @@ SIMPLE_RECEIVE = create_sms_input(
 )
 
 SIMPLE_SEND = create_sms_input(
-    action="send_message",
+    operation="send_message",
     message_data={
         "from_number": "+15559876543",
         "to_number": "+15551234567",
@@ -72,7 +72,7 @@ SIMPLE_SEND = create_sms_input(
 )
 
 GROUP_MESSAGE_RECEIVE = create_sms_input(
-    action="receive_message",
+    operation="receive_message",
     message_data={
         "from_number": "+15551234567",
         "to_number": "+15559876543",
@@ -85,7 +85,7 @@ GROUP_MESSAGE_RECEIVE = create_sms_input(
 )
 
 GROUP_MESSAGE_SEND = create_sms_input(
-    action="send_message",
+    operation="send_message",
     message_data={
         "from_number": "+15559876543",
         "to_number": "+15559876543",
@@ -98,7 +98,7 @@ GROUP_MESSAGE_SEND = create_sms_input(
 )
 
 MMS_WITH_IMAGE = create_sms_input(
-    action="receive_message",
+    operation="receive_message",
     message_data={
         "from_number": "+15551234567",
         "to_number": "+15559876543",
@@ -116,7 +116,7 @@ MMS_WITH_IMAGE = create_sms_input(
 )
 
 VIDEO_MESSAGE = create_sms_input(
-    action="receive_message",
+    operation="receive_message",
     message_data={
         "from_number": "+15551234567",
         "to_number": "+15559876543",
@@ -134,7 +134,7 @@ VIDEO_MESSAGE = create_sms_input(
 )
 
 DELIVERY_STATUS_UPDATE = create_sms_input(
-    action="update_delivery_status",
+    operation="update_delivery_status",
     delivery_update_data={
         "message_id": "msg-12345",
         "new_status": "delivered",
@@ -143,7 +143,7 @@ DELIVERY_STATUS_UPDATE = create_sms_input(
 )
 
 READ_STATUS_UPDATE = create_sms_input(
-    action="update_delivery_status",
+    operation="update_delivery_status",
     delivery_update_data={
         "message_id": "msg-12345",
         "new_status": "read",
@@ -152,7 +152,7 @@ READ_STATUS_UPDATE = create_sms_input(
 )
 
 ADD_REACTION = create_sms_input(
-    action="add_reaction",
+    operation="add_reaction",
     reaction_data={
         "message_id": "msg-12345",
         "emoji": "👍",
@@ -162,7 +162,7 @@ ADD_REACTION = create_sms_input(
 )
 
 REMOVE_REACTION = create_sms_input(
-    action="remove_reaction",
+    operation="remove_reaction",
     reaction_data={
         "message_id": "msg-12345",
         "emoji": "👍",
@@ -172,7 +172,7 @@ REMOVE_REACTION = create_sms_input(
 )
 
 EDIT_MESSAGE = create_sms_input(
-    action="edit_message",
+    operation="edit_message",
     edit_data={
         "message_id": "msg-12345",
         "new_body": "Corrected message text",
@@ -181,7 +181,7 @@ EDIT_MESSAGE = create_sms_input(
 )
 
 DELETE_MESSAGE = create_sms_input(
-    action="delete_message",
+    operation="delete_message",
     delete_data={
         "message_id": "msg-12345",
         "conversation_id": "conv-1",
@@ -190,7 +190,7 @@ DELETE_MESSAGE = create_sms_input(
 )
 
 CREATE_GROUP = create_sms_input(
-    action="create_group",
+    operation="create_group",
     group_data={
         "group_name": "Weekend Plans",
         "participants": ["+15551234567", "+15559876543", "+15555555555"],
@@ -199,7 +199,7 @@ CREATE_GROUP = create_sms_input(
 )
 
 ADD_PARTICIPANT = create_sms_input(
-    action="add_participant",
+    operation="add_participant",
     participant_data={
         "conversation_id": "group-weekend",
         "phone_number": "+15554444444",
@@ -208,7 +208,7 @@ ADD_PARTICIPANT = create_sms_input(
 )
 
 REMOVE_PARTICIPANT = create_sms_input(
-    action="remove_participant",
+    operation="remove_participant",
     participant_data={
         "conversation_id": "group-weekend",
         "phone_number": "+15554444444",
@@ -217,7 +217,7 @@ REMOVE_PARTICIPANT = create_sms_input(
 )
 
 UPDATE_CONVERSATION = create_sms_input(
-    action="update_conversation",
+    operation="update_conversation",
     conversation_update_data={
         "conversation_id": "conv-1",
         "is_muted": True,
@@ -226,7 +226,7 @@ UPDATE_CONVERSATION = create_sms_input(
 )
 
 ARCHIVE_CONVERSATION = create_sms_input(
-    action="update_conversation",
+    operation="update_conversation",
     conversation_update_data={
         "conversation_id": "conv-1",
         "is_archived": True,
@@ -241,7 +241,7 @@ EMPTY_SMS_STATE = create_sms_state()
 # Invalid examples for validation testing
 INVALID_SMS_INPUTS = {
     "bad_phone_number": {
-        "action": "send_message",
+        "operation": "send_message",
         "timestamp": datetime.now(timezone.utc),
         "message_data": {
             "from_number": "not-a-phone",
@@ -250,7 +250,7 @@ INVALID_SMS_INPUTS = {
         },
     },
     "missing_message_data": {
-        "action": "send_message",
+        "operation": "send_message",
         "timestamp": datetime.now(timezone.utc),
     },
 }
@@ -261,7 +261,7 @@ SMS_JSON_EXAMPLES = {
     "simple_receive": {
         "modality_type": "sms",
         "timestamp": "2025-01-15T10:30:00Z",
-        "action": "receive_message",
+        "operation": "receive_message",
         "message_data": {
             "from_number": "+15551234567",
             "to_number": "+15559876543",
@@ -272,7 +272,7 @@ SMS_JSON_EXAMPLES = {
     "with_image": {
         "modality_type": "sms",
         "timestamp": "2025-01-15T14:00:00Z",
-        "action": "receive_message",
+        "operation": "receive_message",
         "message_data": {
             "from_number": "+15551234567",
             "to_number": "+15559876543",
@@ -290,7 +290,7 @@ SMS_JSON_EXAMPLES = {
     "group_message": {
         "modality_type": "sms",
         "timestamp": "2025-01-15T16:00:00Z",
-        "action": "receive_message",
+        "operation": "receive_message",
         "message_data": {
             "from_number": "+15551234567",
             "to_number": "+15559876543",
