@@ -17,9 +17,6 @@ Note: 3 websocket concurrency tests have known flakiness issues with httpx-ws/an
 
 ## 🐛 Bugs
 
-### Needs Investigation
-- [ ] **Email client `participant_addresses` type mismatch** — Server uses `set[str]`, client uses `list[str]`. Low severity (JSON arrays round-trip fine) but could cause duplicate-handling differences.
-
 ---
 
 ## 🚧 TODO: Core Simulator
