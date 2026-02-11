@@ -348,12 +348,11 @@ class TestEventsIntegration:
         sync_client.events.create(
             scheduled_time=scheduled_time + timedelta(hours=1),
             modality="sms",
-            data={"operation": "receive_message", "message_data": {
+            data={"operation": "receive_message",
                 "from_number": "+1234567890",
                 "to_numbers": ["+0987654321"], 
                 "body": "SMS 1",
-                "conversation_id": None,
-            }},
+            },
         )
         
         # List all events

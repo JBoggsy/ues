@@ -296,7 +296,7 @@ Represents a conversation thread (one-on-one or group).
 
 The event payload for SMS/RCS operations (send message, update conversation, etc.).
 
-**Attributes:**
+**Base Attributes:**
 - `modality_type: str` - Always "sms"
 - `timestamp: datetime` - When this input event occurs (simulator time)
 - `input_id: str` - Unique identifier for this input (auto-generated UUID)
@@ -314,45 +314,63 @@ The event payload for SMS/RCS operations (send message, update conversation, etc
   - `remove_participant`
   - `leave_group`
   - `update_conversation`
-- `message_data: Optional[dict[str, Any]]` - For message actions (send, receive, edit)
-  - `from_number: str` - Sender phone number
-  - `to_numbers: list[str]` - Recipient phone number(s)
-  - `body: str` - Message text
-  - `attachments: list[dict]` - Attachment metadata
-  - `message_type: str` - "sms" or "rcs"
-  - `thread_id: Optional[str]` - Existing conversation ID (auto-created if not provided)
-  - `replied_to_message_id: Optional[str]` - Message being replied to
-- `delivery_update_data: Optional[dict[str, Any]]` - For delivery status updates
-  - `message_id: str` - Message to update
-  - `new_status: str` - "delivered", "read", "failed"
-  - `timestamp: datetime` - When status change occurred
-- `reaction_data: Optional[dict[str, Any]]` - For add/remove reaction
-  - `message_id: str` - Message to react to
-  - `phone_number: str` - Who is reacting
-  - `emoji: str` - Emoji character (add_reaction only)
-  - `reaction_id: str` - Reaction to remove (remove_reaction only)
-- `edit_data: Optional[dict[str, Any]]` - For message editing
-  - `message_id: str` - Message to edit
-  - `new_body: str` - Updated message text
-- `delete_data: Optional[dict[str, Any]]` - For message deletion
-  - `message_id: str` - Message to delete
-  - `delete_for_everyone: bool` - Whether to delete for all participants
-- `group_data: Optional[dict[str, Any]]` - For group operations
-  - `thread_id: Optional[str]` - Existing group (for updates)
-  - `group_name: Optional[str]` - Group name
-  - `creator_number: str` - Group creator phone number
-  - `participant_numbers: list[str]` - Initial or updated participants
-- `participant_data: Optional[dict[str, Any]]` - For add/remove participant
-  - `thread_id: str` - Group conversation ID
-  - `phone_number: str` - Participant to add/remove
-  - `is_admin: bool` - Admin status (add only, default: False)
-- `conversation_update_data: Optional[dict[str, Any]]` - For conversation state changes
-  - `thread_id: str` - Conversation to update
-  - `pin: Optional[bool]` - Pin/unpin conversation
-  - `mute: Optional[bool]` - Mute/unmute notifications
-  - `archive: Optional[bool]` - Archive/unarchive conversation
-  - `mark_all_read: Optional[bool]` - Mark all messages as read
-  - `draft_message: Optional[str]` - Save draft text (None to clear)
+
+**Typed Top-Level Fields:**
+
+All operation-specific data is now stored in typed top-level fields rather than nested dictionaries.
+Required fields depend on the operation type.
+
+*Message fields (send_message, receive_message):*
+- `from_number: Optional[str]` - Sender phone number (E.164 format recommended)
+- `to_numbers: Optional[list[str]]` - Recipient phone number(s)
+- `body: Optional[str]` - Message text
+- `message_type: str` - "sms" or "rcs" (default: "sms")
+- `attachments: Optional[list[MessageAttachmentData]]` - Attachment metadata
+- `thread_id: Optional[str]` - Existing conversation ID (auto-created if not provided)
+- `replied_to_message_id: Optional[str]` - Message being replied to
+
+*Delivery update fields (update_delivery_status):*
+- `message_id: Optional[str]` - Message to update
+- `new_status: Optional[str]` - "delivered", "read", "failed"
+- `delivered_at: Optional[datetime]` - When message was delivered
+- `read_at: Optional[datetime]` - When message was read
+
+*Reaction fields (add_reaction, remove_reaction):*
+- `message_id: Optional[str]` - Message to react to
+- `phone_number: Optional[str]` - Who is reacting
+- `emoji: Optional[str]` - Emoji character (add_reaction only)
+- `reaction_id: Optional[str]` - Reaction to remove (remove_reaction only)
+
+*Edit fields (edit_message):*
+- `message_id: Optional[str]` - Message to edit
+- `new_body: Optional[str]` - Updated message text
+
+*Delete fields (delete_message):*
+- `message_id: Optional[str]` - Message to delete
+- `delete_for_everyone: bool` - Whether to delete for all participants (default: False)
+
+*Group fields (create_group, update_group):*
+- `thread_id: Optional[str]` - Existing group (for updates)
+- `group_name: Optional[str]` - Group name
+- `creator_number: Optional[str]` - Group creator phone number
+- `participant_numbers: Optional[list[str]]` - Initial or updated participants
+- `group_photo_url: Optional[str]` - Group photo URL
+
+*Participant fields (add_participant, remove_participant, leave_group):*
+- `thread_id: Optional[str]` - Group conversation ID
+- `phone_number: Optional[str]` - Participant to add/remove
+- `is_admin: bool` - Admin status (add only, default: False)
+- `added_by: Optional[str]` - Who added the participant
+- `removed_by: Optional[str]` - Who removed the participant
+
+*Conversation update fields (update_conversation):*
+- `thread_id: Optional[str]` - Conversation to update
+- `pin: Optional[bool]` - Pin/unpin conversation
+- `mute: Optional[bool]` - Mute/unmute notifications
+- `archive: Optional[bool]` - Archive/unarchive conversation
+- `mark_all_read: Optional[bool]` - Mark all messages as read
+- `draft_message: Optional[str]` - Save draft text (None to clear)
+- `mute_until: Optional[datetime]` - Mute until specific time
 
 **Methods:**
 - `validate_input()` - Validates that required data for the specified operation is present and well-formed
@@ -361,11 +379,13 @@ The event payload for SMS/RCS operations (send message, update conversation, etc
 - `should_merge_with(other: SMSInput) -> bool` - Returns False (SMS events are discrete)
 
 **Design Decisions:**
+- **Typed top-level fields**: All operation-specific fields are typed at the top level, avoiding nested dictionaries. This provides better validation, IDE support, and serialization consistency.
 - **Operation-based**: Single input type handles all SMS operations via operation discriminator
 - **Flexible phone numbers**: Supports any phone number format, but E.164 recommended
 - **Thread auto-creation**: If thread_id not provided for message, creates/finds appropriate conversation
 - **RCS feature detection**: Validates RCS-only features (edit, reactions) only apply to RCS messages
 - **Group vs one-on-one**: Automatically determined by number of participants
+- **Consistent API**: Uses same "operation" field pattern as EmailInput, CalendarInput, ChatInput
 
 ### `SMSState` (models/modalities/sms_state.py)
 

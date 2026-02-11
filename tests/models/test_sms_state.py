@@ -341,11 +341,9 @@ class TestSMSStateApplyInput:
         input_event = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="send_message",
-            message_data={
-                "from_number": "+15559876543",
-                "to_numbers": ["+15551234567"],
-                "body": "Hello!",
-            },
+            from_number="+15559876543",
+            to_numbers=['+15551234567'],
+            body="Hello!",
         )
 
         state.apply_input(input_event)
@@ -363,11 +361,9 @@ class TestSMSStateApplyInput:
         input_event = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="receive_message",
-            message_data={
-                "from_number": "+15551234567",
-                "to_numbers": ["+15559876543"],
-                "body": "Got it!",
-            },
+            from_number="+15551234567",
+            to_numbers=['+15559876543'],
+            body="Got it!",
         )
 
         state.apply_input(input_event)
@@ -384,11 +380,9 @@ class TestSMSStateApplyInput:
         input_event = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="send_message",
-            message_data={
-                "from_number": "+15559876543",
-                "to_numbers": ["+15551234567"],
-                "body": "Hello!",
-            },
+            from_number="+15559876543",
+            to_numbers=['+15551234567'],
+            body="Hello!",
         )
 
         state.apply_input(input_event)
@@ -404,11 +398,9 @@ class TestSMSStateApplyInput:
         input_event = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="send_message",
-            message_data={
-                "from_number": "+15559876543",
-                "to_numbers": ["+15551234567", "+15555555555"],
-                "body": "Hello everyone!",
-            },
+            from_number="+15559876543",
+            to_numbers=['+15551234567', '+15555555555'],
+            body="Hello everyone!",
         )
 
         state.apply_input(input_event)
@@ -425,11 +417,9 @@ class TestSMSStateApplyInput:
         send_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="send_message",
-            message_data={
-                "from_number": "+15559876543",
-                "to_numbers": ["+15551234567"],
-                "body": "Test",
-            },
+            from_number="+15559876543",
+            to_numbers=['+15551234567'],
+            body="Test",
         )
         state.apply_input(send_input)
         message_id = list(state.messages.keys())[0]
@@ -438,10 +428,8 @@ class TestSMSStateApplyInput:
         status_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 1, tzinfo=timezone.utc),
             operation="update_delivery_status",
-            delivery_update_data={
-                "message_id": message_id,
-                "new_status": "delivered",
-            },
+            message_id=message_id,
+            new_status="delivered",
         )
         state.apply_input(status_input)
 
@@ -456,11 +444,9 @@ class TestSMSStateApplyInput:
         send_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="send_message",
-            message_data={
-                "from_number": "+15559876543",
-                "to_numbers": ["+15551234567"],
-                "body": "Great news!",
-            },
+            from_number="+15559876543",
+            to_numbers=['+15551234567'],
+            body="Great news!",
         )
         state.apply_input(send_input)
         message_id = list(state.messages.keys())[0]
@@ -469,11 +455,9 @@ class TestSMSStateApplyInput:
         reaction_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 5, tzinfo=timezone.utc),
             operation="add_reaction",
-            reaction_data={
-                "message_id": message_id,
-                "phone_number": "+15551234567",
-                "emoji": "🎉",
-            },
+            message_id=message_id,
+            phone_number="+15551234567",
+            emoji="🎉",
         )
         state.apply_input(reaction_input)
 
@@ -489,11 +473,9 @@ class TestSMSStateApplyInput:
         send_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="send_message",
-            message_data={
-                "from_number": "+15559876543",
-                "to_numbers": ["+15551234567"],
-                "body": "Test",
-            },
+            from_number="+15559876543",
+            to_numbers=['+15551234567'],
+            body="Test",
         )
         state.apply_input(send_input)
         message_id = list(state.messages.keys())[0]
@@ -501,11 +483,9 @@ class TestSMSStateApplyInput:
         add_reaction = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 1, tzinfo=timezone.utc),
             operation="add_reaction",
-            reaction_data={
-                "message_id": message_id,
-                "phone_number": "+15551234567",
-                "emoji": "👍",
-            },
+            message_id=message_id,
+            phone_number="+15551234567",
+            emoji="👍",
         )
         state.apply_input(add_reaction)
         reaction_id = state.messages[message_id].reactions[0].reaction_id
@@ -514,11 +494,9 @@ class TestSMSStateApplyInput:
         remove_reaction = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 2, tzinfo=timezone.utc),
             operation="remove_reaction",
-            reaction_data={
-                "message_id": message_id,
-                "phone_number": "+15551234567",
-                "reaction_id": reaction_id,
-            },
+            message_id=message_id,
+            phone_number="+15551234567",
+            reaction_id=reaction_id,
         )
         state.apply_input(remove_reaction)
 
@@ -533,12 +511,10 @@ class TestSMSStateApplyInput:
         send_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="send_message",
-            message_data={
-                "from_number": "+15559876543",
-                "to_numbers": ["+15551234567"],
-                "body": "Original text",
-                "message_type": "rcs",
-            },
+            from_number="+15559876543",
+            to_numbers=['+15551234567'],
+            body="Original text",
+            message_type="rcs",
         )
         state.apply_input(send_input)
         message_id = list(state.messages.keys())[0]
@@ -547,10 +523,8 @@ class TestSMSStateApplyInput:
         edit_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 5, tzinfo=timezone.utc),
             operation="edit_message",
-            edit_data={
-                "message_id": message_id,
-                "new_body": "Edited text",
-            },
+            message_id=message_id,
+            new_body="Edited text",
         )
         state.apply_input(edit_input)
 
@@ -566,11 +540,9 @@ class TestSMSStateApplyInput:
         send_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="send_message",
-            message_data={
-                "from_number": "+15559876543",
-                "to_numbers": ["+15551234567"],
-                "body": "Delete me",
-            },
+            from_number="+15559876543",
+            to_numbers=['+15551234567'],
+            body="Delete me",
         )
         state.apply_input(send_input)
         message_id = list(state.messages.keys())[0]
@@ -579,9 +551,7 @@ class TestSMSStateApplyInput:
         delete_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 5, tzinfo=timezone.utc),
             operation="delete_message",
-            delete_data={
-                "message_id": message_id,
-            },
+            message_id=message_id,
         )
         state.apply_input(delete_input)
 
@@ -595,11 +565,9 @@ class TestSMSStateApplyInput:
         create_group = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="create_group",
-            group_data={
-                "creator_number": "+15559876543",
-                "participant_numbers": ["+15551234567", "+15555555555"],
-                "group_name": "Family Chat",
-            },
+            group_name="Family Chat",
+            creator_number="+15559876543",
+            participant_numbers=["+15551234567", "+15555555555"],
         )
         state.apply_input(create_group)
 
@@ -618,11 +586,9 @@ class TestSMSStateApplyInput:
         create_group = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="create_group",
-            group_data={
-                "creator_number": "+15559876543",
-                "participant_numbers": ["+15551234567", "+15555555555"],
-                "group_name": "Old Name",
-            },
+            group_name="Old Name",
+            creator_number="+15559876543",
+            participant_numbers=["+15551234567", "+15555555555"],
         )
         state.apply_input(create_group)
         thread_id = list(state.conversations.keys())[0]
@@ -631,10 +597,8 @@ class TestSMSStateApplyInput:
         update_group = SMSInput(
             timestamp=datetime(2025, 1, 1, 13, 0, tzinfo=timezone.utc),
             operation="update_group",
-            group_data={
-                "thread_id": thread_id,
-                "group_name": "New Name",
-            },
+            group_name="New Name",
+            thread_id=thread_id,
         )
         state.apply_input(update_group)
 
@@ -649,10 +613,8 @@ class TestSMSStateApplyInput:
         create_group = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="create_group",
-            group_data={
-                "creator_number": "+15559876543",
-                "participant_numbers": ["+15551234567", "+15552222222"],
-            },
+            creator_number="+15559876543",
+            participant_numbers=["+15551234567", "+15552222222"],
         )
         state.apply_input(create_group)
         thread_id = list(state.conversations.keys())[0]
@@ -661,10 +623,8 @@ class TestSMSStateApplyInput:
         add_participant = SMSInput(
             timestamp=datetime(2025, 1, 1, 13, 0, tzinfo=timezone.utc),
             operation="add_participant",
-            participant_data={
-                "thread_id": thread_id,
-                "phone_number": "+15555555555",
-            },
+            thread_id=thread_id,
+            phone_number="+15555555555",
         )
         state.apply_input(add_participant)
 
@@ -681,10 +641,8 @@ class TestSMSStateApplyInput:
         create_group = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="create_group",
-            group_data={
-                "creator_number": "+15559876543",
-                "participant_numbers": ["+15551234567", "+15555555555"],
-            },
+            creator_number="+15559876543",
+            participant_numbers=["+15551234567", "+15555555555"],
         )
         state.apply_input(create_group)
         thread_id = list(state.conversations.keys())[0]
@@ -693,10 +651,8 @@ class TestSMSStateApplyInput:
         remove_participant = SMSInput(
             timestamp=datetime(2025, 1, 1, 13, 0, tzinfo=timezone.utc),
             operation="remove_participant",
-            participant_data={
-                "thread_id": thread_id,
-                "phone_number": "+15555555555",
-            },
+            thread_id=thread_id,
+            phone_number="+15555555555",
         )
         state.apply_input(remove_participant)
 
@@ -713,11 +669,9 @@ class TestSMSStateApplyInput:
         send_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="send_message",
-            message_data={
-                "from_number": "+15559876543",
-                "to_numbers": ["+15551234567"],
-                "body": "Test",
-            },
+            from_number="+15559876543",
+            to_numbers=['+15551234567'],
+            body="Test",
         )
         state.apply_input(send_input)
         thread_id = list(state.conversations.keys())[0]
@@ -726,11 +680,9 @@ class TestSMSStateApplyInput:
         update_conv = SMSInput(
             timestamp=datetime(2025, 1, 1, 13, 0, tzinfo=timezone.utc),
             operation="update_conversation",
-            conversation_update_data={
-                "thread_id": thread_id,
-                "pin": True,
-                "mute": True,
-            },
+            thread_id=thread_id,
+            pin=True,
+            mute=True,
         )
         state.apply_input(update_conv)
 
@@ -768,11 +720,9 @@ class TestSMSStateGetSnapshot:
         send_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="send_message",
-            message_data={
-                "from_number": "+15559876543",
-                "to_numbers": ["+15551234567"],
-                "body": "Hello!",
-            },
+            from_number="+15559876543",
+            to_numbers=['+15551234567'],
+            body="Hello!",
         )
         state.apply_input(send_input)
 
@@ -788,11 +738,9 @@ class TestSMSStateGetSnapshot:
         send_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="send_message",
-            message_data={
-                "from_number": "+15559876543",
-                "to_numbers": ["+15551234567"],
-                "body": "Test",
-            },
+            from_number="+15559876543",
+            to_numbers=['+15551234567'],
+            body="Test",
         )
         state.apply_input(send_input)
 
@@ -809,11 +757,9 @@ class TestSMSStateGetSnapshot:
             receive_input = SMSInput(
                 timestamp=datetime(2025, 1, 1, 12, i, tzinfo=timezone.utc),
                 operation="receive_message",
-                message_data={
-                    "from_number": "+15551234567",
-                    "to_numbers": ["+15559876543"],
-                    "body": f"Message {i}",
-                },
+                from_number="+15551234567",
+                to_numbers=["+15559876543"],
+                body=f"Message {i}",
             )
             state.apply_input(receive_input)
 
@@ -843,11 +789,9 @@ class TestSMSStateValidateState:
         send_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="send_message",
-            message_data={
-                "from_number": "+15559876543",
-                "to_numbers": ["+15551234567"],
-                "body": "Test",
-            },
+            from_number="+15559876543",
+            to_numbers=['+15551234567'],
+            body="Test",
         )
         state.apply_input(send_input)
 
@@ -890,11 +834,9 @@ class TestSMSStateQuery:
             send_input = SMSInput(
                 timestamp=datetime(2025, 1, 1, 12, i, tzinfo=timezone.utc),
                 operation="send_message",
-                message_data={
-                    "from_number": "+15559876543",
-                    "to_numbers": ["+15551234567"],
-                    "body": f"Message {i}",
-                },
+                from_number="+15559876543",
+                to_numbers=["+15551234567"],
+                body=f"Message {i}",
             )
             state.apply_input(send_input)
 
@@ -910,11 +852,9 @@ class TestSMSStateQuery:
         send1 = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="send_message",
-            message_data={
-                "from_number": "+15559876543",
-                "to_numbers": ["+15551234567"],
-                "body": "Thread A",
-            },
+            from_number="+15559876543",
+            to_numbers=['+15551234567'],
+            body="Thread A",
         )
         state.apply_input(send1)
         thread_a = list(state.messages.values())[0].thread_id
@@ -922,11 +862,9 @@ class TestSMSStateQuery:
         send2 = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 1, tzinfo=timezone.utc),
             operation="send_message",
-            message_data={
-                "from_number": "+15559876543",
-                "to_numbers": ["+15555555555"],
-                "body": "Thread B",
-            },
+            from_number="+15559876543",
+            to_numbers=['+15555555555'],
+            body="Thread B",
         )
         state.apply_input(send2)
 
@@ -943,22 +881,18 @@ class TestSMSStateQuery:
         receive1 = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="receive_message",
-            message_data={
-                "from_number": "+15551234567",
-                "to_numbers": ["+15559876543"],
-                "body": "From Alice",
-            },
+            from_number="+15551234567",
+            to_numbers=['+15559876543'],
+            body="From Alice",
         )
         state.apply_input(receive1)
 
         receive2 = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 1, tzinfo=timezone.utc),
             operation="receive_message",
-            message_data={
-                "from_number": "+15555555555",
-                "to_numbers": ["+15559876543"],
-                "body": "From Bob",
-            },
+            from_number="+15555555555",
+            to_numbers=['+15559876543'],
+            body="From Bob",
         )
         state.apply_input(receive2)
 
@@ -975,22 +909,18 @@ class TestSMSStateQuery:
         send = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="send_message",
-            message_data={
-                "from_number": "+15559876543",
-                "to_numbers": ["+15551234567"],
-                "body": "Outgoing",
-            },
+            from_number="+15559876543",
+            to_numbers=['+15551234567'],
+            body="Outgoing",
         )
         state.apply_input(send)
 
         receive = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 1, tzinfo=timezone.utc),
             operation="receive_message",
-            message_data={
-                "from_number": "+15551234567",
-                "to_numbers": ["+15559876543"],
-                "body": "Incoming",
-            },
+            from_number="+15551234567",
+            to_numbers=['+15559876543'],
+            body="Incoming",
         )
         state.apply_input(receive)
 
@@ -1012,11 +942,9 @@ class TestSMSStateQuery:
         receive = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="receive_message",
-            message_data={
-                "from_number": "+15551234567",
-                "to_numbers": ["+15559876543"],
-                "body": "Unread",
-            },
+            from_number="+15551234567",
+            to_numbers=['+15559876543'],
+            body="Unread",
         )
         state.apply_input(receive)
 
@@ -1032,11 +960,9 @@ class TestSMSStateQuery:
         text = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="send_message",
-            message_data={
-                "from_number": "+15559876543",
-                "to_numbers": ["+15551234567"],
-                "body": "Text only",
-            },
+            from_number="+15559876543",
+            to_numbers=['+15551234567'],
+            body="Text only",
         )
         state.apply_input(text)
 
@@ -1044,18 +970,16 @@ class TestSMSStateQuery:
         mms = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 1, tzinfo=timezone.utc),
             operation="send_message",
-            message_data={
-                "from_number": "+15559876543",
-                "to_numbers": ["+15551234567"],
-                "body": "Photo",
-                "attachments": [
-                    {
-                        "filename": "photo.jpg",
-                        "size": 1024,
-                        "mime_type": "image/jpeg",
-                    }
-                ],
-            },
+            from_number="+15559876543",
+            to_numbers=["+15551234567"],
+            body="Photo",
+            attachments=[
+                MessageAttachmentData(
+                    filename="photo.jpg",
+                    size=1024,
+                    mime_type="image/jpeg",
+                )
+            ],
         )
         state.apply_input(mms)
 
@@ -1073,11 +997,9 @@ class TestSMSStateQuery:
             send_input = SMSInput(
                 timestamp=datetime(2025, 1, 1, 12, i, tzinfo=timezone.utc),
                 operation="send_message",
-                message_data={
-                    "from_number": "+15559876543",
-                    "to_numbers": ["+15551234567"],
-                    "body": f"Message {i}",
-                },
+                from_number="+15559876543",
+                to_numbers=["+15551234567"],
+                body=f"Message {i}",
             )
             state.apply_input(send_input)
 
@@ -1099,11 +1021,9 @@ class TestSMSStateHelperMethods:
         send_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="send_message",
-            message_data={
-                "from_number": "+15559876543",
-                "to_numbers": ["+15551234567"],
-                "body": "Test",
-            },
+            from_number="+15559876543",
+            to_numbers=['+15551234567'],
+            body="Test",
         )
         state.apply_input(send_input)
         thread_id = list(state.conversations.keys())[0]
@@ -1119,11 +1039,9 @@ class TestSMSStateHelperMethods:
         send_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="send_message",
-            message_data={
-                "from_number": "+15559876543",
-                "to_numbers": ["+15551234567"],
-                "body": "Test",
-            },
+            from_number="+15559876543",
+            to_numbers=['+15551234567'],
+            body="Test",
         )
         state.apply_input(send_input)
         message_id = list(state.messages.keys())[0]
@@ -1146,11 +1064,9 @@ class TestSMSStateSerialization:
         send_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="send_message",
-            message_data={
-                "from_number": "+15559876543",
-                "to_numbers": ["+15551234567"],
-                "body": "Test",
-            },
+            from_number="+15559876543",
+            to_numbers=['+15551234567'],
+            body="Test",
         )
         original.apply_input(send_input)
 
@@ -1194,11 +1110,9 @@ class TestSMSStateUndoCreateUndoData:
         send_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="send_message",
-            message_data={
-                "from_number": "+15559876543",
-                "to_numbers": ["+15551234567"],
-                "body": "Hello!",
-            },
+            from_number="+15559876543",
+            to_numbers=['+15551234567'],
+            body="Hello!",
         )
 
         undo_data = state.create_undo_data(send_input)
@@ -1216,11 +1130,9 @@ class TestSMSStateUndoCreateUndoData:
         send_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="send_message",
-            message_data={
-                "from_number": "+15559876543",
-                "to_numbers": ["+15551234567"],
-                "body": "First message",
-            },
+            from_number="+15559876543",
+            to_numbers=['+15551234567'],
+            body="First message",
         )
         state.apply_input(send_input)
         thread_id = list(state.conversations.keys())[0]
@@ -1229,12 +1141,10 @@ class TestSMSStateUndoCreateUndoData:
         receive_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 30, tzinfo=timezone.utc),
             operation="receive_message",
-            message_data={
-                "from_number": "+15551234567",
-                "to_numbers": ["+15559876543"],
-                "body": "Reply",
-                "thread_id": thread_id,
-            },
+            from_number="+15551234567",
+            to_numbers=["+15559876543"],
+            body="Reply",
+            thread_id=thread_id,
         )
 
         undo_data = state.create_undo_data(receive_input)
@@ -1253,11 +1163,9 @@ class TestSMSStateUndoCreateUndoData:
         send_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="send_message",
-            message_data={
-                "from_number": "+15559876543",
-                "to_numbers": ["+15551234567"],
-                "body": "Test",
-            },
+            from_number="+15559876543",
+            to_numbers=['+15551234567'],
+            body="Test",
         )
         state.apply_input(send_input)
         message_id = list(state.messages.keys())[0]
@@ -1266,11 +1174,9 @@ class TestSMSStateUndoCreateUndoData:
         update_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 30, tzinfo=timezone.utc),
             operation="update_delivery_status",
-            delivery_update_data={
-                "message_id": message_id,
-                "new_status": "delivered",
-                "delivered_at": datetime(2025, 1, 1, 12, 31, tzinfo=timezone.utc),
-            },
+            message_id=message_id,
+            new_status="delivered",
+            delivered_at=datetime(2025, 1, 1, 12, 31, tzinfo=timezone.utc),
         )
 
         undo_data = state.create_undo_data(update_input)
@@ -1289,11 +1195,9 @@ class TestSMSStateUndoCreateUndoData:
         receive_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="receive_message",
-            message_data={
-                "from_number": "+15551234567",
-                "to_numbers": ["+15559876543"],
-                "body": "Test",
-            },
+            from_number="+15551234567",
+            to_numbers=['+15559876543'],
+            body="Test",
         )
         state.apply_input(receive_input)
         message_id = list(state.messages.keys())[0]
@@ -1302,11 +1206,9 @@ class TestSMSStateUndoCreateUndoData:
         reaction_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 30, tzinfo=timezone.utc),
             operation="add_reaction",
-            reaction_data={
-                "message_id": message_id,
-                "phone_number": "+15559876543",
-                "emoji": "👍",
-            },
+            message_id=message_id,
+            phone_number="+15559876543",
+            emoji="👍",
         )
 
         undo_data = state.create_undo_data(reaction_input)
@@ -1323,11 +1225,9 @@ class TestSMSStateUndoCreateUndoData:
         receive_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="receive_message",
-            message_data={
-                "from_number": "+15551234567",
-                "to_numbers": ["+15559876543"],
-                "body": "Test",
-            },
+            from_number="+15551234567",
+            to_numbers=['+15559876543'],
+            body="Test",
         )
         state.apply_input(receive_input)
         message_id = list(state.messages.keys())[0]
@@ -1336,11 +1236,9 @@ class TestSMSStateUndoCreateUndoData:
         reaction_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 30, tzinfo=timezone.utc),
             operation="add_reaction",
-            reaction_data={
-                "message_id": message_id,
-                "phone_number": "+15559876543",
-                "emoji": "👍",
-            },
+            message_id=message_id,
+            phone_number="+15559876543",
+            emoji="👍",
         )
         state.apply_input(reaction_input)
         reaction_id = state.messages[message_id].reactions[0].reaction_id
@@ -1349,11 +1247,9 @@ class TestSMSStateUndoCreateUndoData:
         remove_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 13, 0, tzinfo=timezone.utc),
             operation="remove_reaction",
-            reaction_data={
-                "message_id": message_id,
-                "phone_number": "+15559876543",
-                "reaction_id": reaction_id,
-            },
+            message_id=message_id,
+            phone_number="+15559876543",
+            reaction_id=reaction_id,
         )
 
         undo_data = state.create_undo_data(remove_input)
@@ -1370,11 +1266,9 @@ class TestSMSStateUndoCreateUndoData:
         send_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="send_message",
-            message_data={
-                "from_number": "+15559876543",
-                "to_numbers": ["+15551234567"],
-                "body": "Original message",
-            },
+            from_number="+15559876543",
+            to_numbers=['+15551234567'],
+            body="Original message",
         )
         state.apply_input(send_input)
         message_id = list(state.messages.keys())[0]
@@ -1383,10 +1277,8 @@ class TestSMSStateUndoCreateUndoData:
         edit_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 30, tzinfo=timezone.utc),
             operation="edit_message",
-            edit_data={
-                "message_id": message_id,
-                "new_body": "Edited message",
-            },
+            message_id=message_id,
+            new_body="Edited message",
         )
 
         undo_data = state.create_undo_data(edit_input)
@@ -1404,11 +1296,9 @@ class TestSMSStateUndoCreateUndoData:
         receive_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="receive_message",
-            message_data={
-                "from_number": "+15551234567",
-                "to_numbers": ["+15559876543"],
-                "body": "Test",
-            },
+            from_number="+15551234567",
+            to_numbers=['+15559876543'],
+            body="Test",
         )
         state.apply_input(receive_input)
         message_id = list(state.messages.keys())[0]
@@ -1417,7 +1307,7 @@ class TestSMSStateUndoCreateUndoData:
         delete_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 30, tzinfo=timezone.utc),
             operation="delete_message",
-            delete_data={"message_id": message_id},
+            message_id=message_id,
         )
 
         undo_data = state.create_undo_data(delete_input)
@@ -1433,11 +1323,9 @@ class TestSMSStateUndoCreateUndoData:
         group_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="create_group",
-            group_data={
-                "group_name": "Test Group",
-                "creator_number": "+15559876543",
-                "participant_numbers": ["+15559876543", "+15551111111"],
-            },
+            group_name="Test Group",
+            creator_number="+15559876543",
+            participant_numbers=["+15559876543", "+15551111111"],
         )
 
         undo_data = state.create_undo_data(group_input)
@@ -1453,11 +1341,9 @@ class TestSMSStateUndoCreateUndoData:
         group_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="create_group",
-            group_data={
-                "group_name": "Original Name",
-                "creator_number": "+15559876543",
-                "participant_numbers": ["+15559876543", "+15551111111"],
-            },
+            group_name="Original Name",
+            creator_number="+15559876543",
+            participant_numbers=["+15559876543", "+15551111111"],
         )
         state.apply_input(group_input)
         thread_id = list(state.conversations.keys())[0]
@@ -1466,10 +1352,8 @@ class TestSMSStateUndoCreateUndoData:
         update_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 30, tzinfo=timezone.utc),
             operation="update_group",
-            group_data={
-                "thread_id": thread_id,
-                "group_name": "New Name",
-            },
+            group_name="New Name",
+            thread_id=thread_id,
         )
 
         undo_data = state.create_undo_data(update_input)
@@ -1486,11 +1370,9 @@ class TestSMSStateUndoCreateUndoData:
         group_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="create_group",
-            group_data={
-                "group_name": "Test Group",
-                "creator_number": "+15559876543",
-                "participant_numbers": ["+15559876543", "+15551111111"],
-            },
+            group_name="Test Group",
+            creator_number="+15559876543",
+            participant_numbers=["+15559876543", "+15551111111"],
         )
         state.apply_input(group_input)
         thread_id = list(state.conversations.keys())[0]
@@ -1500,11 +1382,9 @@ class TestSMSStateUndoCreateUndoData:
         add_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 30, tzinfo=timezone.utc),
             operation="add_participant",
-            participant_data={
-                "thread_id": thread_id,
-                "phone_number": "+15552222222",
-                "added_by": "+15559876543",
-            },
+            thread_id=thread_id,
+            phone_number="+15552222222",
+            added_by="+15559876543",
         )
 
         undo_data = state.create_undo_data(add_input)
@@ -1522,11 +1402,9 @@ class TestSMSStateUndoCreateUndoData:
         group_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="create_group",
-            group_data={
-                "group_name": "Test Group",
-                "creator_number": "+15559876543",
-                "participant_numbers": ["+15559876543", "+15551111111", "+15552222222"],
-            },
+            group_name="Test Group",
+            creator_number="+15559876543",
+            participant_numbers=["+15559876543", "+15551111111", "+15552222222"],
         )
         state.apply_input(group_input)
         thread_id = list(state.conversations.keys())[0]
@@ -1535,10 +1413,8 @@ class TestSMSStateUndoCreateUndoData:
         remove_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 30, tzinfo=timezone.utc),
             operation="remove_participant",
-            participant_data={
-                "thread_id": thread_id,
-                "phone_number": "+15552222222",
-            },
+            thread_id=thread_id,
+            phone_number="+15552222222",
         )
 
         undo_data = state.create_undo_data(remove_input)
@@ -1555,11 +1431,9 @@ class TestSMSStateUndoCreateUndoData:
         group_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="create_group",
-            group_data={
-                "group_name": "Test Group",
-                "creator_number": "+15559876543",
-                "participant_numbers": ["+15559876543", "+15551111111", "+15552222222"],
-            },
+            group_name="Test Group",
+            creator_number="+15559876543",
+            participant_numbers=["+15559876543", "+15551111111", "+15552222222"],
         )
         state.apply_input(group_input)
         thread_id = list(state.conversations.keys())[0]
@@ -1568,7 +1442,7 @@ class TestSMSStateUndoCreateUndoData:
         leave_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 30, tzinfo=timezone.utc),
             operation="leave_group",
-            participant_data={"thread_id": thread_id},
+            thread_id=thread_id,
         )
 
         undo_data = state.create_undo_data(leave_input)
@@ -1585,11 +1459,9 @@ class TestSMSStateUndoCreateUndoData:
         send_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="send_message",
-            message_data={
-                "from_number": "+15559876543",
-                "to_numbers": ["+15551234567"],
-                "body": "Test",
-            },
+            from_number="+15559876543",
+            to_numbers=['+15551234567'],
+            body="Test",
         )
         state.apply_input(send_input)
         thread_id = list(state.conversations.keys())[0]
@@ -1598,10 +1470,8 @@ class TestSMSStateUndoCreateUndoData:
         update_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 30, tzinfo=timezone.utc),
             operation="update_conversation",
-            conversation_update_data={
-                "thread_id": thread_id,
-                "pin": True,
-            },
+            thread_id=thread_id,
+            pin=True,
         )
 
         undo_data = state.create_undo_data(update_input)
@@ -1621,11 +1491,9 @@ class TestSMSStateUndoCreateUndoData:
             receive_input = SMSInput(
                 timestamp=datetime(2025, 1, 1, 12 + i, 0, tzinfo=timezone.utc),
                 operation="receive_message",
-                message_data={
-                    "from_number": "+15551234567",
-                    "to_numbers": ["+15559876543"],
-                    "body": f"Message {i}",
-                },
+                from_number="+15551234567",
+                to_numbers=["+15559876543"],
+                body=f"Message {i}",
             )
             state.apply_input(receive_input)
 
@@ -1640,10 +1508,8 @@ class TestSMSStateUndoCreateUndoData:
         update_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 15, 0, tzinfo=timezone.utc),
             operation="update_conversation",
-            conversation_update_data={
-                "thread_id": thread_id,
-                "mark_all_read": True,
-            },
+            thread_id=thread_id,
+            mark_all_read=True,
         )
 
         undo_data = state.create_undo_data(update_input)
@@ -1670,10 +1536,8 @@ class TestSMSStateUndoApplyUndo:
         update_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="update_delivery_status",
-            delivery_update_data={
-                "message_id": "nonexistent-msg",
-                "new_status": "delivered",
-            },
+            message_id="nonexistent-msg",
+            new_status="delivered",
         )
 
         undo_data = state.create_undo_data(update_input)
@@ -1722,11 +1586,9 @@ class TestSMSStateUndoFullCycle:
         send_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="send_message",
-            message_data={
-                "from_number": "+15559876543",
-                "to_numbers": ["+15551234567"],
-                "body": "Hello!",
-            },
+            from_number="+15559876543",
+            to_numbers=['+15551234567'],
+            body="Hello!",
         )
 
         undo_data = state.create_undo_data(send_input)
@@ -1749,11 +1611,9 @@ class TestSMSStateUndoFullCycle:
         receive_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="receive_message",
-            message_data={
-                "from_number": "+15551234567",
-                "to_numbers": ["+15559876543"],
-                "body": "Hello!",
-            },
+            from_number="+15551234567",
+            to_numbers=['+15559876543'],
+            body="Hello!",
         )
 
         undo_data = state.create_undo_data(receive_input)
@@ -1774,11 +1634,9 @@ class TestSMSStateUndoFullCycle:
         initial_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="send_message",
-            message_data={
-                "from_number": "+15559876543",
-                "to_numbers": ["+15551234567"],
-                "body": "First message",
-            },
+            from_number="+15559876543",
+            to_numbers=['+15551234567'],
+            body="First message",
         )
         state.apply_input(initial_input)
 
@@ -1794,11 +1652,9 @@ class TestSMSStateUndoFullCycle:
         send_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 30, tzinfo=timezone.utc),
             operation="send_message",
-            message_data={
-                "from_number": "+15559876543",
-                "to_numbers": ["+15551234567"],
-                "body": "Second message",
-            },
+            from_number="+15559876543",
+            to_numbers=['+15551234567'],
+            body="Second message",
         )
 
         undo_data = state.create_undo_data(send_input)
@@ -1822,11 +1678,9 @@ class TestSMSStateUndoFullCycle:
         send_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="send_message",
-            message_data={
-                "from_number": "+15559876543",
-                "to_numbers": ["+15551234567"],
-                "body": "Test",
-            },
+            from_number="+15559876543",
+            to_numbers=['+15551234567'],
+            body="Test",
         )
         state.apply_input(send_input)
         message_id = list(state.messages.keys())[0]
@@ -1840,11 +1694,9 @@ class TestSMSStateUndoFullCycle:
         update_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 30, tzinfo=timezone.utc),
             operation="update_delivery_status",
-            delivery_update_data={
-                "message_id": message_id,
-                "new_status": "delivered",
-                "delivered_at": datetime(2025, 1, 1, 12, 31, tzinfo=timezone.utc),
-            },
+            message_id=message_id,
+            new_status="delivered",
+            delivered_at=datetime(2025, 1, 1, 12, 31, tzinfo=timezone.utc),
         )
 
         undo_data = state.create_undo_data(update_input)
@@ -1866,11 +1718,9 @@ class TestSMSStateUndoFullCycle:
         receive_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="receive_message",
-            message_data={
-                "from_number": "+15551234567",
-                "to_numbers": ["+15559876543"],
-                "body": "Test",
-            },
+            from_number="+15551234567",
+            to_numbers=['+15559876543'],
+            body="Test",
         )
         state.apply_input(receive_input)
         message_id = list(state.messages.keys())[0]
@@ -1883,11 +1733,9 @@ class TestSMSStateUndoFullCycle:
         reaction_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 30, tzinfo=timezone.utc),
             operation="add_reaction",
-            reaction_data={
-                "message_id": message_id,
-                "phone_number": "+15559876543",
-                "emoji": "👍",
-            },
+            message_id=message_id,
+            phone_number="+15559876543",
+            emoji="👍",
         )
 
         undo_data = state.create_undo_data(reaction_input)
@@ -1909,11 +1757,9 @@ class TestSMSStateUndoFullCycle:
         receive_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="receive_message",
-            message_data={
-                "from_number": "+15551234567",
-                "to_numbers": ["+15559876543"],
-                "body": "Test",
-            },
+            from_number="+15551234567",
+            to_numbers=['+15559876543'],
+            body="Test",
         )
         state.apply_input(receive_input)
         message_id = list(state.messages.keys())[0]
@@ -1922,11 +1768,9 @@ class TestSMSStateUndoFullCycle:
         reaction_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 30, tzinfo=timezone.utc),
             operation="add_reaction",
-            reaction_data={
-                "message_id": message_id,
-                "phone_number": "+15559876543",
-                "emoji": "👍",
-            },
+            message_id=message_id,
+            phone_number="+15559876543",
+            emoji="👍",
         )
         state.apply_input(reaction_input)
         reaction_id = state.messages[message_id].reactions[0].reaction_id
@@ -1939,11 +1783,9 @@ class TestSMSStateUndoFullCycle:
         remove_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 13, 0, tzinfo=timezone.utc),
             operation="remove_reaction",
-            reaction_data={
-                "message_id": message_id,
-                "phone_number": "+15559876543",
-                "reaction_id": reaction_id,
-            },
+            message_id=message_id,
+            phone_number="+15559876543",
+            reaction_id=reaction_id,
         )
 
         undo_data = state.create_undo_data(remove_input)
@@ -1966,12 +1808,10 @@ class TestSMSStateUndoFullCycle:
         send_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="send_message",
-            message_data={
-                "from_number": "+15559876543",
-                "to_numbers": ["+15551234567"],
-                "body": "Original message",
-                "message_type": "rcs",
-            },
+            from_number="+15559876543",
+            to_numbers=['+15551234567'],
+            body="Original message",
+            message_type="rcs",
         )
         state.apply_input(send_input)
         message_id = list(state.messages.keys())[0]
@@ -1985,10 +1825,8 @@ class TestSMSStateUndoFullCycle:
         edit_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 30, tzinfo=timezone.utc),
             operation="edit_message",
-            edit_data={
-                "message_id": message_id,
-                "new_body": "Edited message",
-            },
+            message_id=message_id,
+            new_body="Edited message",
         )
 
         undo_data = state.create_undo_data(edit_input)
@@ -2012,11 +1850,9 @@ class TestSMSStateUndoFullCycle:
         receive_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="receive_message",
-            message_data={
-                "from_number": "+15551234567",
-                "to_numbers": ["+15559876543"],
-                "body": "Test",
-            },
+            from_number="+15551234567",
+            to_numbers=['+15559876543'],
+            body="Test",
         )
         state.apply_input(receive_input)
         message_id = list(state.messages.keys())[0]
@@ -2029,7 +1865,7 @@ class TestSMSStateUndoFullCycle:
         delete_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 30, tzinfo=timezone.utc),
             operation="delete_message",
-            delete_data={"message_id": message_id},
+            message_id=message_id,
         )
 
         undo_data = state.create_undo_data(delete_input)
@@ -2052,11 +1888,9 @@ class TestSMSStateUndoFullCycle:
         group_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="create_group",
-            group_data={
-                "group_name": "Test Group",
-                "creator_number": "+15559876543",
-                "participant_numbers": ["+15559876543", "+15551111111"],
-            },
+            group_name="Test Group",
+            creator_number="+15559876543",
+            participant_numbers=["+15559876543", "+15551111111"],
         )
 
         undo_data = state.create_undo_data(group_input)
@@ -2076,11 +1910,9 @@ class TestSMSStateUndoFullCycle:
         group_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="create_group",
-            group_data={
-                "group_name": "Original Name",
-                "creator_number": "+15559876543",
-                "participant_numbers": ["+15559876543", "+15551111111"],
-            },
+            group_name="Original Name",
+            creator_number="+15559876543",
+            participant_numbers=["+15559876543", "+15551111111"],
         )
         state.apply_input(group_input)
         thread_id = list(state.conversations.keys())[0]
@@ -2093,11 +1925,9 @@ class TestSMSStateUndoFullCycle:
         update_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 30, tzinfo=timezone.utc),
             operation="update_group",
-            group_data={
-                "thread_id": thread_id,
-                "group_name": "New Name",
-                "group_photo_url": "https://example.com/photo.jpg",
-            },
+            group_name="New Name",
+            group_photo_url="https://example.com/photo.jpg",
+            thread_id=thread_id,
         )
 
         undo_data = state.create_undo_data(update_input)
@@ -2121,11 +1951,9 @@ class TestSMSStateUndoFullCycle:
         group_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="create_group",
-            group_data={
-                "group_name": "Test Group",
-                "creator_number": "+15559876543",
-                "participant_numbers": ["+15559876543", "+15551111111"],
-            },
+            group_name="Test Group",
+            creator_number="+15559876543",
+            participant_numbers=["+15559876543", "+15551111111"],
         )
         state.apply_input(group_input)
         thread_id = list(state.conversations.keys())[0]
@@ -2138,11 +1966,9 @@ class TestSMSStateUndoFullCycle:
         add_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 30, tzinfo=timezone.utc),
             operation="add_participant",
-            participant_data={
-                "thread_id": thread_id,
-                "phone_number": "+15552222222",
-                "added_by": "+15559876543",
-            },
+            thread_id=thread_id,
+            phone_number="+15552222222",
+            added_by="+15559876543",
         )
 
         undo_data = state.create_undo_data(add_input)
@@ -2164,11 +1990,9 @@ class TestSMSStateUndoFullCycle:
         group_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="create_group",
-            group_data={
-                "group_name": "Test Group",
-                "creator_number": "+15559876543",
-                "participant_numbers": ["+15559876543", "+15551111111", "+15552222222"],
-            },
+            group_name="Test Group",
+            creator_number="+15559876543",
+            participant_numbers=["+15559876543", "+15551111111", "+15552222222"],
         )
         state.apply_input(group_input)
         thread_id = list(state.conversations.keys())[0]
@@ -2189,10 +2013,8 @@ class TestSMSStateUndoFullCycle:
         remove_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 30, tzinfo=timezone.utc),
             operation="remove_participant",
-            participant_data={
-                "thread_id": thread_id,
-                "phone_number": "+15552222222",
-            },
+            thread_id=thread_id,
+            phone_number="+15552222222",
         )
 
         undo_data = state.create_undo_data(remove_input)
@@ -2222,11 +2044,9 @@ class TestSMSStateUndoFullCycle:
         group_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="create_group",
-            group_data={
-                "group_name": "Test Group",
-                "creator_number": "+15559876543",
-                "participant_numbers": ["+15559876543", "+15551111111", "+15552222222"],
-            },
+            group_name="Test Group",
+            creator_number="+15559876543",
+            participant_numbers=["+15559876543", "+15551111111", "+15552222222"],
         )
         state.apply_input(group_input)
         thread_id = list(state.conversations.keys())[0]
@@ -2238,7 +2058,7 @@ class TestSMSStateUndoFullCycle:
         leave_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 30, tzinfo=timezone.utc),
             operation="leave_group",
-            participant_data={"thread_id": thread_id},
+            thread_id=thread_id,
         )
 
         undo_data = state.create_undo_data(leave_input)
@@ -2268,11 +2088,9 @@ class TestSMSStateUndoFullCycle:
         send_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="send_message",
-            message_data={
-                "from_number": "+15559876543",
-                "to_numbers": ["+15551234567"],
-                "body": "Test",
-            },
+            from_number="+15559876543",
+            to_numbers=['+15551234567'],
+            body="Test",
         )
         state.apply_input(send_input)
         thread_id = list(state.conversations.keys())[0]
@@ -2285,10 +2103,8 @@ class TestSMSStateUndoFullCycle:
         update_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 30, tzinfo=timezone.utc),
             operation="update_conversation",
-            conversation_update_data={
-                "thread_id": thread_id,
-                "pin": True,
-            },
+            thread_id=thread_id,
+            pin=True,
         )
 
         undo_data = state.create_undo_data(update_input)
@@ -2310,11 +2126,9 @@ class TestSMSStateUndoFullCycle:
         send_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="send_message",
-            message_data={
-                "from_number": "+15559876543",
-                "to_numbers": ["+15551234567"],
-                "body": "Test",
-            },
+            from_number="+15559876543",
+            to_numbers=['+15551234567'],
+            body="Test",
         )
         state.apply_input(send_input)
         thread_id = list(state.conversations.keys())[0]
@@ -2327,10 +2141,8 @@ class TestSMSStateUndoFullCycle:
         update_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 30, tzinfo=timezone.utc),
             operation="update_conversation",
-            conversation_update_data={
-                "thread_id": thread_id,
-                "mute": True,
-            },
+            thread_id=thread_id,
+            mute=True,
         )
 
         undo_data = state.create_undo_data(update_input)
@@ -2352,11 +2164,9 @@ class TestSMSStateUndoFullCycle:
         send_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="send_message",
-            message_data={
-                "from_number": "+15559876543",
-                "to_numbers": ["+15551234567"],
-                "body": "Test",
-            },
+            from_number="+15559876543",
+            to_numbers=['+15551234567'],
+            body="Test",
         )
         state.apply_input(send_input)
         thread_id = list(state.conversations.keys())[0]
@@ -2369,10 +2179,8 @@ class TestSMSStateUndoFullCycle:
         update_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 30, tzinfo=timezone.utc),
             operation="update_conversation",
-            conversation_update_data={
-                "thread_id": thread_id,
-                "archive": True,
-            },
+            thread_id=thread_id,
+            archive=True,
         )
 
         undo_data = state.create_undo_data(update_input)
@@ -2394,11 +2202,9 @@ class TestSMSStateUndoFullCycle:
         send_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="send_message",
-            message_data={
-                "from_number": "+15559876543",
-                "to_numbers": ["+15551234567"],
-                "body": "Test",
-            },
+            from_number="+15559876543",
+            to_numbers=['+15551234567'],
+            body="Test",
         )
         state.apply_input(send_input)
         thread_id = list(state.conversations.keys())[0]
@@ -2411,10 +2217,8 @@ class TestSMSStateUndoFullCycle:
         update_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 30, tzinfo=timezone.utc),
             operation="update_conversation",
-            conversation_update_data={
-                "thread_id": thread_id,
-                "draft_message": "Draft text",
-            },
+            thread_id=thread_id,
+            draft_message="Draft text",
         )
 
         undo_data = state.create_undo_data(update_input)
@@ -2437,11 +2241,9 @@ class TestSMSStateUndoFullCycle:
             receive_input = SMSInput(
                 timestamp=datetime(2025, 1, 1, 12 + i, 0, tzinfo=timezone.utc),
                 operation="receive_message",
-                message_data={
-                    "from_number": "+15551234567",
-                    "to_numbers": ["+15559876543"],
-                    "body": f"Message {i}",
-                },
+                from_number="+15551234567",
+                to_numbers=["+15559876543"],
+                body=f"Message {i}",
             )
             state.apply_input(receive_input)
 
@@ -2460,10 +2262,8 @@ class TestSMSStateUndoFullCycle:
         update_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 15, 0, tzinfo=timezone.utc),
             operation="update_conversation",
-            conversation_update_data={
-                "thread_id": thread_id,
-                "mark_all_read": True,
-            },
+            thread_id=thread_id,
+            mark_all_read=True,
         )
 
         undo_data = state.create_undo_data(update_input)
@@ -2489,12 +2289,10 @@ class TestSMSStateUndoFullCycle:
         send_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="send_message",
-            message_data={
-                "from_number": "+15559876543",
-                "to_numbers": ["+15551234567"],
-                "body": "Hello!",
-                "message_type": "rcs",
-            },
+            from_number="+15559876543",
+            to_numbers=['+15551234567'],
+            body="Hello!",
+            message_type="rcs",
         )
         undo1 = state.create_undo_data(send_input)
         state.apply_input(send_input)
@@ -2504,11 +2302,9 @@ class TestSMSStateUndoFullCycle:
         reaction_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 30, tzinfo=timezone.utc),
             operation="add_reaction",
-            reaction_data={
-                "message_id": message_id,
-                "phone_number": "+15559876543",
-                "emoji": "👍",
-            },
+            message_id=message_id,
+            phone_number="+15559876543",
+            emoji="👍",
         )
         undo2 = state.create_undo_data(reaction_input)
         state.apply_input(reaction_input)
@@ -2517,10 +2313,8 @@ class TestSMSStateUndoFullCycle:
         edit_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 13, 0, tzinfo=timezone.utc),
             operation="edit_message",
-            edit_data={
-                "message_id": message_id,
-                "new_body": "Edited hello!",
-            },
+            message_id=message_id,
+            new_body="Edited hello!",
         )
         undo3 = state.create_undo_data(edit_input)
         state.apply_input(edit_input)
@@ -2554,12 +2348,10 @@ class TestSMSStateUndoFullCycle:
         send_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="send_message",
-            message_data={
-                "from_number": "+15559876543",
-                "to_numbers": ["+15551234567"],
-                "body": "Original",
-                "message_type": "rcs",
-            },
+            from_number="+15559876543",
+            to_numbers=['+15551234567'],
+            body="Original",
+            message_type="rcs",
         )
         state.apply_input(send_input)
         message_id = list(state.messages.keys())[0]
@@ -2568,10 +2360,8 @@ class TestSMSStateUndoFullCycle:
         edit1 = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 30, tzinfo=timezone.utc),
             operation="edit_message",
-            edit_data={
-                "message_id": message_id,
-                "new_body": "First edit",
-            },
+            message_id=message_id,
+            new_body="First edit",
         )
         undo1 = state.create_undo_data(edit1)
         state.apply_input(edit1)
@@ -2580,10 +2370,8 @@ class TestSMSStateUndoFullCycle:
         edit2 = SMSInput(
             timestamp=datetime(2025, 1, 1, 13, 0, tzinfo=timezone.utc),
             operation="edit_message",
-            edit_data={
-                "message_id": message_id,
-                "new_body": "Second edit",
-            },
+            message_id=message_id,
+            new_body="Second edit",
         )
         undo2 = state.create_undo_data(edit2)
         state.apply_input(edit2)
@@ -2609,11 +2397,9 @@ class TestSMSStateUndoFullCycle:
         group_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
             operation="create_group",
-            group_data={
-                "group_name": "Test Group",
-                "creator_number": "+15559876543",
-                "participant_numbers": ["+15559876543", "+15551111111", "+15552222222"],
-            },
+            group_name="Test Group",
+            creator_number="+15559876543",
+            participant_numbers=["+15559876543", "+15551111111", "+15552222222"],
         )
         undo_group = state.create_undo_data(group_input)
         state.apply_input(group_input)
@@ -2623,12 +2409,10 @@ class TestSMSStateUndoFullCycle:
         send_input = SMSInput(
             timestamp=datetime(2025, 1, 1, 12, 30, tzinfo=timezone.utc),
             operation="send_message",
-            message_data={
-                "from_number": "+15559876543",
-                "to_numbers": ["+15551111111", "+15552222222"],
-                "body": "Hello group!",
-                "thread_id": thread_id,
-            },
+            from_number="+15559876543",
+            to_numbers=["+15551111111", "+15552222222"],
+            body="Hello group!",
+            thread_id=thread_id,
         )
         undo_send = state.create_undo_data(send_input)
         state.apply_input(send_input)

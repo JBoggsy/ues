@@ -150,7 +150,7 @@ def sms_event_data(
         SMS event data dictionary ready for event creation.
     
     Note:
-        SMS uses a nested structure with message_data for send/receive operations.
+        SMS uses typed top-level fields (not nested dicts).
     
     Example:
         >>> data = sms_event_data(
@@ -163,16 +163,13 @@ def sms_event_data(
         "operation": operation,
     }
     
-    # For send_message and receive_message, wrap in message_data
+    # For send_message and receive_message, add fields directly
     if operation in ["send_message", "receive_message"]:
-        data["message_data"] = {
-            "from_number": from_number,
-            "to_numbers": to_numbers or ["+0987654321"],
-            "body": body,
-        }
-        # Add any additional message_data fields from kwargs
-        if kwargs:
-            data["message_data"].update(kwargs)
+        data["from_number"] = from_number
+        data["to_numbers"] = to_numbers or ["+0987654321"]
+        data["body"] = body
+        # Add any additional fields from kwargs
+        data.update(kwargs)
     else:
         # For other operations, add fields directly
         data.update(kwargs)

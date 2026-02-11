@@ -799,33 +799,30 @@ The `current_report` field contains a `WeatherReport` object with OpenWeather AP
   "timestamp": "2024-03-15T14:30:00+00:00",
   "input_id": "550e8400-e29b-41d4-a716-446655440001",
   "operation": "receive_message",
-  "message_data": {
-    "from_number": "+15551234567",
-    "to_numbers": ["+15559876543"],
-    "body": "Sure, let's meet at 7pm!",
-    "message_type": "sms",
-    "attachments": []
-  }
+  "from_number": "+15551234567",
+  "to_numbers": ["+15559876543"],
+  "body": "Sure, let's meet at 7pm!",
+  "message_type": "sms"
 }
 ```
 
-| Operation | Description | Data Field |
-|-----------|-------------|------------|
-| `send_message` | Send SMS/RCS | `message_data` |
-| `receive_message` | Receive SMS/RCS | `message_data` |
-| `update_delivery_status` | Update delivery status | `delivery_update_data` |
-| `add_reaction` | Add emoji reaction | `reaction_data` |
-| `remove_reaction` | Remove reaction | `reaction_data` |
-| `edit_message` | Edit message (RCS) | `edit_data` |
-| `delete_message` | Delete message | `delete_data` |
-| `create_group` | Create group chat | `group_data` |
-| `update_group` | Update group settings | `group_data` |
-| `add_participant` | Add to group | `participant_data` |
-| `remove_participant` | Remove from group | `participant_data` |
-| `leave_group` | Leave group | `participant_data` |
-| `update_conversation` | Update conversation | `conversation_update_data` |
+| Operation | Description | Required Fields |
+|-----------|-------------|-----------------|
+| `send_message` | Send SMS/RCS | `from_number`, `to_numbers`, `body` |
+| `receive_message` | Receive SMS/RCS | `from_number`, `to_numbers`, `body` |
+| `update_delivery_status` | Update delivery status | `message_id`, `new_status` |
+| `add_reaction` | Add emoji reaction | `message_id`, `phone_number`, `emoji` |
+| `remove_reaction` | Remove reaction | `message_id`, `reaction_id` |
+| `edit_message` | Edit message (RCS) | `message_id`, `new_body` |
+| `delete_message` | Delete message | `message_id` |
+| `create_group` | Create group chat | `creator_number`, `participant_numbers` |
+| `update_group` | Update group settings | `thread_id` |
+| `add_participant` | Add to group | `thread_id`, `phone_number` |
+| `remove_participant` | Remove from group | `thread_id`, `phone_number` |
+| `leave_group` | Leave group | `thread_id` |
+| `update_conversation` | Update conversation | `thread_id` + at least one flag |
 
-**Message Data Fields**:
+**Message Fields (send_message, receive_message)**:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
@@ -833,7 +830,9 @@ The `current_report` field contains a `WeatherReport` object with OpenWeather AP
 | `to_numbers` | array | Yes | Recipient phone numbers |
 | `body` | string | Yes | Message text content |
 | `message_type` | string | No | "sms" or "rcs" (default: "sms") |
-| `attachments` | array | No | Media attachments |
+| `attachments` | array | No | Media attachments (list of MessageAttachmentData) |
+| `thread_id` | string | No | Existing conversation ID (auto-created if not provided) |
+| `replied_to_message_id` | string | No | ID of message being replied to |
 
 ---
 

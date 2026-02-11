@@ -301,12 +301,10 @@ class TestSMSCompactSnapshot:
         msg = SMSInput(
             operation="receive_message",
             timestamp=NOW - timedelta(minutes=30),
-            message_data={
-                "from_number": "+15551234567",
-                "to_numbers": ["+10000000000"],
-                "body": "Hey, are you free?",
-                "message_type": "sms",
-            },
+            from_number="+15551234567",
+            to_numbers=["+10000000000"],
+            body="Hey, are you free?",
+            message_type="sms",
         )
         state.apply_input(msg)
 

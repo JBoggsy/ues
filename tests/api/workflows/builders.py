@@ -184,10 +184,8 @@ class SMSEventBuilder(EventBuilder):
         super().__init__("sms")
         self._data = {
             "operation": "receive_message",
-            "message_data": {
-                "to_numbers": [],
-                "message_type": "sms",
-            },
+            "to_numbers": [],
+            "message_type": "sms",
         }
 
     def receive(self) -> Self:
@@ -202,27 +200,27 @@ class SMSEventBuilder(EventBuilder):
 
     def from_number(self, number: str) -> Self:
         """Set the sender phone number."""
-        self._data["message_data"]["from_number"] = number
+        self._data["from_number"] = number
         return self
 
     def to(self, *numbers: str) -> Self:
         """Set recipient phone numbers."""
-        self._data["message_data"]["to_numbers"] = list(numbers)
+        self._data["to_numbers"] = list(numbers)
         return self
 
     def body(self, text: str) -> Self:
         """Set the message body."""
-        self._data["message_data"]["body"] = text
+        self._data["body"] = text
         return self
 
     def as_mms(self) -> Self:
         """Mark as MMS message."""
-        self._data["message_data"]["message_type"] = "mms"
+        self._data["message_type"] = "mms"
         return self
 
     def as_rcs(self) -> Self:
         """Mark as RCS message."""
-        self._data["message_data"]["message_type"] = "rcs"
+        self._data["message_type"] = "rcs"
         return self
 
 

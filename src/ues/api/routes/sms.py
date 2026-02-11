@@ -445,27 +445,31 @@ async def send_sms(
         Permission: sms:send
     """
     try:
-        # Build message data
-        message_data = {
-            "from_number": request.from_number,
-            "to_numbers": request.to_numbers,
-            "body": request.body,
-            "message_type": request.message_type,
-        }
-
-        # Add optional fields
+        # Build attachment list if provided
+        attachments = None
         if request.attachments:
-            message_data["attachments"] = [
-                att.model_dump() for att in request.attachments
+            from ues.models.modalities.sms_input import MessageAttachmentData
+            attachments = [
+                MessageAttachmentData(
+                    filename=att.filename,
+                    size=att.size,
+                    mime_type=att.mime_type,
+                    thumbnail_url=att.thumbnail_url,
+                    duration=att.duration,
+                )
+                for att in request.attachments
             ]
-        if request.replied_to_message_id:
-            message_data["replied_to_message_id"] = request.replied_to_message_id
 
         # Convert request to SMSInput
         sms_input = SMSInput(
             timestamp=engine.environment.time_state.current_time,
             operation="send_message",
-            message_data=message_data,
+            from_number=request.from_number,
+            to_numbers=request.to_numbers,
+            body=request.body,
+            message_type=request.message_type,
+            attachments=attachments,
+            replied_to_message_id=request.replied_to_message_id,
         )
 
         # Create and add event
@@ -523,29 +527,31 @@ async def receive_sms(
         Permission: sms:receive
     """
     try:
-        # Build message data
-        message_data = {
-            "from_number": request.from_number,
-            "to_numbers": request.to_numbers,
-            "body": request.body,
-            "message_type": request.message_type,
-        }
-
-        # Add optional fields
+        # Build attachment list if provided
+        attachments = None
         if request.attachments:
-            message_data["attachments"] = [
-                att.model_dump() for att in request.attachments
+            from ues.models.modalities.sms_input import MessageAttachmentData
+            attachments = [
+                MessageAttachmentData(
+                    filename=att.filename,
+                    size=att.size,
+                    mime_type=att.mime_type,
+                    thumbnail_url=att.thumbnail_url,
+                    duration=att.duration,
+                )
+                for att in request.attachments
             ]
-        if request.replied_to_message_id:
-            message_data["replied_to_message_id"] = request.replied_to_message_id
-        if request.sent_at:
-            message_data["sent_at"] = request.sent_at.isoformat()
 
         # Convert request to SMSInput
         sms_input = SMSInput(
             timestamp=engine.environment.time_state.current_time,
             operation="receive_message",
-            message_data=message_data,
+            from_number=request.from_number,
+            to_numbers=request.to_numbers,
+            body=request.body,
+            message_type=request.message_type,
+            attachments=attachments,
+            replied_to_message_id=request.replied_to_message_id,
         )
 
         # Create and add event
@@ -619,14 +625,12 @@ async def mark_sms_read(
                 marked_count += 1
 
         # Create an event record for auditing
-        sms_input = SMSInput(
-            timestamp=current_time,
-            operation="update_delivery_status",
-            delivery_update_data={
-                "message_id": request.message_ids[0] if request.message_ids else "",
-                "new_status": "read",
-            },
-        )
+            sms_input = SMSInput(
+                timestamp=current_time,
+                operation="update_delivery_status",
+                message_id=request.message_ids[0] if request.message_ids else "",
+                new_status="read",
+            )
 
         event = create_immediate_event(
             engine=engine,
@@ -695,10 +699,8 @@ async def mark_sms_unread(
         sms_input = SMSInput(
             timestamp=engine.environment.time_state.current_time,
             operation="update_delivery_status",
-            delivery_update_data={
-                "message_id": request.message_ids[0] if request.message_ids else "",
-                "new_status": "delivered",  # unread doesn't have a delivery status
-            },
+            message_id=request.message_ids[0] if request.message_ids else "",
+            new_status="delivered",  # unread doesn't have a delivery status
         )
 
         event = create_immediate_event(
@@ -766,9 +768,7 @@ async def delete_sms(
                 sms_input = SMSInput(
                     timestamp=current_time,
                     operation="delete_message",
-                    delete_data={
-                        "message_id": message_id,
-                    },
+                    message_id=message_id,
                 )
                 sms_state.apply_input(sms_input)
                 deleted_count += 1
@@ -777,9 +777,7 @@ async def delete_sms(
         event_input = SMSInput(
             timestamp=current_time,
             operation="delete_message",
-            delete_data={
-                "message_id": request.message_ids[0] if request.message_ids else "",
-            },
+            message_id=request.message_ids[0] if request.message_ids else "",
         )
 
         event = create_immediate_event(
@@ -834,11 +832,9 @@ async def react_to_sms(
         sms_input = SMSInput(
             timestamp=engine.environment.time_state.current_time,
             operation="add_reaction",
-            reaction_data={
-                "message_id": request.message_id,
-                "phone_number": request.phone_number,
-                "emoji": request.emoji,
-            },
+            message_id=request.message_id,
+            phone_number=request.phone_number,
+            emoji=request.emoji,
         )
 
         event = create_immediate_event(
@@ -888,22 +884,15 @@ async def update_conversation(
         Permission: sms:conversation
     """
     try:
-        # Build conversation_update_data from request
-        update_data: dict = {"thread_id": request.thread_id}
-        
-        if request.pin is not None:
-            update_data["pin"] = request.pin
-        if request.mute is not None:
-            update_data["mute"] = request.mute
-        if request.archive is not None:
-            update_data["archive"] = request.archive
-        if request.mark_all_read is not None:
-            update_data["mark_all_read"] = request.mark_all_read
-        if request.draft_message is not None:
-            update_data["draft_message"] = request.draft_message
-
         # Validate that at least one update is specified
-        if len(update_data) == 1:  # Only thread_id
+        has_update = any([
+            request.pin is not None,
+            request.mute is not None,
+            request.archive is not None,
+            request.mark_all_read is not None,
+            request.draft_message is not None,
+        ])
+        if not has_update:
             raise HTTPException(
                 status_code=400,
                 detail="At least one update field (pin, mute, archive, mark_all_read, draft_message) must be specified",
@@ -913,7 +902,12 @@ async def update_conversation(
         sms_input = SMSInput(
             timestamp=engine.environment.time_state.current_time,
             operation="update_conversation",
-            conversation_update_data=update_data,
+            thread_id=request.thread_id,
+            pin=request.pin,
+            mute=request.mute,
+            archive=request.archive,
+            mark_all_read=request.mark_all_read,
+            draft_message=request.draft_message,
         )
 
         event = create_immediate_event(

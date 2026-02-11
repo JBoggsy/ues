@@ -688,25 +688,25 @@ class SMSState(ModalityState):
         """Handle send_message and receive_message operations.
 
         Args:
-            input_data: The SMS input with message_data.
+            input_data: The SMS input with message fields.
         """
-        msg_data = input_data.message_data
-        if not msg_data:
+        from_number = input_data.from_number
+        to_numbers = input_data.to_numbers
+        body = input_data.body
+
+        if not from_number or not to_numbers or body is None:
             return
 
-        from_number = msg_data["from_number"]
-        to_numbers = msg_data["to_numbers"]
-        body = msg_data["body"]
-        message_type = msg_data.get("message_type", "sms")
+        message_type = input_data.message_type
 
         direction = "outgoing" if from_number == self.user_phone_number else "incoming"
 
-        thread_id = msg_data.get("thread_id")
+        thread_id = input_data.thread_id
         if not thread_id:
             all_participants = sorted(set([from_number] + to_numbers))
             thread_id = self.find_or_create_conversation(
                 all_participants,
-                msg_data.get("group_name"),
+                input_data.group_name,
                 input_data.timestamp,
             )
 
@@ -714,9 +714,16 @@ class SMSState(ModalityState):
             raise ValueError(f"Conversation {thread_id} not found")
 
         attachments = []
-        for att_data in msg_data.get("attachments", []):
-            attachment = MessageAttachment(**att_data)
-            attachments.append(attachment)
+        if input_data.attachments:
+            for att_data in input_data.attachments:
+                attachment = MessageAttachment(
+                    filename=att_data.filename,
+                    size=att_data.size,
+                    mime_type=att_data.mime_type,
+                    thumbnail_url=att_data.thumbnail_url,
+                    duration=att_data.duration,
+                )
+                attachments.append(attachment)
 
         message = SMSMessage(
             thread_id=thread_id,
@@ -728,7 +735,7 @@ class SMSState(ModalityState):
             direction=direction,
             sent_at=input_data.timestamp,
             is_read=(direction == "outgoing"),
-            replied_to_message_id=msg_data.get("replied_to_message_id"),
+            replied_to_message_id=input_data.replied_to_message_id,
         )
 
         self.messages[message.message_id] = message
@@ -744,14 +751,13 @@ class SMSState(ModalityState):
         """Handle update_delivery_status operation.
 
         Args:
-            input_data: The SMS input with delivery_update_data.
+            input_data: The SMS input with delivery update fields.
         """
-        update_data = input_data.delivery_update_data
-        if not update_data:
-            return
+        message_id = input_data.message_id
+        new_status = input_data.new_status
 
-        message_id = update_data["message_id"]
-        new_status = update_data["new_status"]
+        if not message_id or not new_status:
+            return
 
         if message_id not in self.messages:
             raise ValueError(f"Message {message_id} not found")
@@ -769,15 +775,14 @@ class SMSState(ModalityState):
         """Handle add_reaction operation.
 
         Args:
-            input_data: The SMS input with reaction_data.
+            input_data: The SMS input with reaction fields.
         """
-        reaction_data = input_data.reaction_data
-        if not reaction_data:
-            return
+        message_id = input_data.message_id
+        phone_number = input_data.phone_number
+        emoji = input_data.emoji
 
-        message_id = reaction_data["message_id"]
-        phone_number = reaction_data["phone_number"]
-        emoji = reaction_data["emoji"]
+        if not message_id or not phone_number or not emoji:
+            return
 
         if message_id not in self.messages:
             raise ValueError(f"Message {message_id} not found")
@@ -789,14 +794,13 @@ class SMSState(ModalityState):
         """Handle remove_reaction operation.
 
         Args:
-            input_data: The SMS input with reaction_data.
+            input_data: The SMS input with reaction fields.
         """
-        reaction_data = input_data.reaction_data
-        if not reaction_data:
-            return
+        message_id = input_data.message_id
+        reaction_id = input_data.reaction_id
 
-        message_id = reaction_data["message_id"]
-        reaction_id = reaction_data["reaction_id"]
+        if not message_id or not reaction_id:
+            return
 
         if message_id not in self.messages:
             raise ValueError(f"Message {message_id} not found")
@@ -808,14 +812,13 @@ class SMSState(ModalityState):
         """Handle edit_message operation.
 
         Args:
-            input_data: The SMS input with edit_data.
+            input_data: The SMS input with edit fields.
         """
-        edit_data = input_data.edit_data
-        if not edit_data:
-            return
+        message_id = input_data.message_id
+        new_body = input_data.new_body
 
-        message_id = edit_data["message_id"]
-        new_body = edit_data["new_body"]
+        if not message_id or new_body is None:
+            return
 
         if message_id not in self.messages:
             raise ValueError(f"Message {message_id} not found")
@@ -827,13 +830,12 @@ class SMSState(ModalityState):
         """Handle delete_message operation.
 
         Args:
-            input_data: The SMS input with delete_data.
+            input_data: The SMS input with delete fields.
         """
-        delete_data = input_data.delete_data
-        if not delete_data:
-            return
+        message_id = input_data.message_id
 
-        message_id = delete_data["message_id"]
+        if not message_id:
+            return
 
         if message_id not in self.messages:
             raise ValueError(f"Message {message_id} not found")
@@ -845,15 +847,14 @@ class SMSState(ModalityState):
         """Handle create_group operation.
 
         Args:
-            input_data: The SMS input with group_data.
+            input_data: The SMS input with group fields.
         """
-        group_data = input_data.group_data
-        if not group_data:
-            return
+        creator_number = input_data.creator_number
+        participant_numbers = input_data.participant_numbers
+        group_name = input_data.group_name
 
-        creator_number = group_data["creator_number"]
-        participant_numbers = group_data["participant_numbers"]
-        group_name = group_data.get("group_name")
+        if not creator_number or not participant_numbers:
+            return
 
         participants = []
         for number in participant_numbers:
@@ -880,37 +881,35 @@ class SMSState(ModalityState):
         """Handle update_group operation.
 
         Args:
-            input_data: The SMS input with group_data.
+            input_data: The SMS input with group fields.
         """
-        group_data = input_data.group_data
-        if not group_data:
-            return
+        thread_id = input_data.thread_id
 
-        thread_id = group_data["thread_id"]
+        if not thread_id:
+            return
 
         if thread_id not in self.conversations:
             raise ValueError(f"Conversation {thread_id} not found")
 
         conversation = self.conversations[thread_id]
 
-        if "group_name" in group_data:
-            conversation.group_name = group_data["group_name"]
-        if "group_photo_url" in group_data:
-            conversation.group_photo_url = group_data["group_photo_url"]
+        if input_data.group_name is not None:
+            conversation.group_name = input_data.group_name
+        if input_data.group_photo_url is not None:
+            conversation.group_photo_url = input_data.group_photo_url
 
     def _handle_add_participant(self, input_data: SMSInput) -> None:
         """Handle add_participant operation.
 
         Args:
-            input_data: The SMS input with participant_data.
+            input_data: The SMS input with participant fields.
         """
-        participant_data = input_data.participant_data
-        if not participant_data:
-            return
+        thread_id = input_data.thread_id
+        phone_number = input_data.phone_number
+        is_admin = input_data.is_admin
 
-        thread_id = participant_data["thread_id"]
-        phone_number = participant_data["phone_number"]
-        is_admin = participant_data.get("is_admin", False)
+        if not thread_id or not phone_number:
+            return
 
         if thread_id not in self.conversations:
             raise ValueError(f"Conversation {thread_id} not found")
@@ -919,17 +918,16 @@ class SMSState(ModalityState):
         conversation.add_participant(phone_number, is_admin, input_data.timestamp)
 
     def _handle_remove_participant(self, input_data: SMSInput) -> None:
-        """Handle remove_participant and leave_group actions.
+        """Handle remove_participant and leave_group operations.
 
         Args:
-            input_data: The SMS input with participant_data.
+            input_data: The SMS input with participant fields.
         """
-        participant_data = input_data.participant_data
-        if not participant_data:
-            return
+        thread_id = input_data.thread_id
+        phone_number = input_data.phone_number or self.user_phone_number
 
-        thread_id = participant_data["thread_id"]
-        phone_number = participant_data.get("phone_number", self.user_phone_number)
+        if not thread_id:
+            return
 
         if thread_id not in self.conversations:
             raise ValueError(f"Conversation {thread_id} not found")
@@ -941,47 +939,45 @@ class SMSState(ModalityState):
         """Handle update_conversation operation.
 
         Args:
-            input_data: The SMS input with conversation_update_data.
+            input_data: The SMS input with conversation update fields.
         """
-        update_data = input_data.conversation_update_data
-        if not update_data:
-            return
+        thread_id = input_data.thread_id
 
-        thread_id = update_data["thread_id"]
+        if not thread_id:
+            return
 
         if thread_id not in self.conversations:
             raise ValueError(f"Conversation {thread_id} not found")
 
         conversation = self.conversations[thread_id]
 
-        if "pin" in update_data:
-            if update_data["pin"]:
+        if input_data.pin is not None:
+            if input_data.pin:
                 conversation.pin()
             else:
                 conversation.unpin()
 
-        if "mute" in update_data:
-            if update_data["mute"]:
+        if input_data.mute is not None:
+            if input_data.mute:
                 conversation.mute()
             else:
                 conversation.unmute()
 
-        if "archive" in update_data:
-            if update_data["archive"]:
+        if input_data.archive is not None:
+            if input_data.archive:
                 conversation.archive()
             else:
                 conversation.unarchive()
 
-        if update_data.get("mark_all_read"):
+        if input_data.mark_all_read:
             conversation.mark_all_read()
             for message in self.get_conversation_messages(thread_id):
                 if not message.is_read:
                     message.mark_read(input_data.timestamp)
 
-        if "draft_message" in update_data:
-            draft = update_data["draft_message"]
-            if draft:
-                conversation.save_draft(draft)
+        if input_data.draft_message is not None:
+            if input_data.draft_message:
+                conversation.save_draft(input_data.draft_message)
             else:
                 conversation.clear_draft()
 
@@ -1492,15 +1488,14 @@ class SMSState(ModalityState):
 
         # Message operations - send/receive creates new message
         if operation in ("send_message", "receive_message"):
-            msg_data = input_data.message_data
-            if not msg_data:
+            from_number = input_data.from_number
+            to_numbers = input_data.to_numbers
+
+            if not from_number or not to_numbers:
                 return {**base_undo, "action": "noop"}
 
-            from_number = msg_data["from_number"]
-            to_numbers = msg_data["to_numbers"]
-
             # Check if conversation will be created
-            thread_id = msg_data.get("thread_id")
+            thread_id = input_data.thread_id
             was_new_conversation = False
             previous_conv_data: dict[str, Any] | None = None
 
@@ -1562,12 +1557,8 @@ class SMSState(ModalityState):
 
         # Delivery status update
         elif operation == "update_delivery_status":
-            update_data = input_data.delivery_update_data
-            if not update_data:
-                return {**base_undo, "action": "noop"}
-
-            message_id = update_data["message_id"]
-            if message_id not in self.messages:
+            message_id = input_data.message_id
+            if not message_id or message_id not in self.messages:
                 return {**base_undo, "action": "noop"}
 
             message = self.messages[message_id]
@@ -1587,12 +1578,8 @@ class SMSState(ModalityState):
 
         # Add reaction
         elif operation == "add_reaction":
-            reaction_data = input_data.reaction_data
-            if not reaction_data:
-                return {**base_undo, "action": "noop"}
-
-            message_id = reaction_data["message_id"]
-            if message_id not in self.messages:
+            message_id = input_data.message_id
+            if not message_id or message_id not in self.messages:
                 return {**base_undo, "action": "noop"}
 
             # Reaction ID will be auto-generated, need to find it after apply
@@ -1605,13 +1592,9 @@ class SMSState(ModalityState):
 
         # Remove reaction
         elif operation == "remove_reaction":
-            reaction_data = input_data.reaction_data
-            if not reaction_data:
-                return {**base_undo, "action": "noop"}
-
-            message_id = reaction_data["message_id"]
-            reaction_id = reaction_data["reaction_id"]
-            if message_id not in self.messages:
+            message_id = input_data.message_id
+            reaction_id = input_data.reaction_id
+            if not message_id or not reaction_id or message_id not in self.messages:
                 return {**base_undo, "action": "noop"}
 
             # Find and capture the reaction being removed
@@ -1634,12 +1617,8 @@ class SMSState(ModalityState):
 
         # Edit message
         elif operation == "edit_message":
-            edit_data = input_data.edit_data
-            if not edit_data:
-                return {**base_undo, "action": "noop"}
-
-            message_id = edit_data["message_id"]
-            if message_id not in self.messages:
+            message_id = input_data.message_id
+            if not message_id or message_id not in self.messages:
                 return {**base_undo, "action": "noop"}
 
             message = self.messages[message_id]
@@ -1655,12 +1634,8 @@ class SMSState(ModalityState):
 
         # Delete message (soft delete)
         elif operation == "delete_message":
-            delete_data = input_data.delete_data
-            if not delete_data:
-                return {**base_undo, "action": "noop"}
-
-            message_id = delete_data["message_id"]
-            if message_id not in self.messages:
+            message_id = input_data.message_id
+            if not message_id or message_id not in self.messages:
                 return {**base_undo, "action": "noop"}
 
             message = self.messages[message_id]
@@ -1673,8 +1648,7 @@ class SMSState(ModalityState):
 
         # Create group
         elif operation == "create_group":
-            group_data = input_data.group_data
-            if not group_data:
+            if not input_data.creator_number or not input_data.participant_numbers:
                 return {**base_undo, "action": "noop"}
 
             # Group thread_id will be auto-generated
@@ -1686,12 +1660,8 @@ class SMSState(ModalityState):
 
         # Update group
         elif operation == "update_group":
-            group_data = input_data.group_data
-            if not group_data:
-                return {**base_undo, "action": "noop"}
-
-            thread_id = group_data["thread_id"]
-            if thread_id not in self.conversations:
+            thread_id = input_data.thread_id
+            if not thread_id or thread_id not in self.conversations:
                 return {**base_undo, "action": "noop"}
 
             conv = self.conversations[thread_id]
@@ -1705,12 +1675,11 @@ class SMSState(ModalityState):
 
         # Add participant
         elif operation == "add_participant":
-            participant_data = input_data.participant_data
-            if not participant_data:
+            thread_id = input_data.thread_id
+            phone_number = input_data.phone_number
+            if not thread_id or not phone_number:
                 return {**base_undo, "action": "noop"}
 
-            thread_id = participant_data["thread_id"]
-            phone_number = participant_data["phone_number"]
             if thread_id not in self.conversations:
                 return {**base_undo, "action": "noop"}
 
@@ -1727,13 +1696,9 @@ class SMSState(ModalityState):
 
         # Remove participant / leave group
         elif operation in ("remove_participant", "leave_group"):
-            participant_data = input_data.participant_data
-            if not participant_data:
-                return {**base_undo, "action": "noop"}
-
-            thread_id = participant_data["thread_id"]
-            phone_number = participant_data.get("phone_number", self.user_phone_number)
-            if thread_id not in self.conversations:
+            thread_id = input_data.thread_id
+            phone_number = input_data.phone_number or self.user_phone_number
+            if not thread_id or thread_id not in self.conversations:
                 return {**base_undo, "action": "noop"}
 
             # Find the participant and capture their current state
@@ -1761,12 +1726,8 @@ class SMSState(ModalityState):
 
         # Update conversation
         elif operation == "update_conversation":
-            update_data = input_data.conversation_update_data
-            if not update_data:
-                return {**base_undo, "action": "noop"}
-
-            thread_id = update_data["thread_id"]
-            if thread_id not in self.conversations:
+            thread_id = input_data.thread_id
+            if not thread_id or thread_id not in self.conversations:
                 return {**base_undo, "action": "noop"}
 
             conv = self.conversations[thread_id]
@@ -1782,7 +1743,7 @@ class SMSState(ModalityState):
             }
 
             # If marking all read, capture affected messages
-            if update_data.get("mark_all_read"):
+            if input_data.mark_all_read:
                 affected_messages = []
                 for msg in self.messages.values():
                     if msg.thread_id == thread_id and not msg.is_read:

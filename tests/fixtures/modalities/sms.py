@@ -16,7 +16,7 @@ def create_sms_input(
     Args:
         operation: SMS operation type (default: "receive_message").
         timestamp: When operation occurred (defaults to now).
-        **kwargs: Additional fields including operation-specific data.
+        **kwargs: Additional typed fields for the SMSInput.
 
     Returns:
         SMSInput instance ready for testing.
@@ -50,187 +50,148 @@ def create_sms_state(
     )
 
 
-# Pre-built SMS examples
+# Pre-built SMS examples using typed top-level fields
 SIMPLE_RECEIVE = create_sms_input(
     operation="receive_message",
-    message_data={
-        "from_number": "+15551234567",
-        "to_number": "+15559876543",
-        "body": "Hey, are we still on for lunch?",
-        "message_type": "sms",
-    },
+    from_number="+15551234567",
+    to_numbers=["+15559876543"],
+    body="Hey, are we still on for lunch?",
+    message_type="sms",
 )
 
 SIMPLE_SEND = create_sms_input(
     operation="send_message",
-    message_data={
-        "from_number": "+15559876543",
-        "to_number": "+15551234567",
-        "body": "Yes! See you at noon.",
-        "message_type": "sms",
-    },
+    from_number="+15559876543",
+    to_numbers=["+15551234567"],
+    body="Yes! See you at noon.",
+    message_type="sms",
 )
 
 GROUP_MESSAGE_RECEIVE = create_sms_input(
     operation="receive_message",
-    message_data={
-        "from_number": "+15551234567",
-        "to_number": "+15559876543",
-        "body": "Who wants to grab dinner tonight?",
-        "message_type": "rcs",
-        "conversation_id": "group-family-chat",
-        "is_group": True,
-        "group_participants": ["+15551234567", "+15559876543", "+15555555555"],
-    },
+    from_number="+15551234567",
+    to_numbers=["+15559876543", "+15555555555"],
+    body="Who wants to grab dinner tonight?",
+    message_type="rcs",
+    thread_id="group-family-chat",
 )
 
 GROUP_MESSAGE_SEND = create_sms_input(
     operation="send_message",
-    message_data={
-        "from_number": "+15559876543",
-        "to_number": "+15559876543",
-        "body": "I'm in! What time?",
-        "message_type": "rcs",
-        "conversation_id": "group-family-chat",
-        "is_group": True,
-        "group_participants": ["+15551234567", "+15559876543", "+15555555555"],
-    },
+    from_number="+15559876543",
+    to_numbers=["+15551234567", "+15555555555"],
+    body="I'm in! What time?",
+    message_type="rcs",
+    thread_id="group-family-chat",
 )
 
 MMS_WITH_IMAGE = create_sms_input(
     operation="receive_message",
-    message_data={
-        "from_number": "+15551234567",
-        "to_number": "+15559876543",
-        "body": "Check out this photo!",
-        "message_type": "rcs",
-        "attachments": [
-            {
-                "filename": "vacation.jpg",
-                "size": 2048000,
-                "mime_type": "image/jpeg",
-                "thumbnail_url": "https://example.com/thumb.jpg",
-            }
-        ],
-    },
+    from_number="+15551234567",
+    to_numbers=["+15559876543"],
+    body="Check out this photo!",
+    message_type="rcs",
+    attachments=[
+        MessageAttachmentData(
+            filename="vacation.jpg",
+            size=2048000,
+            mime_type="image/jpeg",
+            thumbnail_url="https://example.com/thumb.jpg",
+        )
+    ],
 )
 
 VIDEO_MESSAGE = create_sms_input(
     operation="receive_message",
-    message_data={
-        "from_number": "+15551234567",
-        "to_number": "+15559876543",
-        "body": "Here's the video from yesterday",
-        "message_type": "rcs",
-        "attachments": [
-            {
-                "filename": "video.mp4",
-                "size": 10240000,
-                "mime_type": "video/mp4",
-                "duration": 30,
-            }
-        ],
-    },
+    from_number="+15551234567",
+    to_numbers=["+15559876543"],
+    body="Here's the video from yesterday",
+    message_type="rcs",
+    attachments=[
+        MessageAttachmentData(
+            filename="video.mp4",
+            size=10240000,
+            mime_type="video/mp4",
+            duration=30,
+        )
+    ],
 )
 
 DELIVERY_STATUS_UPDATE = create_sms_input(
     operation="update_delivery_status",
-    delivery_update_data={
-        "message_id": "msg-12345",
-        "new_status": "delivered",
-        "conversation_id": "conv-1",
-    },
+    message_id="msg-12345",
+    new_status="delivered",
+    thread_id="conv-1",
 )
 
 READ_STATUS_UPDATE = create_sms_input(
     operation="update_delivery_status",
-    delivery_update_data={
-        "message_id": "msg-12345",
-        "new_status": "read",
-        "conversation_id": "conv-1",
-    },
+    message_id="msg-12345",
+    new_status="read",
+    thread_id="conv-1",
 )
 
 ADD_REACTION = create_sms_input(
     operation="add_reaction",
-    reaction_data={
-        "message_id": "msg-12345",
-        "emoji": "👍",
-        "phone_number": "+15559876543",
-        "conversation_id": "conv-1",
-    },
+    message_id="msg-12345",
+    emoji="👍",
+    phone_number="+15559876543",
+    thread_id="conv-1",
 )
 
 REMOVE_REACTION = create_sms_input(
     operation="remove_reaction",
-    reaction_data={
-        "message_id": "msg-12345",
-        "emoji": "👍",
-        "phone_number": "+15559876543",
-        "conversation_id": "conv-1",
-    },
+    message_id="msg-12345",
+    reaction_id="reaction-123",
+    phone_number="+15559876543",
+    thread_id="conv-1",
 )
 
 EDIT_MESSAGE = create_sms_input(
     operation="edit_message",
-    edit_data={
-        "message_id": "msg-12345",
-        "new_body": "Corrected message text",
-        "conversation_id": "conv-1",
-    },
+    message_id="msg-12345",
+    new_body="Corrected message text",
+    thread_id="conv-1",
 )
 
 DELETE_MESSAGE = create_sms_input(
     operation="delete_message",
-    delete_data={
-        "message_id": "msg-12345",
-        "conversation_id": "conv-1",
-        "delete_for_everyone": False,
-    },
+    message_id="msg-12345",
+    delete_for_everyone=False,
 )
 
 CREATE_GROUP = create_sms_input(
     operation="create_group",
-    group_data={
-        "group_name": "Weekend Plans",
-        "participants": ["+15551234567", "+15559876543", "+15555555555"],
-        "creator_number": "+15559876543",
-    },
+    group_name="Weekend Plans",
+    participant_numbers=["+15551234567", "+15559876543", "+15555555555"],
+    creator_number="+15559876543",
 )
 
 ADD_PARTICIPANT = create_sms_input(
     operation="add_participant",
-    participant_data={
-        "conversation_id": "group-weekend",
-        "phone_number": "+15554444444",
-        "added_by": "+15559876543",
-    },
+    thread_id="group-weekend",
+    phone_number="+15554444444",
+    added_by="+15559876543",
 )
 
 REMOVE_PARTICIPANT = create_sms_input(
     operation="remove_participant",
-    participant_data={
-        "conversation_id": "group-weekend",
-        "phone_number": "+15554444444",
-        "removed_by": "+15559876543",
-    },
+    thread_id="group-weekend",
+    phone_number="+15554444444",
+    removed_by="+15559876543",
 )
 
 UPDATE_CONVERSATION = create_sms_input(
     operation="update_conversation",
-    conversation_update_data={
-        "conversation_id": "conv-1",
-        "is_muted": True,
-        "mute_until": datetime(2025, 1, 16, tzinfo=timezone.utc),
-    },
+    thread_id="conv-1",
+    mute=True,
+    mute_until=datetime(2025, 1, 16, tzinfo=timezone.utc),
 )
 
 ARCHIVE_CONVERSATION = create_sms_input(
     operation="update_conversation",
-    conversation_update_data={
-        "conversation_id": "conv-1",
-        "is_archived": True,
-    },
+    thread_id="conv-1",
+    archive=True,
 )
 
 
@@ -243,15 +204,16 @@ INVALID_SMS_INPUTS = {
     "bad_phone_number": {
         "operation": "send_message",
         "timestamp": datetime.now(timezone.utc),
-        "message_data": {
-            "from_number": "not-a-phone",
-            "to_number": "+15551234567",
-            "body": "Test",
-        },
+        "from_number": "not-a-phone",
+        "to_numbers": ["+15551234567"],
+        "body": "Test",
     },
-    "missing_message_data": {
+    "missing_body": {
         "operation": "send_message",
         "timestamp": datetime.now(timezone.utc),
+        "from_number": "+15559876543",
+        "to_numbers": ["+15551234567"],
+        # body is missing
     },
 }
 
@@ -262,43 +224,35 @@ SMS_JSON_EXAMPLES = {
         "modality_type": "sms",
         "timestamp": "2025-01-15T10:30:00Z",
         "operation": "receive_message",
-        "message_data": {
-            "from_number": "+15551234567",
-            "to_number": "+15559876543",
-            "body": "Hello!",
-            "message_type": "sms",
-        },
+        "from_number": "+15551234567",
+        "to_numbers": ["+15559876543"],
+        "body": "Hello!",
+        "message_type": "sms",
     },
     "with_image": {
         "modality_type": "sms",
         "timestamp": "2025-01-15T14:00:00Z",
         "operation": "receive_message",
-        "message_data": {
-            "from_number": "+15551234567",
-            "to_number": "+15559876543",
-            "body": "Check this out",
-            "message_type": "rcs",
-            "attachments": [
-                {
-                    "filename": "photo.jpg",
-                    "size": 1024000,
-                    "mime_type": "image/jpeg",
-                }
-            ],
-        },
+        "from_number": "+15551234567",
+        "to_numbers": ["+15559876543"],
+        "body": "Check this out",
+        "message_type": "rcs",
+        "attachments": [
+            {
+                "filename": "photo.jpg",
+                "size": 1024000,
+                "mime_type": "image/jpeg",
+            }
+        ],
     },
     "group_message": {
         "modality_type": "sms",
         "timestamp": "2025-01-15T16:00:00Z",
         "operation": "receive_message",
-        "message_data": {
-            "from_number": "+15551234567",
-            "to_number": "+15559876543",
-            "body": "Group chat message",
-            "message_type": "rcs",
-            "conversation_id": "group-1",
-            "is_group": True,
-            "group_participants": ["+15551234567", "+15559876543", "+15555555555"],
-        },
+        "from_number": "+15551234567",
+        "to_numbers": ["+15559876543", "+15555555555"],
+        "body": "Group chat message",
+        "message_type": "rcs",
+        "thread_id": "group-1",
     },
 }
