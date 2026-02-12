@@ -304,6 +304,8 @@ def _register_default_modalities() -> None:
         CalendarState,
         ChatInput,
         ChatState,
+        ContactsInput,
+        ContactsState,
         EmailInput,
         EmailState,
         LocationInput,
@@ -338,6 +340,10 @@ def _register_default_modalities() -> None:
 
     register_modality_state("sms", SMSState)
     register_modality_input("sms", SMSInput)
+
+    # Priority 3 Modalities (Implemented)
+    register_modality_state("contacts", ContactsState)
+    register_modality_input("contacts", ContactsInput)
 
 
 # Auto-register default modalities on module import

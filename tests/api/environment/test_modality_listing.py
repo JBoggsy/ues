@@ -43,12 +43,12 @@ class TestListModalities:
         assert data["count"] == len(data["modalities"])
         
         # Verify all expected modality names are present
-        expected_modalities = {"location", "time", "weather", "chat", "email", "calendar", "sms"}
+        expected_modalities = {"location", "time", "weather", "chat", "email", "calendar", "contacts", "sms"}
         actual_modalities = set(data["modalities"])
         assert actual_modalities == expected_modalities
         
         # Verify exact count
-        assert data["count"] == 7
+        assert data["count"] == 8
     
     def test_list_modalities_matches_environment_state(self, client_with_engine):
         """Test that modality list matches modalities in environment state.

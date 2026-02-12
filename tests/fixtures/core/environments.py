@@ -6,6 +6,7 @@ from ues.models.environment import Environment
 from ues.models.time import SimulatorTime
 from tests.fixtures.modalities import location, time, weather, chat, email, calendar, sms
 from tests.fixtures.core.times import create_simulator_time
+from ues.models.modalities.contacts_state import ContactsState
 
 
 def create_environment(
@@ -50,6 +51,9 @@ FULL_ENVIRONMENT = create_environment(
         "chat": chat.create_chat_state(),
         "email": email.create_email_state(),
         "calendar": calendar.create_calendar_state(),
+        "contacts": ContactsState(
+            last_updated=datetime(2025, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
+        ),
         "sms": sms.create_sms_state(),
     }
 )

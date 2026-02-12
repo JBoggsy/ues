@@ -18,7 +18,16 @@ from ues.models.modalities.calendar_state import CalendarState
 from ues.models.modalities.sms_input import SMSInput
 from ues.models.modalities.sms_state import SMSState
 
-# Priority 3 Modalities
+# Priority 3 Modalities (Implemented)
+from ues.models.modalities.contacts_input import (
+    ContactIdentifier,
+    ContactsInput,
+    ContactsOperation,
+    PostalAddress,
+)
+from ues.models.modalities.contacts_state import Contact, ContactsState
+
+# Priority 3 Modalities (Stubs)
 from ues.models.modalities.filesystem_input import FileSystemInput
 from ues.models.modalities.filesystem_state import FileSystemState
 from ues.models.modalities.discord_input import DiscordInput
@@ -47,7 +56,14 @@ __all__ = [
     "CalendarState",
     "SMSInput",
     "SMSState",
-    # Priority 3
+    # Priority 3 (Implemented)
+    "ContactIdentifier",
+    "ContactsInput",
+    "ContactsOperation",
+    "ContactsState",
+    "Contact",
+    "PostalAddress",
+    # Priority 3 (Stubs)
     "FileSystemInput",
     "FileSystemState",
     "DiscordInput",

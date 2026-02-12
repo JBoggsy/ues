@@ -49,8 +49,8 @@ def fresh_engine():
     time_state = create_simulator_time(current_time=initial_time)
     
     # Create environment with all implemented modality states
-    from tests.fixtures.modalities import location, time as time_mod, weather, chat, email, calendar, sms
-    
+    from tests.fixtures.modalities import location, time as time_mod, weather, chat, email, calendar, sms, contacts
+
     environment = create_environment(
         modality_states={
             "location": location.create_location_state(),
@@ -59,6 +59,7 @@ def fresh_engine():
             "chat": chat.create_chat_state(),
             "email": email.create_email_state(),
             "calendar": calendar.create_calendar_state(),
+            "contacts": contacts.create_contacts_state(last_updated=initial_time),
             "sms": sms.create_sms_state(),
         },
         time_state=time_state,

@@ -20,6 +20,7 @@ from ues.models.modalities.email_state import EmailState
 from ues.models.modalities.sms_state import SMSState
 from ues.models.modalities.chat_state import ChatState
 from ues.models.modalities.calendar_state import CalendarState
+from ues.models.modalities.contacts_state import ContactsState
 from ues.models.modalities.location_state import LocationState
 from ues.models.modalities.time_state import TimeState
 
@@ -113,6 +114,7 @@ def initialize_simulation_engine() -> SimulationEngine:
     initial_sms = SMSState(last_updated=now, user_phone_number="+15550000000")
     initial_chat = ChatState(last_updated=now)
     initial_calendar = CalendarState(last_updated=now)
+    initial_contacts = ContactsState(last_updated=now)
     initial_location = LocationState(last_updated=now)
     initial_time_prefs = TimeState(last_updated=now)
     
@@ -124,6 +126,7 @@ def initialize_simulation_engine() -> SimulationEngine:
             "sms": initial_sms,
             "chat": initial_chat,
             "calendar": initial_calendar,
+            "contacts": initial_contacts,
             "location": initial_location,
             "time": initial_time_prefs,
         },

@@ -51,7 +51,7 @@ class TestGetEnvironmentState:
         assert isinstance(data["modalities"], dict)
         
         # Verify all implemented modalities are present
-        expected_modalities = {"location", "time", "weather", "chat", "email", "calendar", "sms"}
+        expected_modalities = {"location", "time", "weather", "chat", "email", "calendar", "contacts", "sms"}
         assert set(data["modalities"].keys()) == expected_modalities
         
         # Verify summary is a list
@@ -128,7 +128,7 @@ class TestGetEnvironmentState:
         data = response.json()
         
         # fresh_engine creates environment with all implemented modalities
-        expected_modalities = {"location", "time", "weather", "chat", "email", "calendar", "sms"}
+        expected_modalities = {"location", "time", "weather", "chat", "email", "calendar", "contacts", "sms"}
         
         # Verify all expected modalities are present
         for modality in expected_modalities:

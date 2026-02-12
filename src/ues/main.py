@@ -51,6 +51,7 @@ from ues.api.middleware import (
 from ues.api.routes import access_logs as access_logs_routes
 from ues.api.routes import calendar as calendar_routes
 from ues.api.routes import chat as chat_routes
+from ues.api.routes import contacts as contacts_routes
 from ues.api.routes import email as email_routes
 from ues.api.routes import environment as environment_routes
 from ues.api.routes import events as events_routes
@@ -247,6 +248,7 @@ app.include_router(email_routes.router)
 app.include_router(sms_routes.router)
 app.include_router(chat_routes.router)
 app.include_router(calendar_routes.router)
+app.include_router(contacts_routes.router)
 app.include_router(location_routes.router)
 app.include_router(webhooks_routes.router)
 app.include_router(websocket_routes.router)

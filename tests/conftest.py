@@ -16,6 +16,7 @@ pytest_plugins = [
     "tests.fixtures.modalities.email",
     "tests.fixtures.modalities.calendar",
     "tests.fixtures.modalities.sms",
+    "tests.fixtures.modalities.contacts",
     "tests.fixtures.core.events",
     "tests.fixtures.core.queues",
     "tests.fixtures.core.environments",

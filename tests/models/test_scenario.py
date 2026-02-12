@@ -393,7 +393,7 @@ class TestScenarioSummary:
 
         summary = scenario.summary
 
-        assert summary["modality_count"] == 7  # All 7 modalities
+        assert summary["modality_count"] == 8  # All 8 modalities
 
     def test_summary_counts_events(self):
         """Test summary includes event count."""
@@ -468,7 +468,7 @@ class TestFullIntegration:
         # Verify environment loads correctly
         env, warnings = loaded_scenario.get_environment()
         assert len(warnings) == 0
-        assert len(env.list_modalities()) == 7
+        assert len(env.list_modalities()) == 8
 
         # Verify events load correctly
         loaded_queue = loaded_scenario.get_event_queue()

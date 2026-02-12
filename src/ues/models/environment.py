@@ -257,6 +257,23 @@ class Environment(BaseModel):
                     lines.append(f"  • {participant} ({conv['received_ago']}): \"{msg}\"")
             lines.append("")
 
+        # Contacts
+        if "contacts" in modalities:
+            ct = modalities["contacts"]
+            lines.append(f"👤 CONTACTS: {ct['summary']}")
+            if ct.get("groups"):
+                group_strs = [
+                    f"{name} ({count})"
+                    for name, count in ct["groups"].items()
+                ]
+                lines.append(f"  Groups: {', '.join(group_strs)}")
+            if ct.get("recent_contacts"):
+                for rc in ct["recent_contacts"][:3]:
+                    lines.append(
+                        f"  • {rc['name']} (updated {rc['updated_ago']})"
+                    )
+            lines.append("")
+
         # Chat
         if "chat" in modalities:
             ch = modalities["chat"]

@@ -66,7 +66,7 @@ class TestPostSimulationClear:
         assert response.status_code == 200
         data = response.json()
         assert isinstance(data["modalities_cleared"], int)
-        assert data["modalities_cleared"] == 7  # location, time, weather, chat, email, calendar, sms
+        assert data["modalities_cleared"] == 8  # location, time, weather, chat, email, calendar, contacts, sms
 
     def test_clear_removes_all_events(self, client_with_engine):
         """Test that POST /simulation/clear removes all events from the queue.

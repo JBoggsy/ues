@@ -112,7 +112,7 @@ class TestStateRegistryBasicOperations:
     def test_list_state_modalities(self, populated_registries):
         """list_registered_state_modalities returns sorted list of all registered types."""
         modalities = list_registered_state_modalities()
-        expected = ["calendar", "chat", "email", "location", "sms", "time", "weather"]
+        expected = ["calendar", "chat", "contacts", "email", "location", "sms", "time", "weather"]
         assert modalities == expected
 
     def test_list_state_modalities_is_sorted(self, populated_registries):
@@ -252,7 +252,7 @@ class TestInputRegistryBasicOperations:
     def test_list_input_modalities(self, populated_registries):
         """list_registered_input_modalities returns sorted list of all registered types."""
         modalities = list_registered_input_modalities()
-        expected = ["calendar", "chat", "email", "location", "sms", "time", "weather"]
+        expected = ["calendar", "chat", "contacts", "email", "location", "sms", "time", "weather"]
         assert modalities == expected
 
     def test_list_input_modalities_is_sorted(self, populated_registries):
@@ -399,7 +399,7 @@ class TestAutoRegistration:
     def test_default_modalities_registered_on_import(self, populated_registries):
         """Default modalities are registered when the module is imported."""
         # These should all be registered from module import
-        expected_modalities = ["calendar", "chat", "email", "location", "sms", "time", "weather"]
+        expected_modalities = ["calendar", "chat", "contacts", "email", "location", "sms", "time", "weather"]
         
         assert list_registered_state_modalities() == expected_modalities
         assert list_registered_input_modalities() == expected_modalities
@@ -410,7 +410,7 @@ class TestAutoRegistration:
         _register_default_modalities()
         _register_default_modalities()
         
-        expected = ["calendar", "chat", "email", "location", "sms", "time", "weather"]
+        expected = ["calendar", "chat", "contacts", "email", "location", "sms", "time", "weather"]
         assert list_registered_state_modalities() == expected
 
     def test_reregister_defaults_after_clear(self, clean_registries):
@@ -420,7 +420,7 @@ class TestAutoRegistration:
         
         _register_default_modalities()
         
-        expected = ["calendar", "chat", "email", "location", "sms", "time", "weather"]
+        expected = ["calendar", "chat", "contacts", "email", "location", "sms", "time", "weather"]
         assert list_registered_state_modalities() == expected
         assert list_registered_input_modalities() == expected
 

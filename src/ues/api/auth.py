@@ -168,6 +168,20 @@ class Permissions:
     WEATHER_QUERY = "weather:query"
     WEATHER_UPDATE = "weather:update"
     
+    # Contacts (/contacts)
+    CONTACTS_STATE = "contacts:state"
+    CONTACTS_QUERY = "contacts:query"
+    CONTACTS_CREATE = "contacts:create"
+    CONTACTS_UPDATE = "contacts:update"
+    CONTACTS_DELETE = "contacts:delete"
+    CONTACTS_BLOCK = "contacts:block"
+    CONTACTS_UNBLOCK = "contacts:unblock"
+    CONTACTS_FAVORITE = "contacts:favorite"
+    CONTACTS_UNFAVORITE = "contacts:unfavorite"
+    CONTACTS_GROUP_ADD = "contacts:group:add"
+    CONTACTS_GROUP_REMOVE = "contacts:group:remove"
+    CONTACTS_MERGE = "contacts:merge"
+
     # Key Management (/keys)
     KEYS_CREATE = "keys:create"
     KEYS_LIST = "keys:list"

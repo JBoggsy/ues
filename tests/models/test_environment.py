@@ -583,7 +583,7 @@ class TestEnvironmentFromFixtures:
         """GENERAL PATTERN: Verify FULL_ENVIRONMENT fixture works."""
         # FULL_ENVIRONMENT includes all modalities
         assert FULL_ENVIRONMENT.time_state is not None
-        assert len(FULL_ENVIRONMENT.modality_states) == 7
+        assert len(FULL_ENVIRONMENT.modality_states) == 8
         assert FULL_ENVIRONMENT.has_modality("location")
         assert FULL_ENVIRONMENT.has_modality("email")
         assert FULL_ENVIRONMENT.has_modality("chat")

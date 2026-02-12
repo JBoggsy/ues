@@ -71,6 +71,12 @@ class WSEventType(str, Enum):
     CALENDAR_EVENT_DELETED = "calendar.event_deleted"
     LOCATION_UPDATED = "location.updated"
     WEATHER_UPDATED = "weather.updated"
+    CONTACT_CREATED = "contacts.created"
+    CONTACT_UPDATED = "contacts.updated"
+    CONTACT_DELETED = "contacts.deleted"
+    CONTACT_BLOCKED = "contacts.blocked"
+    CONTACT_UNBLOCKED = "contacts.unblocked"
+    CONTACT_MERGED = "contacts.merged"
     
     # Undo/Redo
     UNDO_PERFORMED = "undo.performed"

@@ -79,9 +79,9 @@ class TestToScenarioDict:
 
         assert "time_state" in result
         assert "modality_states" in result
-        # Should have all 7 modalities
-        assert len(result["modality_states"]) == 7
-        for modality_type in ["location", "time", "weather", "chat", "email", "calendar", "sms"]:
+        # Should have all 8 modalities
+        assert len(result["modality_states"]) == 8
+        for modality_type in ["location", "time", "weather", "chat", "email", "calendar", "contacts", "sms"]:
             assert modality_type in result["modality_states"]
 
     def test_time_state_contains_all_fields(self):
@@ -479,8 +479,8 @@ class TestRegistryIntegration:
         assert isinstance(env.get_state("location"), LocationState)
 
     def test_registry_has_all_standard_modalities(self):
-        """Test registry contains all 7 standard modalities."""
-        expected_modalities = ["location", "time", "weather", "chat", "email", "calendar", "sms"]
+        """Test registry contains all 8 standard modalities."""
+        expected_modalities = ["location", "time", "weather", "chat", "email", "calendar", "contacts", "sms"]
 
         for modality in expected_modalities:
             assert is_modality_state_registered(modality), f"{modality} not registered"
@@ -547,4 +547,4 @@ class TestEdgeCases:
         restored, warnings = Environment.from_scenario_dict(parsed)
 
         assert len(warnings) == 0
-        assert len(restored.list_modalities()) == 7
+        assert len(restored.list_modalities()) == 8
