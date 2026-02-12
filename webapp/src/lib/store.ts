@@ -9,6 +9,7 @@ export type Theme = 'light' | 'dark' | 'system';
 export interface SettingsState {
   // Connection Settings
   apiUrl: string;
+  apiKey: string;
   connectionTimeout: number; // in milliseconds
 
   // Polling Intervals (in milliseconds)
@@ -27,6 +28,7 @@ export interface SettingsState {
 
   // Actions
   setApiUrl: (url: string) => void;
+  setApiKey: (key: string) => void;
   setConnectionTimeout: (timeout: number) => void;
   setTimePollingInterval: (interval: number) => void;
   setEnvironmentPollingInterval: (interval: number) => void;
@@ -39,8 +41,25 @@ export interface SettingsState {
   resetToDefaults: () => void;
 }
 
+/**
+ * Derive the default API URL from the current browser location.
+ *
+ * When VITE_API_BASE_URL is set, that value is used as-is (build-time override).
+ * Otherwise, we assume the API server runs on the same host as the web UI on
+ * port 8000, so we build the URL from `window.location.hostname`. This lets
+ * both LAN and remote clients reach the correct backend automatically.
+ */
+function getDefaultApiUrl(): string {
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL;
+  }
+  const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+  return `http://${hostname}:8000`;
+}
+
 const DEFAULT_SETTINGS = {
-  apiUrl: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000',
+  apiUrl: getDefaultApiUrl(),
+  apiKey: '',
   connectionTimeout: 10000,
   timePollingInterval: 1000,
   environmentPollingInterval: 5000,
@@ -58,6 +77,7 @@ export const useSettingsStore = create<SettingsState>()(
       ...DEFAULT_SETTINGS,
 
       setApiUrl: (url) => set({ apiUrl: url }),
+      setApiKey: (key) => set({ apiKey: key }),
       setConnectionTimeout: (timeout) => set({ connectionTimeout: timeout }),
       setTimePollingInterval: (interval) => set({ timePollingInterval: interval }),
       setEnvironmentPollingInterval: (interval) => set({ environmentPollingInterval: interval }),

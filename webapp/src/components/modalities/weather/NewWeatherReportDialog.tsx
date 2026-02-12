@@ -517,7 +517,7 @@ export function NewWeatherReportDialog({
             </div>
           </TabsContent>
 
-          {/* Manual Entry Tab */}}
+          {/* Manual Entry Tab */}
           <TabsContent value="manual" className="flex-1 space-y-4 mt-4 overflow-y-auto">
             {/* Condition */}
             <div className="space-y-2">

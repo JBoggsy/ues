@@ -1,7 +1,8 @@
 /**
  * Settings page for configuring application preferences.
  */
-import { Settings as SettingsIcon, RotateCcw, Sun, Moon, Monitor } from 'lucide-react';
+import { useState } from 'react';
+import { Settings as SettingsIcon, RotateCcw, Sun, Moon, Monitor, Eye, EyeOff } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -20,8 +21,11 @@ import { useSettingsStore, type Theme } from '@/lib/store';
 import { toast } from 'sonner';
 
 export function Settings() {
+  const [showApiKey, setShowApiKey] = useState(false);
+
   const {
     apiUrl,
+    apiKey,
     connectionTimeout,
     timePollingInterval,
     environmentPollingInterval,
@@ -32,6 +36,7 @@ export function Settings() {
     displayTimezone,
     use24HourFormat,
     setApiUrl,
+    setApiKey,
     setConnectionTimeout,
     setTimePollingInterval,
     setEnvironmentPollingInterval,
@@ -87,6 +92,32 @@ export function Settings() {
             />
             <p className="text-xs text-muted-foreground">
               The base URL of the UES simulation API server
+            </p>
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="apiKey">API Key</Label>
+            <div className="flex gap-2">
+              <Input
+                id="apiKey"
+                type={showApiKey ? 'text' : 'password'}
+                placeholder="Enter your API key"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                className="font-mono"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => setShowApiKey(!showApiKey)}
+                aria-label={showApiKey ? 'Hide API key' : 'Show API key'}
+              >
+                {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              The admin API key printed to the console when the server starts
             </p>
           </div>
 

@@ -27,6 +27,10 @@ apiClient.interceptors.request.use(
     // Update baseURL and timeout from current settings
     config.baseURL = settings.apiUrl;
     config.timeout = settings.connectionTimeout;
+    // Attach API key if configured
+    if (settings.apiKey) {
+      config.headers['X-API-Key'] = settings.apiKey;
+    }
     console.debug(`[API] ${config.method?.toUpperCase()} ${config.url}`);
     return config;
   },
