@@ -770,7 +770,7 @@ async def delete_sms(
                     operation="delete_message",
                     message_id=message_id,
                 )
-                sms_state.apply_input(sms_input)
+                sms_state.apply_input(sms_input, engine.environment)
                 deleted_count += 1
 
         # Create an event record for auditing (use last message_id processed)

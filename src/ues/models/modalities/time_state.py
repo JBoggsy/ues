@@ -1,12 +1,15 @@
 """Time state model."""
 
 from datetime import datetime
-from typing import Any, Literal, Optional
+from typing import TYPE_CHECKING, Any, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from ues.models.base_input import ModalityInput
 from ues.models.base_state import ModalityState
+
+if TYPE_CHECKING:
+    from ues.models.environment import Environment
 
 
 class TimeSettingsHistoryEntry(BaseModel):
@@ -95,7 +98,11 @@ class TimeState(ModalityState):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    def apply_input(self, input_data: ModalityInput) -> None:
+    def apply_input(
+        self,
+        input_data: ModalityInput,
+        environment: Optional["Environment"] = None,
+    ) -> None:
         """Apply a TimeInput to modify this state.
 
         Updates the current time preferences and adds the previous settings to history.

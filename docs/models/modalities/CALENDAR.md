@@ -258,7 +258,7 @@ Tracks all calendars and events with full history and recurrence expansion.
 - `deleted_at`: If deleted, when (for recurrence handling)
 
 **Methods:**
-- `apply_input(input_data)`: Processes calendar operations
+- `apply_input(input_data, environment=None)`: Processes calendar operations
   - **Create**: Validates data, generates event_id, adds to calendar and events dict
   - **Update**: Handles recurrence scope (this/this_and_future/all), modifies event(s)
   - **Delete**: Handles recurrence scope, marks deleted or adds exceptions

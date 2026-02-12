@@ -1,7 +1,7 @@
 """Calendar state model."""
 
 from datetime import date, datetime, timedelta, timezone
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 from uuid import uuid4
 
 from pydantic import BaseModel, Field, field_serializer, field_validator
@@ -15,6 +15,9 @@ from ues.models.modalities.calendar_input import (
     RecurrenceRule,
     Reminder,
 )
+
+if TYPE_CHECKING:
+    from ues.models.environment import Environment
 
 
 class Calendar(BaseModel):
@@ -309,7 +312,11 @@ class CalendarState(ModalityState):
                 color="#4285f4",
             )
 
-    def apply_input(self, input_data: ModalityInput) -> None:
+    def apply_input(
+        self,
+        input_data: ModalityInput,
+        environment: Optional["Environment"] = None,
+    ) -> None:
         """Apply a calendar input to update state.
 
         Args:

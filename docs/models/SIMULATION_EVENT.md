@@ -126,7 +126,7 @@ def execute(self, environment: Environment) -> None:
 
 **Rationale**: Events are responsible for executing themselves. This keeps execution logic close to event data and makes testing easier.
 
-**Design Decision**: Events modify the environment in-place rather than returning a new environment. This is consistent with the `ModalityState.apply_input()` pattern and avoids expensive copying.
+**Design Decision**: Events modify the environment in-place rather than returning a new environment. This is consistent with the `ModalityState.apply_input()` pattern and avoids expensive copying. The environment is also passed through to `apply_input()` to enable cross-modality state lookups.
 
 #### 2. `can_execute(current_time: datetime) -> bool`
 ```python
@@ -828,7 +828,7 @@ def execute(self, environment: Environment) -> None:
         state = environment.get_state(self.modality)
         
         # Apply input
-        state.apply_input(self.data)
+        state.apply_input(self.data, environment)
         
         # Success
         self.status = EventStatus.EXECUTED

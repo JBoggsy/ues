@@ -144,21 +144,35 @@ def should_merge_with(self, other: 'ModalityInput') -> bool:
 
 ### Required Methods
 
-#### 1. `apply_input(input_data: ModalityInput) -> None`
+#### 1. `apply_input(input_data: ModalityInput, environment: Optional[Environment] = None) -> None`
 ```python
-def apply_input(self, input_data: ModalityInput) -> None:
+def apply_input(
+    self,
+    input_data: ModalityInput,
+    environment: Optional["Environment"] = None,
+) -> None:
     """Apply a ModalityInput to modify this state.
     
     This is the core state mutation method. Each subclass implements
     the specific logic for how inputs change state.
+
+    The environment parameter provides access to sibling modality states
+    for cross-modality interactions (e.g., looking up contact display
+    names when processing an incoming SMS or email). Production call sites
+    always provide this. Modalities that require cross-modality access
+    should raise ValueError if environment is None.
     
     Examples:
-    - EmailState.apply_input(EmailInput): Add email to inbox, update thread
-    - LocationState.apply_input(LocationInput): Update current location, add to history
-    - SMSState.apply_input(SMSInput): Add message to conversation
+    - EmailState.apply_input(EmailInput, env): Add email to inbox, update thread
+    - LocationState.apply_input(LocationInput, env): Update current location, add to history
+    - SMSState.apply_input(SMSInput, env): Add message to conversation
     
     Args:
         input_data: The ModalityInput to apply to this state
+        environment: The simulation environment, providing access to all
+            modality states for cross-modality lookups. Always provided
+            by the production event execution pipeline. Defaults to None
+            for backward compatibility and isolated unit testing.
     
     Raises:
         ValueError: If input_data is wrong type or incompatible
@@ -282,7 +296,7 @@ class SimulatorEvent:
         state = environment.get_state(self.modality)
         
         # 3. Apply
-        state.apply_input(self.data)
+        state.apply_input(self.data, environment)
         
         # 4. Update status
         self.status = EventStatus.EXECUTED
@@ -365,7 +379,7 @@ event.execute(environment)
 
 # 4. Inside execute(), this happens:
 email_state = environment.get_state("email")
-email_state.apply_input(email_input)  # Adds to inbox, creates thread
+email_state.apply_input(email_input, environment)  # Adds to inbox, creates thread
 ```
 
 ### Example 2: Location Update
@@ -382,7 +396,7 @@ location_input = LocationInput(
 )
 
 # 2. Execute via event
-location_state.apply_input(location_input)
+location_state.apply_input(location_input, environment)
 
 # 3. Inside apply_input():
 # - Updates current_lat, current_long, current_address

@@ -2,12 +2,13 @@
 
 from abc import abstractmethod
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
 if TYPE_CHECKING:
     from ues.models.base_input import ModalityInput
+    from ues.models.environment import Environment
 
 
 class ModalityState(BaseModel):
@@ -47,7 +48,11 @@ class ModalityState(BaseModel):
         return v
 
     @abstractmethod
-    def apply_input(self, input_data: "ModalityInput") -> None:
+    def apply_input(
+        self,
+        input_data: "ModalityInput",
+        environment: Optional["Environment"] = None,
+    ) -> None:
         """Apply a ModalityInput to modify this state.
 
         This is the core state mutation method. Each subclass implements
@@ -60,13 +65,24 @@ class ModalityState(BaseModel):
         3. Update last_updated timestamp
         4. Increment update_count
 
+        The environment parameter provides access to sibling modality states
+        for cross-modality interactions (e.g., looking up contact display
+        names when processing an incoming SMS or email). Production call sites
+        (SimulatorEvent.execute, simulation redo, route handlers) always
+        provide this. Modalities that require cross-modality access should
+        raise ValueError if environment is None.
+
         Examples:
-            - EmailState.apply_input(EmailInput): Add email to inbox, update thread
-            - LocationState.apply_input(LocationInput): Update current location, add to history
-            - SMSState.apply_input(SMSInput): Add message to conversation
+            - EmailState.apply_input(EmailInput, env): Add email to inbox, update thread
+            - LocationState.apply_input(LocationInput, env): Update current location
+            - SMSState.apply_input(SMSInput, env): Add message to conversation
 
         Args:
             input_data: The ModalityInput to apply to this state.
+            environment: The simulation environment, providing access to all
+                modality states for cross-modality lookups. Always provided
+                by the production event execution pipeline. Defaults to None
+                for backward compatibility and isolated unit testing.
 
         Raises:
             ValueError: If input_data is wrong type or incompatible.

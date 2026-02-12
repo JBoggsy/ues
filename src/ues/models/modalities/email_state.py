@@ -1,13 +1,16 @@
 """Email state model."""
 
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from ues.models.base_input import ModalityInput
 from ues.models.base_state import ModalityState
+
+if TYPE_CHECKING:
+    from ues.models.environment import Environment
 
 
 def _ensure_timezone_aware(v: datetime) -> datetime:
@@ -292,7 +295,11 @@ class EmailState(ModalityState):
             if folder not in self.folders:
                 self.folders[folder] = []
 
-    def apply_input(self, input_data: ModalityInput) -> None:
+    def apply_input(
+        self,
+        input_data: ModalityInput,
+        environment: Optional["Environment"] = None,
+    ) -> None:
         """Apply an EmailInput to modify this state.
 
         Dispatches to operation-specific handlers based on operation type.

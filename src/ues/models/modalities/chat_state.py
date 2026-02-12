@@ -11,6 +11,7 @@ from ues.models.base_input import ModalityInput
 from ues.models.base_state import ModalityState
 
 if TYPE_CHECKING:
+    from ues.models.environment import Environment
     from ues.models.modalities.chat_input import ChatInput
 
 
@@ -147,7 +148,11 @@ class ChatState(ModalityState):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    def apply_input(self, input_data: ModalityInput) -> None:
+    def apply_input(
+        self,
+        input_data: ModalityInput,
+        environment: Optional["Environment"] = None,
+    ) -> None:
         """Apply a ChatInput to modify this state.
 
         Dispatches to operation-specific handlers based on operation type.

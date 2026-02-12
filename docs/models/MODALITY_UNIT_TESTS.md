@@ -225,7 +225,7 @@ pytest_plugins = [
 **Critical Rule**: Always examine the actual implementation API before writing tests.
 
 **Checklist before writing tests:**
-1. ✅ How many arguments does `apply_input()` take?
+1. ✅ How many arguments does `apply_input()` take? (2: `input_data` required, `environment` optional)
 2. ✅ What does `get_snapshot()` return? (structure, not just presence)
 3. ✅ What does `validate_state()` return? (tuple vs list vs dict)
 4. ✅ What are the actual field names? (`modality` vs `modality_type`)
@@ -239,9 +239,9 @@ pytest_plugins = [
 assert email.modality_type == "email"  # ✅ Correct
 assert email.modality == "email"       # ❌ Wrong - AttributeError
 
-# apply_input() signatures vary by implementation
-state.apply_input(input_data)                    # ✅ Common pattern
-state.apply_input(input_data, timestamp)         # ❌ Wrong for most implementations
+# apply_input() takes input_data (required) and environment (optional)
+state.apply_input(input_data)                          # ✅ OK for unit tests (environment defaults to None)
+state.apply_input(input_data, environment)             # ✅ Production pattern (cross-modality access)
 
 # validate_state() return types vary
 errors = state.validate_state()                  # ✅ Returns list

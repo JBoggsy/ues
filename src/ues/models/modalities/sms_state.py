@@ -1,7 +1,7 @@
 """SMS/RCS state model for text messaging."""
 
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 from uuid import uuid4
 
 from pydantic import BaseModel, Field, field_validator
@@ -9,6 +9,9 @@ from pydantic import BaseModel, Field, field_validator
 from ues.models.base_input import ModalityInput
 from ues.models.base_state import ModalityState
 from ues.models.modalities.sms_input import SMSInput
+
+if TYPE_CHECKING:
+    from ues.models.environment import Environment
 
 
 def _ensure_timezone_aware(v: datetime) -> datetime:
@@ -644,7 +647,11 @@ class SMSState(ModalityState):
         description="The simulated user's phone number"
     )
 
-    def apply_input(self, input_data: SMSInput) -> None:
+    def apply_input(
+        self,
+        input_data: SMSInput,
+        environment: Optional["Environment"] = None,
+    ) -> None:
         """Process SMS operation and update state accordingly.
 
         Args:

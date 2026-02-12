@@ -75,7 +75,7 @@ Tracks metadata for each conversation:
 - `participant_roles`: Set of roles that have participated ("user", "assistant")
 
 **Methods:**
-- `apply_input(input_data)`: Adds message to appropriate conversation, manages history limits
+- `apply_input(input_data, environment=None)`: Adds message to appropriate conversation, manages history limits
 - `get_snapshot()`: Returns all conversations and messages for API responses
 - `validate_state()`: Checks message ordering, conversation consistency, history limits
 - `query(query_params)`: Filters messages by conversation, role, time range, content search

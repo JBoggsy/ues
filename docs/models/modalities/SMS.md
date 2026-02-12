@@ -403,7 +403,7 @@ Tracks all SMS/RCS conversations, messages, and related state.
 **Note**: Blocked numbers and contact-level spam flagging are managed by the Contacts modality. The SMS modality queries Contacts to check if a number is blocked before processing incoming messages. Individual messages can be flagged as spam via the `is_spam` field on `SMSMessage`.
 
 **Methods:**
-- `apply_input(input_data: SMSInput)` - Processes SMS operation and updates state accordingly
+- `apply_input(input_data: SMSInput, environment: Optional[Environment] = None)` - Processes SMS operation and updates state accordingly
   - Handles all operation types: send_message, receive_message, update_delivery_status, etc.
   - Creates conversations automatically when needed
   - Enforces message history limits
@@ -489,9 +489,11 @@ for message in sms_state.messages.values():
 When processing incoming messages, SMS checks if sender is blocked:
 ```python
 # In SMSState.apply_input() for receive_message operation
-if contacts_state.is_blocked(from_number):
-    # Reject message, don't create SMSMessage
-    return
+if environment:
+    contacts_state = environment.get_state("contacts")
+    if contacts_state.is_blocked(from_number):
+        # Reject message, don't create SMSMessage
+        return
 ```
 
 ### Implementation Pattern

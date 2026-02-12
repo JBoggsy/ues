@@ -63,7 +63,7 @@ Tracks current weather conditions at multiple locations with historical data.
   - `update_count`: Number of updates for this location
 
 **Methods:**
-- `apply_input(input_data)`: Adds/updates weather for a location
+- `apply_input(input_data, environment=None)`: Adds/updates weather for a location
   - Extracts lat/lon from input
   - Creates location entry if new
   - Adds current report to history

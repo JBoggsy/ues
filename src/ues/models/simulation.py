@@ -942,7 +942,7 @@ class SimulationEngine(BaseModel):
                     new_undo_data = state.create_undo_data(original_event.data)
 
                     # Re-apply the original input
-                    state.apply_input(original_event.data)
+                    state.apply_input(original_event.data, self.environment)
 
                     # Create new undo entry and add to undo stack
                     # Note: We append directly instead of using push() to preserve

@@ -80,7 +80,7 @@ class Environment(BaseModel):
 
         Example:
             >>> state = environment.get_state("email")
-            >>> state.apply_input(email_input)
+            >>> state.apply_input(email_input, environment)
         """
         if modality not in self.modality_states:
             available = ", ".join(sorted(self.modality_states.keys()))

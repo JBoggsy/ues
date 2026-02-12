@@ -246,7 +246,7 @@ Represents a conversation thread grouping related emails.
 
 **Methods:**
 
-- `apply_input(input_data: ModalityInput)` - Apply an EmailInput to modify state
+- `apply_input(input_data: ModalityInput, environment: Optional[Environment] = None)` - Apply an EmailInput to modify state
   - Dispatches to operation-specific handlers based on `operation` field
   - Updates appropriate folders, labels, threads, and email objects
   - Manages threading relationships
@@ -295,7 +295,7 @@ Represents a conversation thread grouping related emails.
 3. **Event Execution**: When simulator time reaches event time:
    - `SimulatorEvent.execute()` is called with `Environment`
    - Gets `EmailState` from environment via `environment.get_state("email")`
-   - Calls `EmailState.apply_input(email_input)`
+   - Calls `EmailState.apply_input(email_input, environment)`
    - Email state is modified in-place
 4. **API Queries**: AI assistant queries email via REST API:
    - Endpoint: `GET /email/state`

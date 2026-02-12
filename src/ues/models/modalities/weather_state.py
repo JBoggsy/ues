@@ -2,7 +2,7 @@
 
 from copy import deepcopy
 from datetime import datetime
-from typing import Any, Literal, Optional
+from typing import TYPE_CHECKING, Any, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -10,6 +10,9 @@ from ues.models.base_input import ModalityInput
 from ues.models.base_state import ModalityState
 from ues.models.modalities.weather_input import WeatherReport
 from ues.models.modalities.weather_input import WeatherInput
+
+if TYPE_CHECKING:
+    from ues.models.environment import Environment
 
 
 class WeatherReportHistoryEntry(BaseModel):
@@ -121,7 +124,11 @@ class WeatherState(ModalityState):
         normalized_lon = round(lon, 2)
         return f"{normalized_lat:.2f},{normalized_lon:.2f}"
 
-    def apply_input(self, input_data: ModalityInput) -> None:
+    def apply_input(
+        self,
+        input_data: ModalityInput,
+        environment: Optional["Environment"] = None,
+    ) -> None:
         """Apply a WeatherInput to modify this state.
 
         Updates weather for a location, creating location entry if new.

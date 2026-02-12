@@ -171,7 +171,7 @@ Tracks the user's current time display preferences and maintains preference hist
 
 **Methods:**
 
-##### `apply_input(input_data: TimeInput)`
+##### `apply_input(input_data: TimeInput, environment: Optional[Environment] = None)`
 Updates current preferences and adds previous settings to history.
 1. Creates `TimeSettingsHistoryEntry` from current values
 2. Appends entry to history

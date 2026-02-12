@@ -167,7 +167,7 @@ The simulation must maintain and provide access to current environment state.
 - Export complete state snapshot
 
 **State Modification**:
-- Events modify states in-place via state.apply_input()
+- Events modify states in-place via state.apply_input(input, environment)
 - States track last_updated timestamp
 - States track update_count for versioning
 - Modifications are immediate and visible
@@ -616,7 +616,7 @@ The orchestration layer coordinates these components:
 **What orchestration DOES NOT DO**:
 - ❌ Execute events (events execute themselves via event.execute())
 - ❌ Advance time (tells SimulatorTime to advance)
-- ❌ Modify state (events do via state.apply_input())
+- ❌ Modify state (events do via state.apply_input(input, environment))
 - ❌ Sort events (EventQueue maintains order)
 - ❌ Validate inputs (ModalityInput validates itself)
 - ❌ Generate events (users/agents create events)

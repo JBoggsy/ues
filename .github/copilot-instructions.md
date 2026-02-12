@@ -58,7 +58,7 @@ See `webapp/.env.example` for web UI environment variables.
 When implementing a new modality, follow this checklist:
 1. **Models**: Create `src/ues/models/modalities/<modality>_input.py` and `<modality>_state.py`
    - Input class extends `ModalityInput` with action-specific fields
-   - State class extends `ModalityState` with `apply_input()`, `clear()`, `create_undo_data()`, `apply_undo()`
+   - State class extends `ModalityState` with `apply_input(input_data, environment=None)`, `clear()`, `create_undo_data()`, `apply_undo()`
 2. **Registry**: Register in `src/ues/models/registry.py` `ModalityRegistry`
 3. **API Routes**: Create `src/ues/api/routes/<modality>.py` with state/query/submit endpoints
    - **All routes must have authentication** - see API Access Control section below

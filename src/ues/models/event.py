@@ -194,7 +194,7 @@ class SimulatorEvent(BaseModel):
                 undo_data = state.create_undo_data(self.data)
 
             # Apply input
-            state.apply_input(self.data)
+            state.apply_input(self.data, environment)
 
             # Success
             self.status = EventStatus.EXECUTED

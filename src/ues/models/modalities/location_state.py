@@ -1,12 +1,15 @@
 """Location state model."""
 
 from datetime import datetime
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from ues.models.base_input import ModalityInput
 from ues.models.base_state import ModalityState
+
+if TYPE_CHECKING:
+    from ues.models.environment import Environment
 
 
 class LocationHistoryEntry(BaseModel):
@@ -118,7 +121,11 @@ class LocationState(ModalityState):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    def apply_input(self, input_data: ModalityInput) -> None:
+    def apply_input(
+        self,
+        input_data: ModalityInput,
+        environment: Optional["Environment"] = None,
+    ) -> None:
         """Apply a LocationInput to modify this state.
 
         Updates the current location and adds the previous location to history.

@@ -183,7 +183,7 @@ Tracks the user's current location and maintains location history.
 
 **Methods:**
 
-##### `apply_input(input_data: LocationInput)`
+##### `apply_input(input_data: LocationInput, environment: Optional[Environment] = None)`
 Updates current location and adds previous location to history.
 1. If current location exists, creates `LocationHistoryEntry` from current values
 2. Appends entry to history

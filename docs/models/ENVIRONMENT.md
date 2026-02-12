@@ -171,7 +171,7 @@ def get_state(self, modality: str) -> ModalityState:
     
     Example:
         >>> state = environment.get_state("email")
-        >>> state.apply_input(email_input)
+        >>> state.apply_input(email_input, environment)
     """
 ```
 
@@ -414,7 +414,7 @@ def execute(self, environment: Environment) -> None:
     state = environment.get_state(self.modality)
     
     # 3. Apply input to state (modifies environment in-place)
-    state.apply_input(self.data)
+    state.apply_input(self.data, environment)
     
     # 4. Record execution time from environment
     self.executed_at = environment.time_state.current_time
