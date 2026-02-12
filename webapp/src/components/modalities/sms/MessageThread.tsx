@@ -31,7 +31,8 @@ import type {
   SMSState, 
   SMSConversation, 
   SMSMessage,
-  MessageReaction 
+  MessageReaction,
+  ContactNameResolver,
 } from './types';
 import { resolveContactName } from './types';
 
@@ -40,6 +41,8 @@ interface MessageThreadProps {
   selectedThreadId: string | null;
   onSendMessage: (body: string) => void;
   isSending?: boolean;
+  /** Contacts-backed phone-number-to-name resolver. */
+  contactNameResolver?: ContactNameResolver;
 }
 
 /**
@@ -148,7 +151,13 @@ function DeliveryStatus({
 /**
  * Reactions display for a message.
  */
-function ReactionsDisplay({ reactions }: { reactions: MessageReaction[] }) {
+function ReactionsDisplay({
+  reactions,
+  contactNameResolver,
+}: {
+  reactions: MessageReaction[];
+  contactNameResolver?: ContactNameResolver;
+}) {
   if (reactions.length === 0) return null;
 
   // Group reactions by emoji
@@ -171,7 +180,7 @@ function ReactionsDisplay({ reactions }: { reactions: MessageReaction[] }) {
               </Badge>
             </TooltipTrigger>
             <TooltipContent>
-              {numbers.map(n => resolveContactName(n)).join(', ')}
+              {numbers.map(n => resolveContactName(n, contactNameResolver)).join(', ')}
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
@@ -188,11 +197,13 @@ function MessageBubble({
   isOutgoing,
   showSender,
   senderName,
+  contactNameResolver,
 }: {
   message: SMSMessage;
   isOutgoing: boolean;
   showSender: boolean;
   senderName: string;
+  contactNameResolver?: ContactNameResolver;
 }) {
   return (
     <div className={cn(
@@ -256,7 +267,10 @@ function MessageBubble({
       </div>
 
       {/* Reactions */}
-      <ReactionsDisplay reactions={message.reactions} />
+      <ReactionsDisplay
+        reactions={message.reactions}
+        contactNameResolver={contactNameResolver}
+      />
     </div>
   );
 }
@@ -267,9 +281,11 @@ function MessageBubble({
 function ThreadHeader({
   conversation,
   userPhoneNumber,
+  contactNameResolver,
 }: {
   conversation: SMSConversation;
   userPhoneNumber: string;
+  contactNameResolver?: ContactNameResolver;
 }) {
   const displayInfo = useMemo(() => {
     if (conversation.conversation_type === 'group') {
@@ -285,12 +301,12 @@ function ThreadHeader({
       );
       const phoneNumber = other?.phone_number || 'Unknown';
       return {
-        name: resolveContactName(phoneNumber),
+        name: resolveContactName(phoneNumber, contactNameResolver),
         subtitle: phoneNumber,
         isGroup: false,
       };
     }
-  }, [conversation, userPhoneNumber]);
+  }, [conversation, userPhoneNumber, contactNameResolver]);
 
   return (
     <div className="flex items-center justify-between px-4 py-2 border-b bg-background">
@@ -395,6 +411,7 @@ export function MessageThread({
   selectedThreadId,
   onSendMessage,
   isSending,
+  contactNameResolver,
 }: MessageThreadProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -461,6 +478,7 @@ export function MessageThread({
       <ThreadHeader 
         conversation={conversation} 
         userPhoneNumber={smsState.user_phone_number}
+        contactNameResolver={contactNameResolver}
       />
 
       {/* Messages */}
@@ -489,7 +507,8 @@ export function MessageThread({
                   message={message}
                   isOutgoing={isOutgoing}
                   showSender={showSender}
-                  senderName={resolveContactName(message.from_number)}
+                  senderName={resolveContactName(message.from_number, contactNameResolver)}
+                  contactNameResolver={contactNameResolver}
                 />
               );
             })}

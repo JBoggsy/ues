@@ -103,6 +103,16 @@ from ues.client._chat import (
     ChatStateResponse,
     ConversationMetadata,
 )
+from ues.client._contacts import (
+    AsyncContactsClient,
+    Contact,
+    ContactIdentifier,
+    ContactsClient,
+    ContactsCompactStateResponse,
+    ContactsQueryResponse,
+    ContactsStateResponse,
+    PostalAddress,
+)
 from ues.client._calendar import (
     AsyncCalendarClient,
     Attachment,
@@ -188,6 +198,8 @@ __all__ = [
     "AsyncSMSClient",
     "ChatClient",
     "AsyncChatClient",
+    "ContactsClient",
+    "AsyncContactsClient",
     "CalendarClient",
     "AsyncCalendarClient",
     "LocationClient",
@@ -246,6 +258,13 @@ __all__ = [
     "ChatCompactStateResponse",
     "ChatQueryResponse",
     "ConversationMetadata",
+    # Response models - Contacts
+    "Contact",
+    "ContactIdentifier",
+    "PostalAddress",
+    "ContactsStateResponse",
+    "ContactsCompactStateResponse",
+    "ContactsQueryResponse",
     # Response models - Calendar
     "CalendarClient",
     "AsyncCalendarClient",

@@ -13,7 +13,7 @@ Implementation plan for the Contacts modality as specified in `docs/models/modal
 |-------|-------------|--------|
 | 1 | Models (Foundation) | **COMPLETE** |
 | 2 | API Routes | **COMPLETE** |
-| 3 | Python Client Library | Not Started |
+| 3 | Python Client Library | **COMPLETE** |
 | 4 | Web UI | Not Started |
 | 5 | Documentation Updates | Not Started |
 | 6 | Testing | **IN PROGRESS** (6.1–6.4 complete) |
@@ -22,6 +22,7 @@ Implementation plan for the Contacts modality as specified in `docs/models/modal
 **Test baseline after Phase 1**: 3,720 tests passing (zero regressions)
 **Test baseline after Phase 2**: 3,720 tests passing (zero regressions — no new tests added; existing hardcoded counts updated)
 **Test baseline after Phase 6.1–6.4**: 4,020 tests passing (+300 new tests, zero regressions)
+**Test baseline after Phase 3**: 4,030 tests passing (+10 new schema sync & round-trip tests, zero regressions)
 
 ---
 
@@ -183,19 +184,19 @@ These updates were not in the original plan but were necessary to keep all 3,720
 
 ---
 
-## Phase 3: Python Client Library
+## Phase 3: Python Client Library — COMPLETE
 
-### 3.1 Client Sub-client
+### 3.1 Client Sub-client — DONE
 
-**File**: `src/ues/client/_contacts.py`
+**File**: `src/ues/client/_contacts.py` (~900 lines)
 
 **Client-side response models** (mirroring server models):
-- `ContactIdentifier` — mirrors server `ContactIdentifier`
-- `PostalAddress` — mirrors server `PostalAddress`
-- `Contact` — mirrors server `Contact`
-- `ContactsStateResponse` — mirrors server response
-- `ContactsCompactStateResponse` — compact view response
-- `ContactsQueryResponse` — query result response
+- `ContactIdentifier` — mirrors server `ContactIdentifier` (3 fields: `identifier_type`, `value`, `label`)
+- `PostalAddress` — mirrors server `PostalAddress` (6 fields: `street`, `city`, `state`, `postal_code`, `country`, `label`)
+- `Contact` — mirrors server `Contact` (17 fields). `groups` uses `list[str]` on the client (server uses `set[str]` which serializes to JSON array).
+- `ContactsStateResponse` — mirrors server response (7 fields: `modality_type`, `current_time`, `contacts`, `total_count`, `favorites_count`, `blocked_count`, `groups`)
+- `ContactsCompactStateResponse` — compact view response (8 fields)
+- `ContactsQueryResponse` — query result response (5 fields: `modality_type`, `contacts`, `total_count`, `returned_count`, `query`)
 
 **Sync client**: `ContactsClient(BaseClient)`
 - `_BASE_PATH = "/contacts"`
@@ -204,44 +205,125 @@ These updates were not in the original plan but were necessary to keep all 3,720
 **Async client**: `AsyncContactsClient(AsyncBaseClient)`
 - Mirrors every sync method with `async` versions
 
-### 3.2 Client Integration
+### 3.2 Client Integration — DONE
 
 **File**: `src/ues/client/client.py`
 
 In both `UESClient` and `AsyncUESClient`:
-1. Import `ContactsClient` / `AsyncContactsClient`
-2. Add `self._contacts: ContactsClient | None = None` in `__init__()`
-3. Add lazy property:
-   ```python
-   @property
-   def contacts(self) -> ContactsClient:
-       if self._contacts is None:
-           self._contacts = ContactsClient(self._http)
-       return self._contacts
-   ```
+1. Imported `ContactsClient` / `AsyncContactsClient`
+2. Added `self._contacts: ContactsClient | None = None` in `__init__()`
+3. Added lazy `contacts` property following existing pattern (between `calendar` and `email`)
+
+### 3.3 Package Exports — DONE
+
+**File**: `src/ues/client/__init__.py`
+
+Added imports and `__all__` entries for:
+- `AsyncContactsClient`, `Contact`, `ContactIdentifier`, `ContactsClient`, `ContactsCompactStateResponse`, `ContactsQueryResponse`, `ContactsStateResponse`, `PostalAddress`
+
+### 3.4 Schema Sync Tests — DONE
+
+**File**: `tests/client/test_model_schema_sync.py`
+
+Added `TestContactsSchemaSync` class with 3 tests:
+- `test_contact_identifier_sync` — verifies `ContactIdentifier` field parity
+- `test_postal_address_sync` — verifies `PostalAddress` field parity
+- `test_contact_sync` — verifies `Contact` field parity (`set[str]` → `list[str]` for `groups` handled by normalizer)
+
+### 3.5 Round-Trip Tests — DONE
+
+**File**: `tests/client/test_roundtrip.py`
+
+Added `TestContactsRoundTrip` class with 7 tests:
+- `test_contact_identifier_roundtrip` — full identifier with label
+- `test_contact_identifier_no_label_roundtrip` — identifier without optional label
+- `test_postal_address_full_roundtrip` — all address fields
+- `test_postal_address_minimal_roundtrip` — empty address (all optional)
+- `test_contact_full_roundtrip` — all 17 fields populated, including set → list for groups and date → string for birthday
+- `test_contact_minimal_roundtrip` — only required fields (contact_id, created_at, updated_at)
+- `test_contact_no_birthday_roundtrip` — contact without birthday
 
 ---
 
-## Phase 4: Web UI
+## Phase 4: Web UI — DONE
 
-### 4.1 Contacts Viewer Component
+### 4.1 Contacts Viewer Component — DONE
 
 **Directory**: `webapp/src/components/modalities/contacts/`
 
-Files to create:
-- `types.ts` — TypeScript interfaces (`ContactIdentifier`, `PostalAddress`, `Contact`, `ContactsState`)
+Files created:
+- `types.ts` — TypeScript interfaces (`ContactIdentifier`, `PostalAddress`, `Contact`, `ContactsState`) + helpers (`resolveDisplayName()`, `getPrimaryIdentifier()`, `formatAddressOneline()`)
 - `ContactsViewer.tsx` — main component using `useModalityState<ContactsState>('contacts', 3000)`
 - `ContactList.tsx` — sortable/filterable list of contacts
 - `ContactDetail.tsx` — expanded view of a single contact
 - `ContactsToolbar.tsx` — search bar, group filter, favorites toggle
 - `ContactsStatusBar.tsx` — summary counts
-- `index.ts` — re-exports
+- `CreateContactDialog.tsx` — form for creating new contacts via API
+- `useContactsLookup.ts` — shared hook for cross-modality contact name resolution (phone & email lookups, autocomplete lists)
+- `index.ts` — re-exports all components, types, and hook
 
-### 4.2 Modality Index Update
+### 4.2 Modality Index Update — DONE
 
 **File**: `webapp/src/components/modalities/index.ts`
 
 Add re-export for contacts components.
+
+### 4.3 SMS Viewer — Contacts Integration — DONE
+
+The SMS viewer had scaffolding (`ContactInfo` placeholder, `resolveContactName()` stub, TODO comment). This sub-phase wired it all up to real contacts data via the shared `useContactsLookup` hook.
+
+**Files modified**:
+- `webapp/src/components/modalities/sms/types.ts` — Replaced `ContactInfo` placeholder with `ContactNameResolver` type alias; rewrote `resolveContactName()` to accept an optional resolver function from contacts hook
+- `webapp/src/components/modalities/sms/SMSViewer.tsx` — Added `useContactsLookup()` call, passes `resolvePhone` to `ConversationList` and `MessageThread`
+- `webapp/src/components/modalities/sms/ConversationList.tsx` — Added `contactNameResolver` prop, passes to `buildConversationDisplayItems()` and `resolveContactName()` calls
+- `webapp/src/components/modalities/sms/MessageThread.tsx` — Added `contactNameResolver` prop, threaded through `ThreadHeader`, `MessageBubble`, and `ReactionsDisplay` components
+
+**Integration points completed**:
+- Conversation list display names (phone → contact name)
+- Message sender names in group chats
+- Reaction attribution (phone → contact name in tooltips)
+- Thread header display name for 1:1 conversations
+
+### 4.4 Email Viewer — Contacts Integration — DONE
+
+The Email viewer had a `getDisplayName(email)` heuristic (parse "Name <addr>" or fall back to local part) and an identity `formatAddress()` function. Contact integration replaces both with authoritative contact-backed name lookups.
+
+**Files modified**:
+- `webapp/src/components/modalities/email/types.ts` — Added `EmailNameResolver` type alias and `resolveEmailDisplay()` utility that tries contacts resolver → "Name <addr>" parse → local part fallback
+- `webapp/src/components/modalities/email/EmailViewer.tsx` — Added `useContactsLookup()` call, passes `resolveEmail` to `EmailList` and `EmailPreview`
+- `webapp/src/components/modalities/email/EmailList.tsx` — Added `emailNameResolver` prop; replaced `getDisplayName()` calls with `resolveEmailDisplay()` for sender/recipient display in both inbox and sent views
+- `webapp/src/components/modalities/email/EmailPreview.tsx` — Added `emailNameResolver` prop; updated `MessageItem` to use `resolveEmailDisplay()` for from address, avatar initial, and to/cc address display
+
+**Integration points completed**:
+- Email list sender/recipient display names
+- Email preview header (from, to, cc addresses → contact names)
+- Avatar initials derived from resolved display name
+
+### 4.5 Calendar Viewer — Contacts Integration — DONE
+
+The Calendar viewer had the most structured people representation (`Attendee` with `email` and optional `display_name`), but required manual email entry for attendees. Contact integration adds autocomplete suggestions and fills display names from contacts.
+
+**Files modified**:
+- `webapp/src/components/modalities/calendar/CalendarViewer.tsx` — Added `useContactsLookup()` call, passes `resolveEmail` and `contactsWithEmail` to `EventDetailModal` and `CreateEventDialog`
+- `webapp/src/components/modalities/calendar/EventDetailModal.tsx` — Added `emailNameResolver` prop; attendee display now uses `attendee.display_name || emailNameResolver(attendee.email) || attendee.email` three-level fallback
+- `webapp/src/components/modalities/calendar/CreateEventDialog.tsx` — Added `emailNameResolver` and `contactsWithEmail` props; attendee list items show resolved contact names with email in parentheses; added filtered contact suggestion dropdown below the attendee email input (appears when typing >= 2 chars, filters already-added attendees)
+
+**Integration points completed**:
+- Event detail modal: display name fallback from contacts
+- Create event dialog: contact autocomplete for attendee email input
+- Create event dialog: resolved names shown in attendee list
+
+### 4.6 Location Viewer — Contacts Integration — DONE
+
+The Location viewer had no people references. Contact integration surfaces contacts' postal addresses as quick-select destinations alongside saved locations and preset cities.
+
+**Files modified**:
+- `webapp/src/components/modalities/location/LocationViewer.tsx` — Added `useContactsLookup()` call; builds `ContactAddressEntry[]` from contacts with postal addresses (using `resolveDisplayName()` and `formatAddressOneline()`); passes to `UpdateLocationDialog`
+- `webapp/src/components/modalities/location/UpdateLocationDialog.tsx` — Added `ContactAddressEntry` interface and `contactAddresses` prop; renders "Contact Addresses" section with quick-select buttons (display name + label) between saved locations and the "Save current as" button; clicking a contact address populates the address and named location fields
+
+**Integration points completed**:
+- Update location dialog: contact postal addresses shown as quick-select buttons
+- Contact address selection auto-populates address and named location fields
 
 ---
 

@@ -37,6 +37,8 @@ import type {
 } from './types';
 import { cn } from '@/lib/utils';
 
+import type { EmailContactEntry } from '../contacts/useContactsLookup';
+
 interface CreateEventDialogProps {
   /** Whether dialog is open */
   open: boolean;
@@ -52,6 +54,10 @@ interface CreateEventDialogProps {
   defaultCalendarId: string;
   /** Pre-filled date/time (from click-to-schedule) */
   defaultDateTime?: { date: Date; hour?: number; minute?: number };
+  /** Contacts-backed email-to-name resolver. */
+  emailNameResolver?: (email: string) => string | undefined;
+  /** Contacts with email identifiers for attendee suggestions. */
+  contactsWithEmail?: EmailContactEntry[];
 }
 
 const DAYS_OF_WEEK: { value: DayOfWeek; label: string }[] = [
@@ -335,6 +341,8 @@ export function CreateEventDialog({
   calendars,
   defaultCalendarId,
   defaultDateTime,
+  emailNameResolver,
+  contactsWithEmail = [],
 }: CreateEventDialogProps) {
   const [formData, setFormData] = useState<EventFormData>(() =>
     editEvent 
@@ -644,43 +652,86 @@ export function CreateEventDialog({
               {/* Attendees */}
               <div className="space-y-2">
                 <Label>Attendees</Label>
-                {formData.attendees.map((attendee, index) => (
-                  <div key={index} className="flex items-center gap-2">
-                    <span className="flex-1 text-sm truncate">{attendee.email}</span>
+                {formData.attendees.map((attendee, index) => {
+                  const resolvedName = emailNameResolver?.(attendee.email);
+                  return (
+                    <div key={index} className="flex items-center gap-2">
+                      <span className="flex-1 text-sm truncate">
+                        {resolvedName
+                          ? <>{resolvedName} <span className="text-muted-foreground">({attendee.email})</span></>
+                          : attendee.email}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => handleRemoveAttendee(index)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  );
+                })}
+                <div className="relative">
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="email"
+                      value={newAttendeeEmail}
+                      onChange={(e) => setNewAttendeeEmail(e.target.value)}
+                      placeholder="email@example.com"
+                      className="flex-1"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddAttendee();
+                        }
+                      }}
+                    />
                     <Button
                       type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => handleRemoveAttendee(index)}
+                      variant="outline"
+                      size="sm"
+                      onClick={handleAddAttendee}
+                      disabled={!newAttendeeEmail.includes('@')}
                     >
-                      <X className="h-4 w-4" />
+                      <Plus className="h-4 w-4" />
                     </Button>
                   </div>
-                ))}
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="email"
-                    value={newAttendeeEmail}
-                    onChange={(e) => setNewAttendeeEmail(e.target.value)}
-                    placeholder="email@example.com"
-                    className="flex-1"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleAddAttendee();
-                      }
-                    }}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleAddAttendee}
-                    disabled={!newAttendeeEmail.includes('@')}
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
+                  {/* Contact suggestions */}
+                  {newAttendeeEmail.length >= 2 && contactsWithEmail.length > 0 && (() => {
+                    const existingEmails = new Set(formData.attendees.map(a => a.email.toLowerCase()));
+                    const filtered = contactsWithEmail.filter(
+                      c => !existingEmails.has(c.email.toLowerCase()) &&
+                        (c.email.toLowerCase().includes(newAttendeeEmail.toLowerCase()) ||
+                         c.display_name.toLowerCase().includes(newAttendeeEmail.toLowerCase()))
+                    );
+                    if (filtered.length === 0) return null;
+                    return (
+                      <div className="absolute z-10 mt-1 w-full bg-popover border rounded-md shadow-md max-h-40 overflow-y-auto">
+                        {filtered.slice(0, 5).map((contact) => (
+                          <button
+                            key={`${contact.contact_id}-${contact.email}`}
+                            type="button"
+                            className="w-full text-left px-3 py-1.5 text-sm hover:bg-muted transition-colors"
+                            onClick={() => {
+                              setFormData(prev => ({
+                                ...prev,
+                                attendees: [
+                                  ...prev.attendees,
+                                  { email: contact.email, optional: false, response: 'needs-action' as const },
+                                ],
+                              }));
+                              setNewAttendeeEmail('');
+                            }}
+                          >
+                            <span className="font-medium">{contact.display_name}</span>
+                            <span className="text-muted-foreground ml-2">{contact.email}</span>
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
 

@@ -63,6 +63,15 @@ from ues.models.modalities.chat_state import (
 from ues.models.modalities.chat_state import (
     ConversationMetadata as ServerConversationMetadata,
 )
+from ues.models.modalities.contacts_input import (
+    ContactIdentifier as ServerContactIdentifier,
+)
+from ues.models.modalities.contacts_input import (
+    PostalAddress as ServerPostalAddress,
+)
+from ues.models.modalities.contacts_state import (
+    Contact as ServerContact,
+)
 from ues.models.modalities.email_input import (
     EmailAttachment as ServerEmailAttachment,
 )
@@ -144,6 +153,15 @@ from ues.client._chat import (
 )
 from ues.client._chat import (
     ConversationMetadata as ClientConversationMetadata,
+)
+from ues.client._contacts import (
+    Contact as ClientContact,
+)
+from ues.client._contacts import (
+    ContactIdentifier as ClientContactIdentifier,
+)
+from ues.client._contacts import (
+    PostalAddress as ClientPostalAddress,
 )
 from ues.client._email import (
     Email as ClientEmail,
@@ -682,6 +700,48 @@ class TestChatSchemaSync:
             ClientConversationMetadata,
             ServerConversationMetadata,
             label="ConversationMetadata",
+        )
+
+
+# ===================================================================
+# Contacts Modality
+# ===================================================================
+
+
+class TestContactsSchemaSync:
+    """Verify client contacts models match server contacts models."""
+
+    def test_contact_identifier_sync(self):
+        """ContactIdentifier client model matches server ContactIdentifier."""
+        assert_models_in_sync(
+            ClientContactIdentifier,
+            ServerContactIdentifier,
+            label="ContactIdentifier",
+        )
+
+    def test_postal_address_sync(self):
+        """PostalAddress client model matches server PostalAddress."""
+        assert_models_in_sync(
+            ClientPostalAddress,
+            ServerPostalAddress,
+            label="PostalAddress",
+        )
+
+    def test_contact_sync(self):
+        """Contact client model matches server Contact.
+
+        Known differences:
+          - ``groups``: Server uses ``set[str]``, client uses ``list[str]``.
+            JSON serialization converts sets to arrays, so the client uses
+            ``list`` to match what is received over the wire.
+          - ``birthday``: Server uses ``Any | None``, client also uses
+            ``Any | None`` for compatibility.
+        """
+        assert_models_in_sync(
+            ClientContact,
+            ServerContact,
+            label="Contact",
+            # set[str] → list[str] is normalized by _normalize_type_name
         )
 
 

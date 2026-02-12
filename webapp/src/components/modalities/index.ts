@@ -1,6 +1,7 @@
 /**
  * Modality viewer component exports.
  */
+export * from './contacts';
 export * from './email';
 export * from './sms';
 export * from './calendar';

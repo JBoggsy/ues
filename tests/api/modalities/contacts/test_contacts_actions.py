@@ -169,6 +169,73 @@ class TestPostContactsCreate:
         assert len(contact_ids) == 2
         assert contact_ids[0] != contact_ids[1]
 
+    def test_create_normalizes_phone_numbers(self, client_with_engine):
+        """Test that phone identifiers are normalized to E.164-like format.
+
+        Various common phone formats should all be stored as +1XXXXXXXXXX.
+        """
+        client, engine = client_with_engine
+
+        formats_and_expected = [
+            ("(555) 867-5309", "+15558675309"),
+            ("555-867-5309", "+15558675309"),
+            ("5558675309", "+15558675309"),
+            ("1-555-867-5309", "+15558675309"),
+            ("+1 (555) 867-5309", "+15558675309"),
+            ("+44 20 7946 0958", "+442079460958"),
+        ]
+
+        for raw_phone, expected in formats_and_expected:
+            # Create a fresh engine for each test case by using a unique email
+            # identifier alongside the phone to avoid duplicate identifier errors
+            unique_email = f"test-{raw_phone.replace(' ', '')}@example.com"
+            response = client.post(
+                "/contacts/create",
+                json={
+                    "first_name": "Test",
+                    "identifiers": [
+                        {"identifier_type": "phone", "value": raw_phone},
+                        {"identifier_type": "email", "value": unique_email},
+                    ],
+                },
+            )
+            assert response.status_code == 200, (
+                f"Failed to create contact with phone '{raw_phone}'"
+            )
+
+        # Check all stored phone values
+        state = client.get("/contacts/state").json()
+        stored_phones = []
+        for contact in state["contacts"].values():
+            for ident in contact["identifiers"]:
+                if ident["identifier_type"] == "phone":
+                    stored_phones.append(ident["value"])
+
+        expected_phones = [exp for _, exp in formats_and_expected]
+        for expected in expected_phones:
+            assert expected in stored_phones, (
+                f"Expected normalized phone '{expected}' not found in {stored_phones}"
+            )
+
+    def test_create_does_not_normalize_non_phone_identifiers(self, client_with_engine):
+        """Test that non-phone identifiers (email, etc.) are not normalized."""
+        client, engine = client_with_engine
+
+        raw_email = "Alice.Smith@Example.COM"
+        client.post(
+            "/contacts/create",
+            json={
+                "first_name": "Alice",
+                "identifiers": [
+                    {"identifier_type": "email", "value": raw_email},
+                ],
+            },
+        )
+
+        state = client.get("/contacts/state").json()
+        contact = list(state["contacts"].values())[0]
+        assert contact["identifiers"][0]["value"] == raw_email
+
 
 class TestPostContactsUpdate:
     """Tests for POST /contacts/update endpoint."""
@@ -314,6 +381,63 @@ class TestPostContactsUpdate:
         )
 
         assert response.status_code == 422
+
+    def test_update_add_identifiers_normalizes_phone(self, client_with_engine):
+        """Test that add_identifiers normalizes phone numbers."""
+        client, engine = client_with_engine
+        contact_id = self._create_contact(client)
+
+        response = client.post(
+            "/contacts/update",
+            json={
+                "contact_id": contact_id,
+                "add_identifiers": [
+                    {"identifier_type": "phone", "value": "(555) 999-0001"},
+                ],
+            },
+        )
+
+        assert response.status_code == 200
+
+        state = client.get("/contacts/state").json()
+        contact = state["contacts"][contact_id]
+        phone_values = [
+            i["value"] for i in contact["identifiers"]
+            if i["identifier_type"] == "phone"
+        ]
+        assert "+15559990001" in phone_values
+
+    def test_update_replace_identifiers_normalizes_phone(self, client_with_engine):
+        """Test that full-replace identifiers normalizes phone numbers."""
+        client, engine = client_with_engine
+        contact_id = self._create_contact(client)
+
+        response = client.post(
+            "/contacts/update",
+            json={
+                "contact_id": contact_id,
+                "identifiers": [
+                    {"identifier_type": "phone", "value": "555.867.5309"},
+                    {"identifier_type": "email", "value": "alice@example.com"},
+                ],
+            },
+        )
+
+        assert response.status_code == 200
+
+        state = client.get("/contacts/state").json()
+        contact = state["contacts"][contact_id]
+        phone_values = [
+            i["value"] for i in contact["identifiers"]
+            if i["identifier_type"] == "phone"
+        ]
+        assert phone_values == ["+15558675309"]
+        # Email should NOT be normalized
+        email_values = [
+            i["value"] for i in contact["identifiers"]
+            if i["identifier_type"] == "email"
+        ]
+        assert email_values == ["alice@example.com"]
 
 
 class TestPostContactsDelete:

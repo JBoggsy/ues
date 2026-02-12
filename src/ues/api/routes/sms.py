@@ -16,7 +16,7 @@ from ues.api.auth import Permissions, require_permission
 from ues.api.broadcast import broadcast_event
 from ues.api.dependencies import SimulationEngineDep
 from ues.api.models import ModalityActionResponse
-from ues.api.utils import create_immediate_event
+from ues.api.utils import create_immediate_event, normalize_phone_number
 from ues.api.websocket import WSEventType
 from ues.models.api_key import APIKey
 from ues.models.modalities.sms_input import SMSInput
@@ -393,10 +393,18 @@ async def query_sms(
             detail="SMS state not properly initialized",
         )
 
+    # Normalize phone number filters to E.164-like format for consistent matching
+    from_number = (
+        normalize_phone_number(request.from_number) if request.from_number else None
+    )
+    to_number = (
+        normalize_phone_number(request.to_number) if request.to_number else None
+    )
+
     query_params = {
         "thread_id": request.thread_id,
-        "from_number": request.from_number,
-        "to_number": request.to_number,
+        "from_number": from_number,
+        "to_number": to_number,
         "body_contains": request.body_contains,
         "message_type": request.message_type,
         "direction": request.direction,
@@ -460,12 +468,16 @@ async def send_sms(
                 for att in request.attachments
             ]
 
+        # Normalize phone numbers to E.164-like format
+        from_number = normalize_phone_number(request.from_number)
+        to_numbers = [normalize_phone_number(n) for n in request.to_numbers]
+
         # Convert request to SMSInput
         sms_input = SMSInput(
             timestamp=engine.environment.time_state.current_time,
             operation="send_message",
-            from_number=request.from_number,
-            to_numbers=request.to_numbers,
+            from_number=from_number,
+            to_numbers=to_numbers,
             body=request.body,
             message_type=request.message_type,
             attachments=attachments,
@@ -483,7 +495,7 @@ async def send_sms(
         # Broadcast SMS sent event
         await broadcast_event(WSEventType.SMS_SENT, {
             "message_id": event.event_id,
-            "to": request.to_numbers,
+            "to": to_numbers,
             "preview": request.body[:50] + "..." if len(request.body) > 50 else request.body,
         })
 
@@ -542,12 +554,16 @@ async def receive_sms(
                 for att in request.attachments
             ]
 
+        # Normalize phone numbers to E.164-like format
+        from_number = normalize_phone_number(request.from_number)
+        to_numbers = [normalize_phone_number(n) for n in request.to_numbers]
+
         # Convert request to SMSInput
         sms_input = SMSInput(
             timestamp=engine.environment.time_state.current_time,
             operation="receive_message",
-            from_number=request.from_number,
-            to_numbers=request.to_numbers,
+            from_number=from_number,
+            to_numbers=to_numbers,
             body=request.body,
             message_type=request.message_type,
             attachments=attachments,
@@ -565,7 +581,7 @@ async def receive_sms(
         # Broadcast SMS received event
         await broadcast_event(WSEventType.SMS_RECEIVED, {
             "message_id": event.event_id,
-            "from": request.from_number,
+            "from": from_number,
             "preview": request.body[:50] + "..." if len(request.body) > 50 else request.body,
         })
 
@@ -828,12 +844,15 @@ async def react_to_sms(
         Permission: sms:react
     """
     try:
+        # Normalize phone number to E.164-like format
+        phone_number = normalize_phone_number(request.phone_number)
+
         # Convert request to SMSInput
         sms_input = SMSInput(
             timestamp=engine.environment.time_state.current_time,
             operation="add_reaction",
             message_id=request.message_id,
-            phone_number=request.phone_number,
+            phone_number=phone_number,
             emoji=request.emoji,
         )
 

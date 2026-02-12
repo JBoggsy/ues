@@ -45,6 +45,13 @@ from ues.models.modalities.chat_state import (
     ChatMessage as ServerChatMessage,
     ConversationMetadata as ServerConversationMetadata,
 )
+from ues.models.modalities.contacts_input import (
+    ContactIdentifier as ServerContactIdentifier,
+    PostalAddress as ServerPostalAddress,
+)
+from ues.models.modalities.contacts_state import (
+    Contact as ServerContact,
+)
 from ues.models.modalities.email_input import (
     EmailAttachment as ServerEmailAttachment,
 )
@@ -86,6 +93,11 @@ from ues.client._calendar import (
 from ues.client._chat import (
     ChatMessage as ClientChatMessage,
     ConversationMetadata as ClientConversationMetadata,
+)
+from ues.client._contacts import (
+    Contact as ClientContact,
+    ContactIdentifier as ClientContactIdentifier,
+    PostalAddress as ClientPostalAddress,
 )
 from ues.client._email import (
     Email as ClientEmail,
@@ -1026,3 +1038,180 @@ class TestRoundTripEdgeCases:
 
         assert client.participant_roles == set()
         assert client.message_count == 0
+
+
+# ===================================================================
+# Contacts Round-Trip Tests
+# ===================================================================
+
+
+class TestContactsRoundTrip:
+    """Round-trip tests for contacts models."""
+
+    def test_contact_identifier_roundtrip(self):
+        """ContactIdentifier serializes and deserializes with all fields."""
+        server = ServerContactIdentifier(
+            identifier_type="phone",
+            value="+15551234567",
+            label="mobile",
+        )
+        client = _roundtrip(server, ClientContactIdentifier)
+
+        assert client.identifier_type == "phone"
+        assert client.value == "+15551234567"
+        assert client.label == "mobile"
+
+    def test_contact_identifier_no_label_roundtrip(self):
+        """ContactIdentifier without optional label round-trips."""
+        server = ServerContactIdentifier(
+            identifier_type="email",
+            value="alice@example.com",
+        )
+        client = _roundtrip(server, ClientContactIdentifier)
+
+        assert client.identifier_type == "email"
+        assert client.value == "alice@example.com"
+        assert client.label is None
+
+    def test_postal_address_full_roundtrip(self):
+        """PostalAddress with all fields round-trips."""
+        server = ServerPostalAddress(
+            street="123 Main St",
+            city="Springfield",
+            state="IL",
+            postal_code="62704",
+            country="US",
+            label="home",
+        )
+        client = _roundtrip(server, ClientPostalAddress)
+
+        assert client.street == "123 Main St"
+        assert client.city == "Springfield"
+        assert client.state == "IL"
+        assert client.postal_code == "62704"
+        assert client.country == "US"
+        assert client.label == "home"
+
+    def test_postal_address_minimal_roundtrip(self):
+        """PostalAddress with no fields round-trips (all optional)."""
+        server = ServerPostalAddress()
+        client = _roundtrip(server, ClientPostalAddress)
+
+        assert client.street is None
+        assert client.city is None
+        assert client.state is None
+        assert client.postal_code is None
+        assert client.country is None
+        assert client.label is None
+
+    def test_contact_full_roundtrip(self):
+        """Full Contact model round-trips with all fields populated."""
+        server = ServerContact(
+            contact_id="contact-001",
+            first_name="Alice",
+            last_name="Smith",
+            display_name="Mom",
+            nickname="Ali",
+            identifiers=[
+                ServerContactIdentifier(
+                    identifier_type="phone",
+                    value="+15551234567",
+                    label="mobile",
+                ),
+                ServerContactIdentifier(
+                    identifier_type="email",
+                    value="alice@example.com",
+                    label="work",
+                ),
+            ],
+            company="Acme Corp",
+            job_title="Engineer",
+            addresses=[
+                ServerPostalAddress(
+                    street="123 Main St",
+                    city="Springfield",
+                    state="IL",
+                    postal_code="62704",
+                    country="US",
+                    label="home",
+                ),
+            ],
+            birthday=date(1990, 5, 15),
+            notes="Friend from college",
+            photo_url="https://example.com/photo.jpg",
+            is_favorite=True,
+            is_blocked=False,
+            groups={"Family", "Work"},
+            created_at=_EARLIER,
+            updated_at=_NOW,
+        )
+        client = _roundtrip(server, ClientContact)
+
+        assert client.contact_id == "contact-001"
+        assert client.first_name == "Alice"
+        assert client.last_name == "Smith"
+        assert client.display_name == "Mom"
+        assert client.nickname == "Ali"
+        assert len(client.identifiers) == 2
+        assert client.identifiers[0].identifier_type == "phone"
+        assert client.identifiers[0].value == "+15551234567"
+        assert client.identifiers[1].identifier_type == "email"
+        assert client.identifiers[1].value == "alice@example.com"
+        assert client.company == "Acme Corp"
+        assert client.job_title == "Engineer"
+        assert len(client.addresses) == 1
+        assert client.addresses[0].street == "123 Main St"
+        assert client.addresses[0].city == "Springfield"
+        # birthday serializes as ISO date string
+        assert client.birthday == "1990-05-15"
+        assert client.notes == "Friend from college"
+        assert client.photo_url == "https://example.com/photo.jpg"
+        assert client.is_favorite is True
+        assert client.is_blocked is False
+        # set serializes to list; order is not guaranteed
+        assert set(client.groups) == {"Family", "Work"}
+
+    def test_contact_minimal_roundtrip(self):
+        """Contact with only required fields round-trips."""
+        server = ServerContact(
+            contact_id="contact-minimal",
+            created_at=_EARLIER,
+            updated_at=_NOW,
+        )
+        client = _roundtrip(server, ClientContact)
+
+        assert client.contact_id == "contact-minimal"
+        assert client.first_name is None
+        assert client.last_name is None
+        assert client.display_name is None
+        assert client.nickname is None
+        assert client.identifiers == []
+        assert client.company is None
+        assert client.job_title is None
+        assert client.addresses == []
+        assert client.birthday is None
+        assert client.notes is None
+        assert client.photo_url is None
+        assert client.is_favorite is False
+        assert client.is_blocked is False
+        assert client.groups == []
+
+    def test_contact_no_birthday_roundtrip(self):
+        """Contact with no birthday round-trips correctly."""
+        server = ServerContact(
+            contact_id="contact-no-bday",
+            first_name="Bob",
+            identifiers=[
+                ServerContactIdentifier(
+                    identifier_type="phone",
+                    value="+15559876543",
+                ),
+            ],
+            created_at=_EARLIER,
+            updated_at=_NOW,
+        )
+        client = _roundtrip(server, ClientContact)
+
+        assert client.first_name == "Bob"
+        assert client.birthday is None
+        assert len(client.identifiers) == 1

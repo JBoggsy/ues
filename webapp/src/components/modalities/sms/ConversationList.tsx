@@ -25,7 +25,8 @@ import type {
   SMSState, 
   SMSMessage,
   ConversationFilter,
-  ConversationDisplayItem 
+  ConversationDisplayItem,
+  ContactNameResolver,
 } from './types';
 import { resolveContactName } from './types';
 
@@ -35,13 +36,16 @@ interface ConversationListProps {
   filter: ConversationFilter;
   onFilterChange: (filter: ConversationFilter) => void;
   onConversationSelect: (threadId: string) => void;
+  /** Contacts-backed phone-number-to-name resolver. */
+  contactNameResolver?: ContactNameResolver;
 }
 
 /**
  * Build display items for conversations with computed properties.
  */
 function buildConversationDisplayItems(
-  smsState: SMSState
+  smsState: SMSState,
+  contactNameResolver?: ContactNameResolver,
 ): ConversationDisplayItem[] {
   const items: ConversationDisplayItem[] = [];
 
@@ -66,8 +70,7 @@ function buildConversationDisplayItems(
         p => p.phone_number !== smsState.user_phone_number && !p.left_at
       );
       displayNumber = otherParticipant?.phone_number || 'Unknown';
-      // TODO: Integrate with Contacts modality for name lookup
-      displayName = resolveContactName(displayNumber);
+      displayName = resolveContactName(displayNumber, contactNameResolver);
     }
 
     // Build message preview
@@ -265,13 +268,14 @@ export function ConversationList({
   filter,
   onFilterChange,
   onConversationSelect,
+  contactNameResolver,
 }: ConversationListProps) {
   // Build and filter conversation items
   const filteredItems = useMemo(() => {
     if (!smsState) return [];
-    const allItems = buildConversationDisplayItems(smsState);
+    const allItems = buildConversationDisplayItems(smsState, contactNameResolver);
     return filterConversations(allItems, filter);
-  }, [smsState, filter]);
+  }, [smsState, filter, contactNameResolver]);
 
   // Count unread for filter badge
   const unreadCount = useMemo(() => {

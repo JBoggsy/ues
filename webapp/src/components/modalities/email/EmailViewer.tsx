@@ -7,6 +7,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import apiClient from '@/api/client';
 import { useModalityState } from '@/api';
+import { useContactsLookup } from '../contacts/useContactsLookup';
 import { FolderPanel } from './FolderPanel';
 import { EmailList } from './EmailList';
 import { EmailPreview } from './EmailPreview';
@@ -61,6 +62,9 @@ export function EmailViewer() {
     refetch,
     isRefetching,
   } = useModalityState<EmailState>('email', 3000);
+
+  // Fetch contacts for email address → display name resolution
+  const { resolveEmail } = useContactsLookup();
 
   // UI State
   const [selectedFolder, setSelectedFolder] = useState('inbox');
@@ -419,6 +423,7 @@ export function EmailViewer() {
           onThreadSelect={handleThreadSelect}
           onMessageToggle={handleMessageToggle}
           onSelectAll={handleSelectAll}
+          emailNameResolver={resolveEmail}
         />
 
         {/* Email Preview */}
@@ -432,6 +437,7 @@ export function EmailViewer() {
           onReplyAll={handleReplyAll}
           onForward={handleForward}
           onToggleStar={handleToggleStar}
+          emailNameResolver={resolveEmail}
         />
       </div>
 

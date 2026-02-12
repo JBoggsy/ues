@@ -35,6 +35,7 @@ from typing import Any, Optional
 
 from ues.client._calendar import AsyncCalendarClient, CalendarClient
 from ues.client._chat import AsyncChatClient, ChatClient
+from ues.client._contacts import AsyncContactsClient, ContactsClient
 from ues.client._email import AsyncEmailClient, EmailClient
 from ues.client._environment import AsyncEnvironmentClient, EnvironmentClient
 from ues.client._events import AsyncEventsClient, EventsClient
@@ -146,6 +147,7 @@ class UESClient:
         self._sms: SMSClient | None = None
         self._chat: ChatClient | None = None
         self._calendar: CalendarClient | None = None
+        self._contacts: ContactsClient | None = None
         self._location: LocationClient | None = None
         self._weather: WeatherClient | None = None
         self._webhooks: WebhooksClient | None = None
@@ -264,6 +266,26 @@ class UESClient:
         if self._scenario is None:
             self._scenario = ScenarioClient(self._http)
         return self._scenario
+    
+    @property
+    def contacts(self) -> ContactsClient:
+        """Access contacts modality endpoints (/contacts/*).
+        
+        Provides methods for:
+        - Getting contacts state
+        - Querying contacts with filters
+        - Creating, updating, deleting contacts
+        - Blocking/unblocking contacts
+        - Favoriting/unfavoriting contacts
+        - Managing group memberships
+        - Merging contacts
+        
+        Returns:
+            ContactsClient instance for contacts operations.
+        """
+        if self._contacts is None:
+            self._contacts = ContactsClient(self._http)
+        return self._contacts
     
     @property
     def email(self) -> EmailClient:
@@ -493,6 +515,7 @@ class AsyncUESClient:
         self._sms: AsyncSMSClient | None = None
         self._chat: AsyncChatClient | None = None
         self._calendar: AsyncCalendarClient | None = None
+        self._contacts: AsyncContactsClient | None = None
         self._location: AsyncLocationClient | None = None
         self._weather: AsyncWeatherClient | None = None
         self._webhooks: AsyncWebhooksClient | None = None
@@ -611,6 +634,26 @@ class AsyncUESClient:
         if self._scenario is None:
             self._scenario = AsyncScenarioClient(self._http)
         return self._scenario
+    
+    @property
+    def contacts(self) -> AsyncContactsClient:
+        """Access contacts modality endpoints (/contacts/*).
+        
+        Provides async methods for:
+        - Getting contacts state
+        - Querying contacts with filters
+        - Creating, updating, deleting contacts
+        - Blocking/unblocking contacts
+        - Favoriting/unfavoriting contacts
+        - Managing group memberships
+        - Merging contacts
+        
+        Returns:
+            AsyncContactsClient instance for contacts operations.
+        """
+        if self._contacts is None:
+            self._contacts = AsyncContactsClient(self._http)
+        return self._contacts
     
     @property
     def email(self) -> AsyncEmailClient:

@@ -31,6 +31,18 @@ import { useForwardGeocoding, useReverseGeocoding } from './useGeocoding';
 import type { SavedLocation, UpdateLocationRequest } from './types';
 import { PRESET_CITIES } from './types';
 
+/**
+ * A contact's postal address entry for quick location selection.
+ */
+export interface ContactAddressEntry {
+  contact_id: string;
+  display_name: string;
+  label: string | null;
+  address_oneline: string;
+  latitude?: number;
+  longitude?: number;
+}
+
 interface UpdateLocationDialogProps {
   /** Whether the dialog is open */
   open: boolean;
@@ -61,6 +73,8 @@ interface UpdateLocationDialogProps {
   ) => void;
   /** Callback to delete a saved location */
   onDeleteSavedLocation: (id: string) => void;
+  /** Contact postal addresses for quick location selection. */
+  contactAddresses?: ContactAddressEntry[];
 }
 
 /**
@@ -96,6 +110,7 @@ export function UpdateLocationDialog({
   savedLocations,
   onSaveLocation,
   onDeleteSavedLocation,
+  contactAddresses = [],
 }: UpdateLocationDialogProps) {
   const [form, setForm] = useState<FormState>(DEFAULT_FORM_STATE);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -380,6 +395,38 @@ export function UpdateLocationDialog({
                       <Trash2 className="h-3 w-3" />
                     </Button>
                   </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Contact Addresses */}
+          {contactAddresses.length > 0 && (
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Contact Addresses</Label>
+              <div className="flex flex-wrap gap-2">
+                {contactAddresses.map((entry) => (
+                  <Button
+                    key={`${entry.contact_id}-${entry.address_oneline}`}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8"
+                    onClick={() => {
+                      setForm(prev => ({
+                        ...prev,
+                        address: entry.address_oneline,
+                        namedLocation: `${entry.display_name}${entry.label ? ` (${entry.label})` : ''}`,
+                        ...(entry.latitude != null && entry.longitude != null
+                          ? { latitude: String(entry.latitude), longitude: String(entry.longitude) }
+                          : {}),
+                      }));
+                      toast.info(`Selected ${entry.display_name}'s address`);
+                    }}
+                  >
+                    <Navigation className="h-3 w-3 mr-1" />
+                    {entry.display_name}{entry.label ? ` (${entry.label})` : ''}
+                  </Button>
                 ))}
               </div>
             </div>

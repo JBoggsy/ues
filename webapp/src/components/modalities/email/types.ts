@@ -4,6 +4,12 @@
  */
 
 /**
+ * Email-address-to-display-name resolver function type.
+ * Provided by the useContactsLookup hook from the Contacts modality.
+ */
+export type EmailNameResolver = (email: string) => string | undefined;
+
+/**
  * Email message as stored in the backend.
  */
 export interface EmailMessage {
@@ -121,3 +127,35 @@ export type EmailAction =
   | 'add_label'
   | 'remove_label'
   | 'mark_spam';
+
+/**
+ * Resolve an email address to a display name.
+ *
+ * Resolution order:
+ *  1. Contacts resolver (from useContactsLookup)
+ *  2. Parse "Display Name <addr>" format
+ *  3. Fall back to the local part of the email address
+ *
+ * @param email - Raw email address (or "Name <addr>" string).
+ * @param resolver - Optional contacts-backed resolver function.
+ * @returns A human-readable display name.
+ */
+export function resolveEmailDisplay(
+  email: string,
+  resolver?: EmailNameResolver,
+): string {
+  // Strip the pure address from "Name <addr>" for the contacts lookup
+  const bracketMatch = email.match(/<(.+?)>$/);
+  const pureAddress = bracketMatch ? bracketMatch[1] : email;
+
+  // Try the contacts resolver first
+  const resolved = resolver?.(pureAddress);
+  if (resolved) return resolved;
+
+  // Try "Display Name <addr>" format
+  const nameMatch = email.match(/^(.+?)\s*<.+>$/);
+  if (nameMatch) return nameMatch[1];
+
+  // Fall back to local part
+  return email.split('@')[0];
+}

@@ -9,9 +9,12 @@ import { toast } from 'sonner';
 import apiClient from '@/api/client';
 import { useModalityState } from '@/api';
 import { Button } from '@/components/ui/button';
+import { useContactsLookup } from '../contacts/useContactsLookup';
+import { resolveDisplayName, formatAddressOneline } from '../contacts/types';
 import { CurrentLocationSection } from './CurrentLocationSection';
 import { LocationHistoryList } from './LocationHistoryList';
 import { UpdateLocationDialog } from './UpdateLocationDialog';
+import type { ContactAddressEntry } from './UpdateLocationDialog';
 import { useSavedLocations } from './useSavedLocations';
 import type { LocationState, LocationEntry, UpdateLocationRequest } from './types';
 
@@ -41,6 +44,25 @@ export function LocationViewer() {
     saveLocation,
     deleteLocation,
   } = useSavedLocations();
+
+  // Fetch contacts for postal address quick-select
+  const { allContacts } = useContactsLookup();
+
+  // Build contact address entries for the location dialog
+  const contactAddresses = useMemo((): ContactAddressEntry[] => {
+    const entries: ContactAddressEntry[] = [];
+    for (const contact of allContacts) {
+      for (const addr of contact.addresses) {
+        entries.push({
+          contact_id: contact.contact_id,
+          display_name: resolveDisplayName(contact),
+          label: addr.label ?? null,
+          address_oneline: formatAddressOneline(addr),
+        });
+      }
+    }
+    return entries;
+  }, [allContacts]);
 
   // UI State
   const [showHistory, setShowHistory] = useState(true);
@@ -175,6 +197,7 @@ export function LocationViewer() {
         savedLocations={savedLocationsLoaded ? savedLocations : []}
         onSaveLocation={saveLocation}
         onDeleteSavedLocation={deleteLocation}
+        contactAddresses={contactAddresses}
       />
     </div>
   );

@@ -11,7 +11,8 @@ import {
   Paperclip,
   ChevronRight,
 } from 'lucide-react';
-import type { EmailState, EmailMessage, ThreadDisplayItem } from './types';
+import type { EmailState, EmailMessage, ThreadDisplayItem, EmailNameResolver } from './types';
+import { resolveEmailDisplay } from './types';
 
 interface EmailListProps {
   emailState: EmailState | null;
@@ -22,6 +23,8 @@ interface EmailListProps {
   onThreadSelect: (threadId: string, messageId: string) => void;
   onMessageToggle: (messageId: string) => void;
   onSelectAll: (selected: boolean) => void;
+  /** Contacts-backed email-to-name resolver. */
+  emailNameResolver?: EmailNameResolver;
 }
 
 /**
@@ -46,6 +49,7 @@ function formatTimestamp(timestamp: string): string {
 
 /**
  * Extract display name from email address.
+ * @deprecated Prefer resolveEmailDisplay from types.ts for contacts-aware resolution.
  */
 function getDisplayName(email: string): string {
   const match = email.match(/^(.+?)\s*<.+>$/);
@@ -140,6 +144,7 @@ export function EmailList({
   onThreadSelect,
   onMessageToggle,
   onSelectAll,
+  emailNameResolver,
 }: EmailListProps) {
   const threadItems = useMemo(
     () => getThreadDisplayItems(emailState, selectedFolder, selectedLabel),
@@ -197,8 +202,8 @@ export function EmailList({
             // Get sender display - for sent folder, show recipients
             const senderDisplay =
               selectedFolder === 'sent'
-                ? `To: ${item.lastMessage.to_addresses.map(getDisplayName).join(', ')}`
-                : getDisplayName(item.lastMessage.from_address);
+                ? `To: ${item.lastMessage.to_addresses.map(a => resolveEmailDisplay(a, emailNameResolver)).join(', ')}`
+                : resolveEmailDisplay(item.lastMessage.from_address, emailNameResolver);
 
             return (
               <div

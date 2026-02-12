@@ -9,7 +9,8 @@ import {
   MessageCircle, 
   MapPin, 
   Cloud, 
-  Clock 
+  Clock,
+  BookUser,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -18,6 +19,7 @@ import { EmailViewer } from '@/components/modalities/email';
 import { SMSViewer } from '@/components/modalities/sms';
 import { CalendarViewer } from '@/components/modalities/calendar';
 import { ChatViewer } from '@/components/modalities/chat';
+import { ContactsViewer } from '@/components/modalities/contacts';
 import { LocationViewer } from '@/components/modalities/location';
 import { WeatherViewer } from '@/components/modalities/weather';
 import { TimeViewer } from '@/components/modalities/time';
@@ -27,6 +29,7 @@ const modalityIcons: Record<string, React.ComponentType<{ className?: string }>>
   sms: MessageSquare,
   chat: MessageCircle,
   calendar: Calendar,
+  contacts: BookUser,
   location: MapPin,
   weather: Cloud,
   time: Clock,
@@ -54,6 +57,11 @@ function ModalityViewerContent({ modality }: { modality: string }) {
   // Chat has a custom viewer
   if (modality === 'chat') {
     return <ChatViewer />;
+  }
+
+  // Contacts has a custom viewer
+  if (modality === 'contacts') {
+    return <ContactsViewer />;
   }
 
   // Location has a custom viewer

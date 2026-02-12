@@ -7,6 +7,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import apiClient from '@/api/client';
 import { useModalityState } from '@/api';
+import { useContactsLookup } from '../contacts/useContactsLookup';
 import { ConversationList } from './ConversationList';
 import { MessageThread } from './MessageThread';
 import { SMSToolbar } from './SMSToolbar';
@@ -48,6 +49,9 @@ export function SMSViewer() {
     refetch,
     isRefetching,
   } = useModalityState<SMSState>('sms', 3000);
+
+  // Fetch contacts for phone number → display name resolution
+  const { resolvePhone } = useContactsLookup();
 
   // UI State
   const [filter, setFilter] = useState<ConversationFilter>('all');
@@ -364,6 +368,7 @@ export function SMSViewer() {
           filter={filter}
           onFilterChange={setFilter}
           onConversationSelect={handleConversationSelect}
+          contactNameResolver={resolvePhone}
         />
 
         {/* Message Thread */}
@@ -372,6 +377,7 @@ export function SMSViewer() {
           selectedThreadId={selectedThreadId}
           onSendMessage={handleSendMessage}
           isSending={isSending}
+          contactNameResolver={resolvePhone}
         />
       </div>
 

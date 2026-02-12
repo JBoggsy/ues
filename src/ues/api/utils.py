@@ -4,6 +4,7 @@ This module contains helper functions for common operations across
 modality route handlers, reducing code duplication.
 """
 
+import re
 from datetime import datetime
 from typing import Any
 
@@ -212,6 +213,44 @@ def filter_by_date_range(
         ]
     
     return filtered
+
+
+def normalize_phone_number(value: str) -> str:
+    """Normalize a phone number to E.164-like format.
+
+    Strips all non-digit characters (except a leading +), then applies
+    standard formatting:
+    - 10 digits → +1XXXXXXXXXX  (assumes US)
+    - 11 digits starting with 1 → +1XXXXXXXXXX
+    - Other lengths → +<digits>  (preserved as-is with leading +)
+
+    Examples:
+        "(555) 867-5309"   → "+15558675309"
+        "1-555-867-5309"   → "+15558675309"
+        "+1 (555) 867-5309"→ "+15558675309"
+        "+44 20 7946 0958" → "+442079460958"
+        "5558675309"       → "+15558675309"
+
+    Args:
+        value: Raw phone number string in any common format.
+
+    Returns:
+        Normalized phone string in +<digits> format.
+    """
+    has_plus = value.strip().startswith("+")
+    digits = re.sub(r"\D", "", value)
+
+    if not digits:
+        return value  # nothing to normalize
+
+    # 10 digits with no leading + → assume US, prepend 1
+    if len(digits) == 10 and not has_plus:
+        digits = "1" + digits
+
+    # 11 digits starting with 1 (US with country code) — keep as-is
+    # All other lengths — keep digits as-is
+
+    return f"+{digits}"
 
 
 def filter_by_text_search(

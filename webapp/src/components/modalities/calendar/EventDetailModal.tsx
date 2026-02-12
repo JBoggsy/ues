@@ -49,6 +49,8 @@ interface EventDetailModalProps {
   onDuplicate: (event: CalendarEvent) => void;
   /** Callback to delete the event */
   onDelete: (event: CalendarEvent, scope: RecurrenceScope) => void;
+  /** Contacts-backed email-to-name resolver. */
+  emailNameResolver?: (email: string) => string | undefined;
 }
 
 /**
@@ -186,6 +188,7 @@ export function EventDetailModal({
   onEdit,
   onDuplicate,
   onDelete,
+  emailNameResolver,
 }: EventDetailModalProps) {
   const [deleteMenuOpen, setDeleteMenuOpen] = useState(false);
 
@@ -274,7 +277,7 @@ export function EventDetailModal({
                           {getResponseIcon(attendee.response)}
                         </span>
                         <span>
-                          {attendee.display_name || attendee.email}
+                          {attendee.display_name || emailNameResolver?.(attendee.email) || attendee.email}
                           {attendee.optional && (
                             <span className="text-muted-foreground ml-1">(optional)</span>
                           )}

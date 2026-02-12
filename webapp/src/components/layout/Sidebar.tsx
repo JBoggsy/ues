@@ -12,7 +12,8 @@ import {
   Clock,
   LayoutDashboard,
   ListTodo,
-  Settings
+  Settings,
+  BookUser,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -38,6 +39,7 @@ const modalityNavItems: NavItem[] = [
   { name: 'SMS', path: '/modalities/sms', icon: MessageSquare, modality: 'sms' },
   { name: 'Chat', path: '/modalities/chat', icon: MessageCircle, modality: 'chat' },
   { name: 'Calendar', path: '/modalities/calendar', icon: Calendar, modality: 'calendar' },
+  { name: 'Contacts', path: '/modalities/contacts', icon: BookUser, modality: 'contacts' },
   { name: 'Location', path: '/modalities/location', icon: MapPin, modality: 'location' },
   { name: 'Weather', path: '/modalities/weather', icon: Cloud, modality: 'weather' },
   { name: 'Time', path: '/modalities/time', icon: Clock, modality: 'time' },

@@ -7,6 +7,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import apiClient from '@/api/client';
 import { useModalityState } from '@/api';
+import { useContactsLookup } from '../contacts/useContactsLookup';
 import { CalendarToolbar } from './CalendarToolbar';
 import { CalendarSidebar } from './CalendarSidebar';
 import { MonthView } from './MonthView';
@@ -109,6 +110,9 @@ export function CalendarViewer() {
     refetch,
     isRefetching,
   } = useModalityState<CalendarState>('calendar', 3000);
+
+  // Fetch contacts for attendee email → display name resolution
+  const { resolveEmail, contactsWithEmail } = useContactsLookup();
 
   // View state
   const [viewMode, setViewMode] = useState<CalendarViewMode>('month');
@@ -516,6 +520,7 @@ export function CalendarViewer() {
         onEdit={handleEditEvent}
         onDuplicate={handleDuplicateEvent}
         onDelete={handleDeleteEvent}
+        emailNameResolver={resolveEmail}
       />
 
       {/* Create/Edit event dialog */}
@@ -531,6 +536,8 @@ export function CalendarViewer() {
         calendars={calendars}
         defaultCalendarId={calendarState.default_calendar_id}
         defaultDateTime={clickedTimeSlot}
+        emailNameResolver={resolveEmail}
+        contactsWithEmail={contactsWithEmail}
       />
 
       {/* Settings dialog */}

@@ -17,7 +17,8 @@ import {
   ChevronUp,
   Mail,
 } from 'lucide-react';
-import type { EmailState, EmailMessage } from './types';
+import type { EmailState, EmailMessage, EmailNameResolver } from './types';
+import { resolveEmailDisplay } from './types';
 
 interface EmailPreviewProps {
   emailState: EmailState | null;
@@ -29,6 +30,8 @@ interface EmailPreviewProps {
   onReplyAll: (messageId: string) => void;
   onForward: (messageId: string) => void;
   onToggleStar: (messageId: string) => void;
+  /** Contacts-backed email-to-name resolver. */
+  emailNameResolver?: EmailNameResolver;
 }
 
 /**
@@ -48,6 +51,7 @@ function formatFullDate(timestamp: string): string {
 
 /**
  * Format email address for display.
+ * @deprecated Use resolveEmailDisplay with contacts resolver instead.
  */
 function formatAddress(email: string): string {
   return email;
@@ -90,6 +94,7 @@ function MessageItem({
   onReplyAll,
   onForward,
   onToggleStar,
+  emailNameResolver,
 }: {
   message: EmailMessage;
   isExpanded: boolean;
@@ -98,6 +103,7 @@ function MessageItem({
   onReplyAll: () => void;
   onForward: () => void;
   onToggleStar: () => void;
+  emailNameResolver?: EmailNameResolver;
 }) {
   const hasMultipleRecipients =
     message.to_addresses.length > 1 || message.cc_addresses.length > 0;
@@ -120,7 +126,7 @@ function MessageItem({
         {/* Avatar placeholder */}
         <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
           <span className="text-sm font-medium text-primary">
-            {message.from_address.charAt(0).toUpperCase()}
+            {resolveEmailDisplay(message.from_address, emailNameResolver).charAt(0).toUpperCase()}
           </span>
         </div>
 
@@ -128,7 +134,7 @@ function MessageItem({
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
               <span className="font-medium truncate">
-                {message.from_address}
+                {resolveEmailDisplay(message.from_address, emailNameResolver)}
               </span>
             </div>
             <div className="flex items-center gap-2 shrink-0">
@@ -182,11 +188,11 @@ function MessageItem({
           {isExpanded && (
             <div className="text-sm text-muted-foreground mt-1">
               <div>
-                To: {message.to_addresses.map(formatAddress).join(', ')}
+                To: {message.to_addresses.map(a => resolveEmailDisplay(a, emailNameResolver)).join(', ')}
               </div>
               {message.cc_addresses.length > 0 && (
                 <div>
-                  Cc: {message.cc_addresses.map(formatAddress).join(', ')}
+                  Cc: {message.cc_addresses.map(a => resolveEmailDisplay(a, emailNameResolver)).join(', ')}
                 </div>
               )}
             </div>
@@ -271,6 +277,7 @@ export function EmailPreview({
   onReplyAll,
   onForward,
   onToggleStar,
+  emailNameResolver,
 }: EmailPreviewProps) {
   const threadMessages = useMemo(
     () => getThreadMessages(emailState, selectedThreadId),
@@ -335,6 +342,7 @@ export function EmailPreview({
                 onReplyAll={() => onReplyAll(message.message_id)}
                 onForward={() => onForward(message.message_id)}
                 onToggleStar={() => onToggleStar(message.message_id)}
+                emailNameResolver={emailNameResolver}
               />
             );
           })}

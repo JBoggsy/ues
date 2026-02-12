@@ -129,6 +129,28 @@ class TestPostSMSSend:
         assert message["direction"] == "outgoing"
         assert message["from_number"] == "+15559876543"
 
+    def test_send_normalizes_phone_numbers(self, client_with_engine):
+        """Test that phone numbers are normalized to E.164-like format on send."""
+        client, engine = client_with_engine
+
+        response = client.post(
+            "/sms/send",
+            json={
+                "from_number": "(555) 987-6543",
+                "to_numbers": ["555-123-4567", "1-555-111-2222", "+44 20 7946 0958"],
+                "body": "Normalization test",
+            },
+        )
+
+        assert response.status_code == 200
+
+        state = client.get("/sms/state").json()
+        message = list(state["messages"].values())[0]
+        assert message["from_number"] == "+15559876543"
+        assert "+15551234567" in message["to_numbers"]
+        assert "+15551112222" in message["to_numbers"]
+        assert "+442079460958" in message["to_numbers"]
+
 
 class TestPostSMSReceive:
     """Tests for POST /sms/receive endpoint."""
@@ -216,6 +238,26 @@ class TestPostSMSReceive:
         assert message["direction"] == "incoming"
         assert message["is_read"] is False
         assert state["unread_count"] == 1
+
+    def test_receive_normalizes_phone_numbers(self, client_with_engine):
+        """Test that phone numbers are normalized to E.164-like format on receive."""
+        client, engine = client_with_engine
+
+        response = client.post(
+            "/sms/receive",
+            json={
+                "from_number": "(555) 123-4567",
+                "to_numbers": ["555-987-6543"],
+                "body": "Incoming normalization test",
+            },
+        )
+
+        assert response.status_code == 200
+
+        state = client.get("/sms/state").json()
+        message = list(state["messages"].values())[0]
+        assert message["from_number"] == "+15551234567"
+        assert "+15559876543" in message["to_numbers"]
 
 
 class TestPostSMSRead:
@@ -641,4 +683,39 @@ class TestPostSMSReact:
         assert "reactions" in message
         assert len(message["reactions"]) == 1
         assert message["reactions"][0]["emoji"] == "❤️"
+        assert message["reactions"][0]["phone_number"] == "+15551234567"
+
+    def test_react_normalizes_phone_number(self, client_with_engine):
+        """Test that phone numbers are normalized to E.164-like format on react."""
+        client, engine = client_with_engine
+
+        # User sends a message (outgoing)
+        client.post(
+            "/sms/send",
+            json={
+                "from_number": "+15559876543",
+                "to_numbers": ["+15551234567"],
+                "body": "React normalization test",
+                "message_type": "rcs",
+            },
+        )
+
+        state = client.get("/sms/state").json()
+        message_id = list(state["messages"].keys())[0]
+
+        # React with unnormalized phone number
+        response = client.post(
+            "/sms/react",
+            json={
+                "message_id": message_id,
+                "phone_number": "(555) 123-4567",
+                "emoji": "👍",
+            },
+        )
+
+        assert response.status_code == 200
+
+        state = client.get("/sms/state").json()
+        message = state["messages"][message_id]
+        assert len(message["reactions"]) == 1
         assert message["reactions"][0]["phone_number"] == "+15551234567"

@@ -16,7 +16,7 @@ from ues.api.auth import Permissions, require_permission
 from ues.api.broadcast import broadcast_event
 from ues.api.dependencies import SimulationEngineDep
 from ues.api.models import ModalityActionResponse
-from ues.api.utils import create_immediate_event
+from ues.api.utils import create_immediate_event, normalize_phone_number
 from ues.api.websocket import WSEventType
 from ues.models.api_key import APIKey
 from ues.models.modalities.contacts_input import (
@@ -431,6 +431,11 @@ def _identifiers_to_model(
 ) -> list[ContactIdentifier]:
     """Convert request identifier models to domain models.
 
+    Phone-type identifiers are normalized to a consistent E.164-like
+    format via ``normalize_phone_number`` so that different input
+    representations (parentheses, hyphens, spaces, etc.) are stored
+    uniformly.
+
     Args:
         identifiers: List of request identifier objects.
 
@@ -440,7 +445,11 @@ def _identifiers_to_model(
     return [
         ContactIdentifier(
             identifier_type=ident.identifier_type,
-            value=ident.value,
+            value=(
+                normalize_phone_number(ident.value)
+                if ident.identifier_type == "phone"
+                else ident.value
+            ),
             label=ident.label,
         )
         for ident in identifiers

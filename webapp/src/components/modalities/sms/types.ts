@@ -1,9 +1,9 @@
 /**
  * Type definitions for the SMS Viewer component.
  * These match the backend SMS state models with UI-specific extensions.
- * 
- * NOTE: Contact name resolution is a placeholder pending Contacts modality.
- * When Contacts is implemented, integrate lookups for display names.
+ *
+ * Contact name resolution is provided via {@link ContactNameResolver} which
+ * is backed by the shared useContactsLookup hook from the Contacts modality.
  */
 
 /**
@@ -129,35 +129,28 @@ export interface ConversationDisplayItem {
 }
 
 /**
- * Contact info placeholder.
- * TODO: Replace with actual Contact type when Contacts modality is implemented.
+ * Phone-number-to-display-name resolver function type.
+ * Provided by the useContactsLookup hook from the Contacts modality.
  */
-export interface ContactInfo {
-  phone_number: string;
-  display_name?: string;
-  // Future fields from Contacts modality:
-  // avatar_url?: string;
-  // is_blocked?: boolean;
-}
+export type ContactNameResolver = (phoneNumber: string) => string | undefined;
 
 /**
- * Resolve a phone number to a display name.
- * Placeholder for Contacts modality integration.
- * 
- * @param phoneNumber - The phone number to resolve
- * @param contacts - Map of phone numbers to contact info (placeholder)
- * @returns Display name if found, otherwise formatted phone number
+ * Resolve a phone number to a display name using an optional contacts resolver.
+ *
+ * When a resolver is provided (from useContactsLookup), it looks up the phone
+ * number in the contacts store. Falls back to the raw phone number if no
+ * resolver is available or the number isn't in contacts.
+ *
+ * @param phoneNumber - The phone number to resolve.
+ * @param resolver - Optional contacts-backed resolver function.
+ * @returns Display name if found, otherwise the raw phone number.
  */
 export function resolveContactName(
   phoneNumber: string,
-  contacts?: Map<string, ContactInfo>
+  resolver?: ContactNameResolver
 ): string {
-  // TODO: When Contacts modality is available, use it to look up names
-  const contact = contacts?.get(phoneNumber);
-  if (contact?.display_name) {
-    return contact.display_name;
-  }
-  // Return the phone number as-is for now
+  const resolved = resolver?.(phoneNumber);
+  if (resolved) return resolved;
   return phoneNumber;
 }
 
